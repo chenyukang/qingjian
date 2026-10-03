@@ -4,7 +4,11 @@ use super::commit::LastCommit;
 use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::mode_keys::QUESTION_PREFIX;
-use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
+use super::{
+    EXPLICIT_TRANSITION_WEIGHT, Engine, RECENT_COMMITS, is_raw, looks_like_english_word,
+    segment_longest_prefix,
+};
+use crate::candidate::{Candidate, CandidateKind};
 use crate::composition::Composition;
 use crate::shortcut;
 use std::time::Instant;
@@ -347,6 +351,28 @@ impl Engine {
     }
 
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
+    /// 原样上屏那段（`raw`）的音节。`take_raw` 里的 `scope` 就是剩下的那一段
+    /// （上一个词已经把前面吃掉了），所以整段对应什么音节就是什么。
+    /// 双拼下 `scope` 是敲的键，交给 `decode` 解成拼音；全拼直接切分。
+    fn raw_tail_syllables(&self, scope: &str) -> Option<Vec<String>> {
+        let syllables: Vec<String> = match self.decode(scope) {
+            Some(decoded) => decoded
+                .segmentation()?
+                .syllables
+                .iter()
+                .map(|syllable| syllable.text.clone())
+                .collect(),
+            None => crate::parser::segment(scope)
+                .ok()?
+                .first()?
+                .syllables
+                .iter()
+                .map(|syllable| syllable.text.clone())
+                .collect(),
+        };
+        (!syllables.is_empty()).then_some(syllables)
+    }
+
     pub fn take_raw(&mut self) -> String {
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
         self.aux_code = None;
@@ -383,6 +409,45 @@ impl Engine {
                 && (self.english_mode || self.split_english_tail(&raw).is_none()));
         if english_word {
             self.learn_english_word(&raw, &pending_letters);
+        }
+        // 原样上屏的尾巴接着同一个缓冲区里的上一个词（`湘` 之后原样打 `BA`）：按「这个词接在
+        // 那个词后面」记一次，次数够了 `try_auto_word` 就把它造成用户词。原来这条路只记 `record_raw`
+        // （「这个串我原样打的」），于是汉字+字母的自造词永远造不出来——词库里没有、原样上屏不记、
+        // 自动造词又要求字数等于音节数，三道门都关着
+        if self.chain.same_buffer()
+            && let Some(previous) = self.chain.previous().map(str::to_owned)
+            && let Some(previous_syllables) = Some(self.chain.previous_syllables().to_vec())
+                .filter(|syllables| !syllables.is_empty())
+            && let Some(tail) = self.raw_tail_syllables(&scope)
+        {
+            // 造词要用的东西都在 `record_word` 之前取好：它会把链推进到这个尾巴上，
+            // 之后再从链上问「上一个词」拿到的是尾巴自己（造出过 `湘BA = ba ba` 这种怪词）
+            let mut all_syllables = previous_syllables.clone();
+            all_syllables.extend(tail.iter().cloned());
+            let joined = Candidate {
+                text: format!("{previous}{raw}"),
+                kind: CandidateKind::Chinese,
+                syllables: all_syllables,
+                reading: None,
+                translation: None,
+                aux_code: None,
+            };
+            let known_before = self.knows_word(&joined);
+            self.record_word(&raw, &tail, EXPLICIT_TRANSITION_WEIGHT, true, true);
+            // 尾巴里有大写字母：这是用户按住 Shift 特意写的非拼音部分（`湘BA` 的 BA，不是 `ni hao` 那种
+            // 拼音串），一次原样上屏就该造出词来；纯拼音尾巴仍走两次的门槛，免得把 `我` + 原样 `nihao`
+            // 那样的一次性输入也变成词。（`previous` 要在 `record_word` 之前留好：它会把链推到这个尾巴上）
+            if raw.chars().any(|c| c.is_ascii_uppercase()) {
+                self.try_auto_word_with(&previous, &previous_syllables, &raw, &tail, 1);
+                // 刚造出来的词立刻按「这个输入串下选过它」记一笔：用户打的是整段拼音、又特意写了这个
+                // 写法，下次整段打它就该在最前面。只造词不记选择的话，新词词频低，会排在那些冷僻的
+                // 精确命中后面，用户根本看不见（`湘BA` 在 23 条候选里排到第 7 位）
+                if !known_before && self.knows_word(&joined) {
+                    let key = format!("{}{}", previous_syllables.join(""), tail.join(""));
+                    self.learner.record_choice(&key, &joined.text);
+                    self.learner.record(&joined);
+                }
+            }
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();

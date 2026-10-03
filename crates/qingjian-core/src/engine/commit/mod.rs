@@ -647,18 +647,36 @@ impl Engine {
         let Some(previous) = self.chain.previous().map(str::to_owned) else {
             return;
         };
+        let previous_syllables = self.chain.previous_syllables().to_vec();
+        self.try_auto_word_with(&previous, &previous_syllables, text, syllables, threshold);
+    }
+
+    /// 同 [`Self::try_auto_word`]，上一个词由调用方给。`record_word` 会把链推到这个词上，
+    /// 所以「记完接续之后还想立刻造词」的调用方得自己把上一个词留好。
+    pub(super) fn try_auto_word_with(
+        &mut self,
+        previous: &str,
+        previous_syllables: &[String],
+        text: &str,
+        syllables: &[String],
+        threshold: u32,
+    ) {
         let joined = format!("{previous}{text}");
         let chars = joined.chars().count();
-        let mut joined_syllables = self.chain.previous_syllables().to_vec();
+        let mut joined_syllables = previous_syllables.to_vec();
         joined_syllables.extend(syllables.iter().cloned());
-        if chars > AUTO_WORD_MAX_CHARS || chars != joined_syllables.len() {
+        // 音节要盖住每一个**汉字**；字母数字段（`湘BA` 的 BA）拼在场音节里、不占音节，
+        // 所以只能要求「音节数 ≥ 汉字数」。原来是拿总字数比（`湘BA` 3 字 2 音节），
+        // 汉字+字母的词永远造不出来
+        let han = joined.chars().filter(|c| sentence::is_han(*c)).count();
+        if chars > AUTO_WORD_MAX_CHARS || han > joined_syllables.len() {
             return;
         }
         // 这条转移刚记过，计数已含本次；阈值按「选了几次」算，计数是按份记的
         let seen = self
             .learner
             .user_ngram()
-            .map_or(0, |b| b.pair(Some(&previous), text));
+            .map_or(0, |b| b.pair(Some(previous), text));
         if seen < threshold * EXPLICIT_TRANSITION_WEIGHT {
             return;
         }
