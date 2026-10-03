@@ -234,6 +234,8 @@ english_mode = true
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
 english_full_width_punctuation = false
+# 汉字与相邻的字母 / 数字之间自动补一个空格（我用Rust写的 → 我用 Rust 写的）：标点、已有的空格、字母数字相邻的地方不动；中英分两次上屏时也补上接缝那个空格
+mixed_space = false
 # 辅码触发键：拼音打完之后敲它进辅码态，之后敲的字母按码表缩小候选范围；缺省是分号
 # 单个可见字符，字母、数字与翻页键不能当触发键；微软 / 搜狗双拼里分号先当 ing 的韵母键
 aux_code_key = ";"
@@ -588,6 +590,7 @@ mod tests {
         assert_eq!(config.general.learning_language, "en");
         assert!(config.general.english_candidates);
         assert!(config.general.emoji_candidates);
+        assert!(!config.general.mixed_space);
         assert!(!config.general.traditional);
         assert_eq!(config.general.shuangpin(), None);
         assert_eq!(config.general.log_level, LogLevel::Info);

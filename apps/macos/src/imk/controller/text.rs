@@ -3,6 +3,13 @@
 use super::*;
 
 impl QingjianInputController {
+    /// 把字符交给应用之前问一次 Core：中英之间要补空格时先插入一个空格（`[general] mixed_space`）。
+    pub(super) fn pass_through(&self, c: char, client: TextClient<'_>) {
+        if host::with(|h| h.engine.note_passthrough(c)).unwrap_or(false) {
+            client.insert_text(" ");
+        }
+    }
+
     pub(super) fn handle_text(&self, text: &str, client: TextClient<'_>) -> bool {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
@@ -73,11 +80,11 @@ impl QingjianInputController {
                     self.commit_raw(client);
                 }
                 if c.is_ascii_alphabetic() {
+                    self.pass_through(letter, client);
                     client.insert_text(&letter.to_string());
-                    host::with(|h| h.engine.note_passthrough(letter));
                     return true;
                 }
-                host::with(|h| h.engine.note_passthrough(c));
+                self.pass_through(c, client);
                 return false;
             }
             // 英文候选：字母（以及组词中的 _ ' -）进缓冲区，候选来自英文词表。选词与中文模式一样：
@@ -111,7 +118,7 @@ impl QingjianInputController {
                     self.commit_raw(client);
                 }
             }
-            host::with(|h| h.engine.note_passthrough(c));
+            self.pass_through(c, client);
             return false;
         }
         // 表达式模式（v 开头）：数字与运算符进缓冲区，不当选词 / 翻页键
@@ -149,7 +156,7 @@ impl QingjianInputController {
         // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）
         if raw && c == ' ' {
             self.commit_highlighted(client);
-            host::with(|h| h.engine.note_passthrough(c));
+            self.pass_through(c, client);
             return false;
         }
         if composing && self.restore_bare_question(client) {
@@ -170,7 +177,7 @@ impl QingjianInputController {
             if composing {
                 self.commit_raw(client);
             }
-            host::with(|h| h.engine.note_passthrough(c));
+            self.pass_through(c, client);
             return false;
         }
         if composing {
@@ -204,7 +211,7 @@ impl QingjianInputController {
                 true
             }
             None => {
-                host::with(|h| h.engine.note_passthrough(c));
+                self.pass_through(c, client);
                 false
             }
         }

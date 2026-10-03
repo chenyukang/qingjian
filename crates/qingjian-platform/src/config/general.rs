@@ -72,6 +72,10 @@ pub struct GeneralConfig {
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
     pub full_width_punctuation: bool,
 
+    /// 汉字与相邻的 ASCII 字母 / 数字之间补一个空格（`我用Rust写的` → `我用 Rust 写的`）。
+    /// 缺省关：标点、已有的空格、字母数字相邻的地方都不动；中英分两次上屏时也会补上接缝那个空格。
+    pub mixed_space: bool,
+
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
 
@@ -138,6 +142,7 @@ impl Default for GeneralConfig {
             shift_letter: ShiftLetter::default(),
             english_mode: true,
             full_width_punctuation: true,
+            mixed_space: false,
             english_full_width_punctuation: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,

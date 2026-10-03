@@ -40,6 +40,9 @@ pub struct GeneralPage {
     /// 候选里给 emoji。
     emoji: Retained<NSButton>,
 
+    /// 中英之间自动加空格。
+    mixed_space: Retained<NSButton>,
+
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
@@ -168,6 +171,13 @@ impl GeneralPage {
             mtm,
             "笑 → 😄，紧跟在对应候选词后面；关掉后候选里只剩词、译词与英文词。",
         );
+        let mixed_space = checkbox(mtm, "中英之间自动加空格", Setting::MixedSpace, target);
+        row_checkbox(layout, &mixed_space);
+        note(
+            layout,
+            mtm,
+            "我用Rust写的 → 我用 Rust 写的；标点、已有的空格、字母数字相邻的地方不动。",
+        );
         let chinese_first = checkbox(
             mtm,
             "输入拼音时中文候选排在英文词前面",
@@ -202,6 +212,7 @@ impl GeneralPage {
             english,
             english_off_in_apps,
             emoji,
+            mixed_space,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -248,6 +259,7 @@ impl GeneralPage {
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
         set_checked(&self.emoji, general.emoji_candidates);
+        set_checked(&self.mixed_space, general.mixed_space);
         set_checked(&self.chinese_first, general.chinese_first);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }

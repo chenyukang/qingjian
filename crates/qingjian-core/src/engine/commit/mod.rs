@@ -97,6 +97,10 @@ impl Engine {
         let sentence_words = (candidate.kind == CandidateKind::Sentence)
             .then(|| self.sentence_words(candidate))
             .flatten();
+        // 整句的词长先取出来：`sentence_words` 后面会被 move 进记学习的分支
+        let sentence_word_chars: Option<Vec<usize>> = sentence_words
+            .as_ref()
+            .map(|words| words.iter().map(|word| word.text.chars().count()).collect());
         // 下面每条路都可能改学习数据，格子候选的排序跟着变
         self.forget_span_cache();
         // 一段拼音里的第一个词：记下整段的学习键，整段分几次选完时合起来看（见 [`Self::finish_buffer`]）；
@@ -263,10 +267,16 @@ impl Engine {
                 | CandidateKind::Cloud
                 | CandidateKind::Sentence
         );
+        // 中英之间的自动空格（`[general] mixed_space`）只改插入的文本与撤销计数，学习、日志、译词都按原文；
+        // 整句按词缝补，词内部的 `B站` / `C盘` 不动
+        let committed = match &sentence_word_chars {
+            Some(counts) => self.glued_sentence(&traditional_text, counts),
+            None => self.glued(&traditional_text),
+        };
         let commit = if learned {
             LastCommit {
-                text: candidate.text.clone(),
-                chars: traditional_text.chars().count(),
+                text: committed.clone(),
+                chars: committed.chars().count(),
                 input,
                 chosen: matches!(
                     candidate.kind,
@@ -280,12 +290,12 @@ impl Engine {
                 phrase,
             }
         } else {
-            let mut plain = LastCommit::plain(&candidate.text);
-            plain.chars = traditional_text.chars().count();
+            let mut plain = LastCommit::plain(&committed);
+            plain.chars = committed.chars().count();
             plain
         };
         self.remember_commit(commit);
-        traditional_text
+        committed
     }
 
     /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。

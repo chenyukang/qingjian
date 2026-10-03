@@ -119,6 +119,9 @@ pub enum Setting {
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
+    /// `[general] mixed_space`，勾选框：汉字与相邻字母 / 数字之间自动补空格。
+    MixedSpace,
+
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
 
@@ -220,6 +223,7 @@ impl Setting {
             Self::Preedit => 13,
             Self::EnglishCandidates => 14,
             Self::EmojiCandidates => 57,
+            Self::MixedSpace => 58,
             Self::ChineseFirst => 42,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
@@ -287,6 +291,7 @@ impl Setting {
             13 => Self::Preedit,
             14 => Self::EnglishCandidates,
             57 => Self::EmojiCandidates,
+            58 => Self::MixedSpace,
             42 => Self::ChineseFirst,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
@@ -371,6 +376,7 @@ mod tests {
             Setting::Preedit,
             Setting::EnglishCandidates,
             Setting::EmojiCandidates,
+            Setting::MixedSpace,
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,

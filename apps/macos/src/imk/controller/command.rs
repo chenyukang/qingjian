@@ -19,7 +19,7 @@ impl QingjianInputController {
                 host::with(|h| h.engine.break_chain());
             } else if selector == sel!(insertNewline:) {
                 // 回车交给应用：文本流里是一个段落边界
-                host::with(|h| h.engine.note_passthrough('\n'));
+                self.pass_through('\n', client);
             }
             return false;
         }

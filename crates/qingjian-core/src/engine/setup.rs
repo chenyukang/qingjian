@@ -474,6 +474,39 @@ impl Engine {
         self.gloss_filler = filler;
     }
 
+    /// 汉字与相邻 ASCII 字母 / 数字之间补一个空格（`[general] mixed_space`）。
+    pub fn set_mixed_space(&mut self, on: bool) {
+        self.mixed_space = on;
+    }
+
+    /// 按 `[general] mixed_space` 决定上屏文本与上文之间要不要补空格：上一次上屏以汉字结尾、
+    /// 这段以字母 / 数字开头（或反过来）时补一个，标点与空格两侧都不补。
+    /// 学习、日志、译词都按原文走，只有插入的文本与撤销计数走这里。
+    pub(super) fn glued(&self, text: &str) -> String {
+        if !self.mixed_space {
+            return text.to_owned();
+        }
+        let previous = self
+            .recent_commits
+            .last()
+            .and_then(|commit| commit.text.chars().next_back());
+        match (previous, text.chars().next()) {
+            (Some(previous), Some(first)) if crate::mixed_space::needed(previous, first) => {
+                format!(" {text}")
+            }
+            _ => text.to_owned(),
+        }
+    }
+
+    /// 整句上屏：先按词缝补空格（词内部的 `B站` / `C盘` 不动），再按上文补前导那个空格。
+    /// `word_chars` 是各词的字符数，见 [`crate::mixed_space::insert_at_seams`]。
+    pub(super) fn glued_sentence(&self, text: &str, word_chars: &[usize]) -> String {
+        if !self.mixed_space {
+            return text.to_owned();
+        }
+        self.glued(&crate::mixed_space::insert_at_seams(text, word_chars))
+    }
+
     pub fn dictionary(&self) -> &Dictionary {
         &self.dictionary
     }

@@ -290,6 +290,9 @@ pub struct Engine {
 
     /// 繁体输出时「繁体 → 原简体」的映射，组句结束清空；学习、译词、撤销都按简体原文走。
     traditional_map: std::cell::RefCell<HashMap<String, String>>,
+
+    /// 汉字与相邻的 ASCII 字母 / 数字之间是否补一个空格（`[general] mixed_space`）。
+    mixed_space: bool,
 }
 
 /// 形码编码最长几位（五笔四码）：混输下超过它的输入只可能是拼音。
@@ -454,6 +457,7 @@ impl Engine {
             traditional: false,
             opencc: None,
             traditional_map: std::cell::RefCell::new(HashMap::new()),
+            mixed_space: false,
         }
     }
 }

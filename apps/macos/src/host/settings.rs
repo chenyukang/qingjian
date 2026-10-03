@@ -358,6 +358,9 @@ impl Host {
             (Setting::EmojiCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "emoji_candidates", on);
             }
+            (Setting::MixedSpace, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "mixed_space", on);
+            }
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }

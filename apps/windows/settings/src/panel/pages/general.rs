@@ -134,6 +134,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EmojiCandidates)),
         ),
         field(
+            "中英之间自动加空格",
+            "我用Rust写的 → 我用 Rust 写的；标点、已有的空格、字母数字相邻的地方不动。",
+            ToggleSwitch::new()
+                .is_on(g.mixed_space)
+                .on_toggled(context.callback(Message::MixedSpace)),
+        ),
+        field(
             "但在终端和代码编辑器里不给",
             "终端、Windows Terminal、VS Code、Cursor、JetBrains 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
             ToggleSwitch::new()

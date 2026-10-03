@@ -13,6 +13,7 @@ pub mod engine;
 pub mod english;
 pub mod fuzzy;
 pub mod history;
+pub mod mixed_space;
 pub mod parser;
 pub mod punctuation;
 pub mod ranking;

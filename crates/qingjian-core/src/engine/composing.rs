@@ -35,7 +35,15 @@ impl Engine {
     }
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。
-    pub fn note_passthrough(&mut self, c: char) {
+    /// 返回 true 表示壳应当在那个字符前面先插一个空格（中英之间的自动空格，`[general] mixed_space`）；
+    /// 壳插完空格再把字符交给应用，Core 这侧只记字符本身。
+    pub fn note_passthrough(&mut self, c: char) -> bool {
+        let space = self.mixed_space
+            && self
+                .recent_commits
+                .last()
+                .and_then(|commit| commit.text.chars().next_back())
+                .is_some_and(|previous| crate::mixed_space::needed(previous, c));
         self.punctuation.note_passthrough(c);
         let text = c.encode_utf8(&mut [0; 4]).to_owned();
         self.history.record(&text);
@@ -45,6 +53,7 @@ impl Engine {
         if self.passthrough_pending.chars().count() >= MAX_PENDING_PASSTHROUGH {
             self.flush_passthrough();
         }
+        space
     }
 
     /// 把攒着的直通字符写成一条输入日志。上屏、上文断开、会话记录前都调，保证日志里的顺序与真实顺序一致。
@@ -369,11 +378,13 @@ impl Engine {
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
         self.traditional_map.borrow_mut().clear();
-        self.remember_commit(LastCommit::plain(&raw));
-        self.punctuation.note_committed(&raw);
-        self.history.record(&raw);
+        // 原样上屏的文本也要按 `[general] mixed_space` 插空格（`woyongRust` 回车 → 我用 Rust）
+        let committed = self.glued(&raw);
+        self.remember_commit(LastCommit::plain(&committed));
+        self.punctuation.note_committed(&committed);
+        self.history.record(&committed);
         self.chain.reset();
-        raw
+        committed
     }
 }
 
