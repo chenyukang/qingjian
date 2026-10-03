@@ -1,6 +1,7 @@
 //! 英文模式与中英混输。
 
 use super::*;
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn english_word_ranks_first_when_input_is_unlikely_pinyin() {
@@ -347,6 +348,190 @@ fn raw_committed_english_words_are_learned_and_come_back_as_candidates() {
             .iter()
             .any(|c| c.kind == CandidateKind::English && c.text == "wo")
     );
+}
+
+/// 大写开头的自造词：`Winlane` = Shift+W 再加 `inlane`，`W` 被壳直接交给应用。
+/// 学的时候要把刚才直通的字母接上，否则只学到 `inlane`、下次打 `win` 补不出来。
+#[test]
+fn capitalized_coined_word_learns_the_passed_through_first_letter() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        words: Vec<String>,
+        list: Option<WordList>,
+    }
+
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn learn_english(&mut self, word: &str) {
+            self.words.push(word.to_owned());
+            let tsv: String = self
+                .words
+                .iter()
+                .map(|w| format!("{w}\t{w}\t1\n"))
+                .collect();
+            self.list = WordList::parse(&tsv).ok();
+        }
+
+        fn user_english(&self) -> Option<&WordList> {
+            self.list.as_ref()
+        }
+    }
+
+    let words = WordList::parse("win\twin\t4000\nwinning\twinning\t3800\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(EnglishLearner::default()));
+
+    // 壳把 Shift+W 直接交给应用（note_passthrough），接着敲 inlane、回车原样上屏
+    engine.note_passthrough('W');
+    engine.set_input("inlane");
+    assert_eq!(engine.take_raw(), "inlane");
+    engine.set_input("win");
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English && c.text == "Winlane"),
+        "学到的该是完整的 Winlane：{:?}",
+        query
+            .candidates
+            .items
+            .iter()
+            .map(|c| &c.text)
+            .collect::<Vec<_>>(),
+    );
+    // `inlane` 本身不该被单独学进去（`inl` 切不出音节，查询会报错，所以按"没有候选"处理）
+    engine.set_input("inl");
+    let texts: Vec<String> = engine
+        .query()
+        .map(|q| q.candidates.items.into_iter().map(|c| c.text).collect())
+        .unwrap_or_default();
+    assert!(!texts.iter().any(|text| text == "inlane"), "{texts:?}");
+
+    // 选英文候选那条路也一样（不走回车而是选中候选）
+    let words = WordList::parse("inlane\tinlane\t1\nwin\twin\t4000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(EnglishLearner::default()));
+    engine.note_passthrough('W');
+    engine.set_input("inlane");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.kind == CandidateKind::English && c.text == "inlane")
+        .expect("英文候选");
+    engine.commit(&candidate);
+    engine.set_input("win");
+    let texts: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| format!("{:?}:{}", c.kind, c.text))
+        .collect();
+    assert!(
+        texts.iter().any(|t| t.contains("Winlane")),
+        "选候选也要把直通的 W 接上，实际候选：{texts:?}"
+    );
+}
+
+/// 大写开头的自造词（`Shift+G` 打 `Google`）：那个 `G` 被壳直接交给应用，缓冲区里只剩 `oogle`。
+/// 它单看能解成 `o'guang'e`（像话），照「能解成拼音就不是英文」判会既不给候选也学不进去；
+/// 直通进来的大写字母才是判据——要给原样候选，收下要按整词（`Google`）学。
+#[test]
+fn capitalized_coined_word_after_passthrough_offers_the_typed_letters() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        learned: Arc<Mutex<Vec<String>>>,
+    }
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn learn_english(&mut self, word: &str) {
+            self.learned.lock().unwrap().push(word.to_owned());
+        }
+    }
+    let learned = Arc::new(Mutex::new(Vec::new()));
+    let words = WordList::parse("rust\trust\t1\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(EnglishLearner {
+            learned: Arc::clone(&learned),
+        }));
+    engine.note_passthrough('G');
+    engine.set_input("oogle");
+    let first = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .first()
+        .cloned()
+        .expect("有候选");
+    // 候选文本只放缓冲区里这段：直通的 `G` 已经在应用里了，再插一遍会变成 `GGoogle`
+    assert_eq!(
+        (first.kind, first.text.as_str()),
+        (CandidateKind::English, "oogle")
+    );
+    engine.commit(&first);
+    // 学的是接上直通字母的整词
+    assert_eq!(&*learned.lock().unwrap(), &["Google"]);
+}
+
+/// `shift_letter = "compose"` 下的同一个词：大写留在缓冲区里，拼音按小写匹配，
+/// 回车原样上屏还原大写、学到的也是带大写的写法。
+#[test]
+fn capitalized_word_in_compose_mode_keeps_the_capital() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        learned: Arc<Mutex<Vec<String>>>,
+    }
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn learn_english(&mut self, word: &str) {
+            self.learned.lock().unwrap().push(word.to_owned());
+        }
+    }
+    let learned = Arc::new(Mutex::new(Vec::new()));
+    let words = WordList::parse("google\tgoogle\t4000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(EnglishLearner {
+            learned: Arc::clone(&learned),
+        }));
+    engine.set_shift_letter_compose(true);
+    for c in "Google".chars() {
+        engine.push(c);
+    }
+    // 匹配按小写：词表里的 google 认得出来
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English && c.text == "google"),
+        "compose 下拼音按小写匹配"
+    );
+    assert_eq!(engine.take_raw(), "Google");
+    assert_eq!(&*learned.lock().unwrap(), &["Google"]);
 }
 
 /// 句末的英文词：`kaifarust` → 开发rust 排第一，拼音行是 `kai'fa'rust`，上屏吃掉整段并把 rust 记进个人英文词表。

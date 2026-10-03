@@ -488,6 +488,55 @@ impl Engine {
     /// 按 `[general] mixed_space` 决定上屏文本与上文之间要不要补空格：上一次上屏以汉字结尾、
     /// 这段以字母 / 数字开头（或反过来）时补一个，标点与空格两侧都不补。
     /// 学习、日志、译词都按原文走，只有插入的文本与撤销计数走这里。
+    /// 刚才有字母是壳直接交给应用的（`Shift+G` 打 `Google` 时那个 `G` 走了直通）：缓冲区里剩的这段
+    /// 是在打英文词，不是拼音。返回接上直通字母的整词（`Google`）。
+    ///
+    /// 为什么不能只看缓冲区：`oogle` 单看能解成 `o'guang'e`（像话），照「能解成拼音就不是英文」判会漏掉它。
+    /// 直通进来的大写字母才是判据。整段本身就是个完整音节时（`G` + `hao`，多半是手滑按了 Shift）返回 `None`。
+    pub(super) fn passthrough_english_word(&self, text: &str) -> Option<String> {
+        let pending: String = self
+            .passthrough_pending
+            .chars()
+            .filter(char::is_ascii_alphabetic)
+            .collect();
+        if pending.is_empty()
+            || pending.len() != self.passthrough_pending.chars().count()
+            || text.is_empty()
+            || !text.bytes().all(|b| b.is_ascii_lowercase())
+        {
+            return None;
+        }
+        // 整段就是个完整音节（`G` + `hao`、`N` + `i`）：那是手滑按了 Shift，别当英文词。
+        // 双拼下敲的是键，要按解出来的拼音判；全拼（`decode` 为 `None`）直接问语法表——
+        // 早先只查 `decode`，全拼下这条保护整个失效，`Ni` 会被当成英文词
+        let single_syllable = match self.decode(text) {
+            Some(decoded) => decoded.is_complete() && !decoded.marked().contains('\''),
+            None => crate::parser::is_syllable(text),
+        };
+        if single_syllable {
+            return None;
+        }
+        Some(format!("{pending}{text}"))
+    }
+
+    /// 学一个英文词：把刚才直通的字母接上再学。
+    ///
+    /// 大写开头的自造词（`Winlane`）里 `W` 是 Shift+字母，壳直接交给应用、没进缓冲区，
+    /// 不接上的话学到的是 `inlane`，下次打 `win` 补不出来。`pending` 由调用方给（`take_raw` 要先取，
+    /// 因为 log_commit 会清空 passthrough_pending）；只有整段都是字母时才接。
+    pub(super) fn learn_english_word(&mut self, text: &str, pending: &str) {
+        let letters: String = pending.chars().filter(char::is_ascii_alphabetic).collect();
+        let joinable = !letters.is_empty()
+            && letters.len() == pending.chars().count()
+            && text.bytes().all(|b| b.is_ascii_alphabetic());
+        let word = if joinable {
+            format!("{letters}{text}")
+        } else {
+            text.to_owned()
+        };
+        self.learner.learn_english(&word);
+    }
+
     pub(super) fn glued(&self, text: &str) -> String {
         if !self.mixed_space {
             return text.to_owned();

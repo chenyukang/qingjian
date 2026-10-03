@@ -103,6 +103,9 @@ impl Engine {
             .map(|words| words.iter().map(|word| word.text.chars().count()).collect());
         // 下面每条路都可能改学习数据，格子候选的排序跟着变
         self.forget_span_cache();
+        // 刚才直通的字母（大写开头的自造词 `Winlane` 里的 `W` 不在缓冲区里）：后面记学习会清掉
+        // passthrough_pending，学英文词要用它，所以先取
+        let pending_letters = self.passthrough_pending.clone();
         // 一段拼音里的第一个词：记下整段的学习键，整段分几次选完时合起来看（见 [`Self::finish_buffer`]）；
         // `split` 表示这次上屏接在同一段拼音里前一次上屏之后
         let split = self.chain.same_buffer();
@@ -157,7 +160,8 @@ impl Engine {
             CandidateKind::English | CandidateKind::Shortcut | CandidateKind::Custom(_) => {
                 if candidate.kind == CandidateKind::English {
                     self.learner.record(candidate);
-                    self.learner.learn_english(&candidate.text);
+                    // 大写开头的自造词走这条路（选候选而不是回车）：`Winlane` 的 `W` 是直通进应用的
+                    self.learn_english_word(&candidate.text, &pending_letters);
                 }
                 self.whole_scope()
             }
@@ -222,7 +226,7 @@ impl Engine {
                 Some(words) => {
                     // 句末的英文词（我想学好rust 的 rust）记进个人英文词表，和英文候选上屏一样
                     if let Some(word) = words.last().filter(|w| is_english_word(w)) {
-                        self.learner.learn_english(&word.text);
+                        self.learn_english_word(&word.text, &pending_letters);
                     }
                     // 紧接着同一段拼音里自选的词（`jidiaole` 选了 挤，剩下的 掉了 走整句）：接缝是用户自己定的，
                     // 第一个词的转移按自选记双份。不参与两词造词：我 + 的… 这种接缝太常见、转移计数早就够了，

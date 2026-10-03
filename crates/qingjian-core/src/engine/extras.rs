@@ -102,6 +102,15 @@ impl Engine {
             .filter(|c| c.kind == CandidateKind::Chinese)
             .map_or(0, |c| self.learner.choice_weight(text, &c.text));
         let english_weight = word.map_or(0, |w| self.learner.weight(w));
+        // 刚才直通进来的字母（`Shift+G` 打 `Google`）：这段必定是英文词，不再按「拼音像不像话」判
+        let after_passthrough = self.passthrough_english_word(text).is_some();
+        let unlikely_pinyin = unlikely_pinyin || after_passthrough;
+        // 那个直通的大写字母被壳直接交给应用了（`Shift+G` 打 `Google`，缓冲区里只剩 `oogle`）：
+        // 词表里不认识也把这段当原样候选摆到第一位，按空格收下就等于「教」给它了。
+        // 候选文本只放这段本身——直通的 `G` 已经在应用里了，放整词会变成 `GGoogle`。
+        // `shift_letter = "compose"` 的用户不需要这一手：大写留在缓冲区里，词表里有就出整词，
+        // 没有就照常回车原样上屏（`take_raw` 会把大写还原回来）
+        let literal = self.passthrough_english_word(text).map(|_| text.to_owned());
         // 两字母全大写缩写（mp → MP、bm → BM）让中文先：整段太短，几乎总是在打中文。
         // 但**不压过学习记录**：`ok` / `pc` / `ll` 同样满足「两个字母的全大写缩写」，一刀切会把它们一起
         // 翻成中文；而且选过 OK 的用户下次敲 `ok` 本该还是它排第一。所以这条只对用户**没选过**的英文词生效
@@ -120,16 +129,22 @@ impl Engine {
             items.insert(position, english_candidate(word));
             position += 1;
         }
+        if let Some(literal) = literal {
+            items.retain(|c| {
+                !(c.kind == CandidateKind::English && c.text.eq_ignore_ascii_case(&literal))
+            });
+            items.insert(0, english_candidate(&literal));
+            position += 1;
+        }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
         if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
             let mut budget = ENGLISH_COMPLETIONS;
             for words in &lists {
                 for word in words.complete(text, budget) {
-                    if items
-                        .iter()
-                        .any(|c| c.kind == CandidateKind::English && c.text == word)
-                    {
+                    if items.iter().any(|c| {
+                        c.kind == CandidateKind::English && c.text.eq_ignore_ascii_case(word)
+                    }) {
                         continue;
                     }
                     items.insert(position, english_candidate(word));

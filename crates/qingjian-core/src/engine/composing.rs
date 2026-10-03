@@ -364,16 +364,25 @@ impl Engine {
             self.chain.reset();
             return raw;
         }
+        // 刚才直通的字母（大写开头的自造词：Shift+W 打 `Winlane` 时 `W` 被壳直接交给应用）——
+        // 下面 log_commit 会把 passthrough_pending 清掉，先取出来；只有整段都是字母时才接得上
+        let pending_letters = self.passthrough_pending.clone();
+        // 有直通字母（`Shift+G` 打 `Google`）时整串必定是英文词，先判（log_commit 会清掉 passthrough_pending）
+        let after_passthrough = self.passthrough_english_word(&raw).is_some();
         self.log_commit(&raw, &raw, InputSource::Raw);
         // 原样上屏的是个英文词（`gist`）：记进个人英文词表，下次直接出候选。
         // 双拼下全部键都能解成完整音节的（`nihc`）不是英文，是用户要原样打出双拼键。
         // 整段能读成「拼音头 + 英文尾」的（`woxiangxuexirust`）不学：那是我们没给对候选、用户放弃了，
         // 把整串学成英文词会反过来堵掉混输那条路
-        let english_word = looks_like_english_word(&raw, self.english_mode)
-            && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
-            && (self.english_mode || self.split_english_tail(&raw).is_none());
+        //
+        // 学的是**接上刚才直通字母**的那个词（见 [`Engine::learn_english_word`]）：
+        // 不接的话 `Winlane` 只学到 `inlane`，下次打 `win` 补不出来。拼不拼得上仍按原文判断
+        let english_word = after_passthrough
+            || (looks_like_english_word(&raw, self.english_mode)
+                && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
+                && (self.english_mode || self.split_english_tail(&raw).is_none()));
         if english_word {
-            self.learner.learn_english(&raw);
+            self.learn_english_word(&raw, &pending_letters);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
