@@ -1,7 +1,8 @@
 //! 候选排序。
 //!
 //! 词级排序规则：
-//! 1. 音节数与输入完全一致的词优先（`kaifa` → 开发 排在 开发者 前）
+//! 1. **可信来源**里音节数与输入完全一致的词优先（`kaifa` → 开发 排在 开发者 前；
+//!    导入词库的精确命中只拿加分，见文末）
 //! 2. 覆盖输入字母多者优先（`kaif` → 开发者 排在 开 前）
 //! 3. 切分里非末尾的简拼音节少者优先（`kaifa` 按 `kai fa` 读的 开放 排在按 `kai f a` 读的 开放啊 前）
 //! 4. 同一输入串下用户选过的次数（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它就是首选）。
@@ -15,23 +16,36 @@
 //!
 //! 词库静态词频只用于预选（命中太多时先按词频砍到够排的量）与兜底。
 //!
-//! ## 为什么第 1 条是硬键而不是得分里的加分
+//! ## 第 1 条为什么是「可信来源」的硬键
 //!
-//! 试过把它换成可调加分，拿本机 2543 条真实上屏记录回放（冷引擎 + 主词库 + 三本附加词库）：
+//! 原来这条对**所有**词库生效，冷僻的导入词会压住高频常驻词（`qilai` → 七濑/齐来/骑来 排在
+//! 起来了/起来的 前面）。试过两种软化，都用 `qingjian-cli --replay` 拿本机真实上屏记录量过：
+//!
+//! **一、全软化**（所有精确命中都只拿加分）——一律变差，而且亏在关键处：被顶掉的是**用户自己的词**
+//! 和常用短词（`qkjm` 的青简、`ifyukh` 的陈于康、`uoe` 的说）。
 //!
 //! ```text
-//! 加分        词首选   词前五   整句首选   整句前五
-//! 30（≈硬键） 89.5%   97.2%    67.7%     79.2%
-//! 2.8        89.3%   96.8%    66.8%     78.8%
-//! 1.4        88.7%   96.7%    66.4%     78.3%
-//! 0          87.7%   96.1%    65.0%     77.0%
+//! 冷引擎     词首选   词前五   整句首选   整句前五
+//! 硬键       89.5%   97.2%    67.7%     79.2%
+//! 加分 2.8   89.3%   96.8%    66.8%     78.8%
+//! 加分 0     87.7%   96.1%    65.0%     77.0%
 //! ```
 //!
-//! 下调一律变差，而且亏在关键处：被高频延伸词顶掉的是**用户自己的词**和**常用短词**
-//!（`qkjm` 的青简、`ifyukh` 的陈于康、`uoe` 的说）。所以这条保持硬键——「打完一个词的完整
-//! 拼音就要那个词」是绝大多数场景。冷僻的精确命中占着第二第三位（`qilai` → 七濑/齐来/骑来）
-//! 是**词表**的问题（导入了大词库），不是这条规则的问题；想再试软化的，先跑上面这组回放。
-
+//! **二、按来源**（只软化导入的附加词库，主词库与用户词库保持硬键）——热引擎下是净赚：
+//!
+//! ```text
+//! 热引擎（带 user.tsv）   词首选   词前五   整句首选   整句前五
+//! 硬键                   92.9%   98.5%    75.3%     83.7%
+//! 加分 5.6               92.9%   98.5%    75.3%     84.1%
+//! 加分 0（不再降级）      92.9%   98.5%    74.4%     82.4%
+//! ```
+//!
+//! 冷引擎看起来吃亏是因为回放里**第一次**选中的导入词那一刻还没进学习数据（`weight` 为 0），
+//! 会被一起降级；热引擎（真实使用）没这个问题。
+//!
+//! 所以现在的规则是：**「音节数与输入完全一致」的硬键只给可信来源（主词库、用户词库）与
+//! 用户亲手选过的词**；导入词库里从没被选过的词降一档，靠 `[`exact_bonus`]` 加分往上走。
+//! 冷僻的**主词库**词仍占着精确位（`七濑` 这类）——那是词表问题，见下面的取舍。
 mod scored;
 
 use std::collections::HashSet;
@@ -62,6 +76,7 @@ pub fn weight_bonus(count: u32) -> f64 {
 pub fn rank(
     items: &mut Vec<Scored<'_>>,
     limit: usize,
+    exact_bonus: f64,
     context: impl Fn(&Scored<'_>) -> (u32, f64),
 ) {
     // 远超上限时先按结构键 + 词频线性选出前面一段：同一个词会被多种切分命中，多选一倍留给去重（结果仍可能略少于上限，无妨）
@@ -79,7 +94,14 @@ pub fn rank(
         .drain(..)
         .map(|item| {
             let (choice, log_prob) = context(&item);
-            let score = log_prob + weight_bonus(item.weight) - item.penalty;
+            // 导入词库（CEDICT / 雾凇那类）的精确命中：不给硬键，只给一个封顶的加分，
+            // 让真正高频的常驻词能翻过去（`qilai` → 齐来/骑来 不该压住 起来了）
+            let exact = if item.hit.exact && !item.hard_exact {
+                exact_bonus
+            } else {
+                0.0
+            };
+            let score = log_prob + weight_bonus(item.weight) + exact - item.penalty;
             (item.key(choice, score), item)
         })
         .collect();
@@ -117,6 +139,7 @@ mod tests {
                 coverage: 5,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: false,
                 penalty: 0.0,
             },
             Scored {
@@ -125,6 +148,7 @@ mod tests {
                 coverage: 5,
                 abbreviated: 0,
                 weight: 5,
+                hard_exact: true,
                 penalty: 0.0,
             },
             Scored {
@@ -133,10 +157,11 @@ mod tests {
                 coverage: 5,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["开发", "开放", "开发者"]);
     }
@@ -150,6 +175,7 @@ mod tests {
                 coverage: 2,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
             Scored {
@@ -158,16 +184,17 @@ mod tests {
                 coverage: 2,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
         ];
         // 上下文说 吧 更像：词频高的 把 让位
         let by_context = |s: &Scored<'_>| (0, if s.hit.text == "吧" { -1.0 } else { -6.0 });
-        rank(&mut items, usize::MAX, by_context);
+        rank(&mut items, usize::MAX, 0.0, by_context);
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["吧", "把"]);
         // 同一输入串下选过的压过上下文
-        rank(&mut items, usize::MAX, |s| {
+        rank(&mut items, usize::MAX, 0.0, |s| {
             (
                 u32::from(s.hit.text == "把"),
                 if s.hit.text == "吧" { -1.0 } else { -6.0 },
@@ -178,7 +205,7 @@ mod tests {
         for item in &mut items {
             item.weight = u32::from(item.hit.text == "把") * 3;
         }
-        rank(&mut items, usize::MAX, |_| (0, -2.0));
+        rank(&mut items, usize::MAX, 0.0, |_| (0, -2.0));
         assert_eq!(items[0].hit.text, "把");
         for item in &mut items {
             item.weight = 3;
@@ -188,7 +215,7 @@ mod tests {
                 0.0
             };
         }
-        rank(&mut items, usize::MAX, |_| (0, -2.0));
+        rank(&mut items, usize::MAX, 0.0, |_| (0, -2.0));
         assert_eq!(items[0].hit.text, "吧");
     }
 
@@ -201,6 +228,7 @@ mod tests {
                 coverage: 5,
                 abbreviated: 1,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
             Scored {
@@ -209,10 +237,11 @@ mod tests {
                 coverage: 5,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
         assert_eq!(items[0].hit.text, "开放");
     }
 
@@ -233,6 +262,7 @@ mod tests {
                 coverage: 4,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: false,
                 penalty: 0.0,
             },
             Scored {
@@ -241,10 +271,11 @@ mod tests {
                 coverage: 4,
                 abbreviated: 0,
                 weight: 0,
+                hard_exact: true,
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
         assert_eq!(items.len(), 1);
         assert!(items[0].hit.exact);
     }

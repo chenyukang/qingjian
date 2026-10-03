@@ -30,6 +30,8 @@ impl Engine {
             .into_iter()
             .map(|hit| Scored {
                 hit,
+                // 形码码表是用户自己装的码表，按可信来源对待（同主词库）
+                hard_exact: hit.exact,
                 // 编码是前缀匹配：没有「最后一个音节打完了」这回事，也不吃简拼、模糊音与敲错
                 full_last: true,
                 coverage: keys.len(),
@@ -43,7 +45,7 @@ impl Engine {
         // 同一段编码下选过的词优先，再按上下文得分（上一个上屏的词）；词频只在模型不认识时兜底
         let start = Instant::now();
         let letters = choice_key(keys, keys.len());
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
+        ranking::rank(&mut scored, MAX_CANDIDATES, self.exact_bonus, |item| {
             let choice = self
                 .learner
                 .choice_weight(choice_input(&letters, item.coverage), item.hit.text);

@@ -479,6 +479,11 @@ impl Engine {
         self.mixed_space = on;
     }
 
+    /// 导入词库里「音节数与输入完全一致」的加分（`--tune exact-bonus=N`）。
+    pub fn set_exact_bonus(&mut self, bonus: f64) {
+        self.exact_bonus = bonus;
+    }
+
     /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
     pub fn set_join_previous_word(&mut self, on: bool) {
         self.join_previous_word = on;

@@ -297,6 +297,10 @@ pub struct Engine {
     /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
     join_previous_word: bool,
 
+    /// 导入词库里「音节数与输入完全一致」的加分（`--tune exact-bonus=N`）：只影响附加词库的命中，
+    /// 主词库与用户词仍走硬键。见 [`crate::ranking::rank`]。
+    exact_bonus: f64,
+
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`，缺省 1 = 都给）。
     english_min_letters: usize,
 }
@@ -376,6 +380,12 @@ const RESCORE_PATHS: usize = 6;
 
 /// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
 const SENTENCE_CANDIDATES: usize = 3;
+
+/// 导入词库里「音节数与输入完全一致」的加分缺省值。热引擎回放（带用户学习数据）实测：
+/// 词首选/前五在 0–30 之间都不变（92.9%/98.5%），整句前五 83.7% → 84.1%；给 0 反而掉到 82.4%。
+/// 再大就会让冷僻导入词压过高频常驻词（`qilai` 下 齐来 28 压住 起来了 15791：差 ln(560)≈6.3），
+/// 所以取 5.6——比词频差的常见量级稍小。见 `ranking` 模块文档。
+const DEFAULT_EXACT_BONUS: f64 = 5.6;
 
 /// 整句上屏时回推词序列，要看过几条候选路径。
 /// 用户选的常常不是 Viterbi 最优那条（`woxihuanxiangchao` → 「我喜欢湘超」而不是「我喜欢想超」），
@@ -470,6 +480,7 @@ impl Engine {
             traditional_map: std::cell::RefCell::new(HashMap::new()),
             mixed_space: false,
             join_previous_word: false,
+            exact_bonus: DEFAULT_EXACT_BONUS,
             english_min_letters: 1,
         }
     }

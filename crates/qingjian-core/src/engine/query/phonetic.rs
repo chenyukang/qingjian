@@ -36,7 +36,7 @@ impl Engine {
             .collect();
         positions.extend(patterns.into_iter().map(|pattern| vec![pattern]));
         let mut out: Vec<Candidate> = Vec::new();
-        for hit in self.lookup_all(&positions) {
+        for (hit, _trusted) in self.lookup_all(&positions) {
             if hit.syllable_count() != total {
                 continue;
             }
@@ -144,7 +144,7 @@ impl Engine {
         let start = Instant::now();
         let mut scored = Vec::new();
         // 不同切分共享很多前缀（`zh g d o…` 的各种切法前几段一样），同一次查询里同一个模式只查一遍
-        let mut memo: HashMap<String, Vec<Match<'_>>> = HashMap::new();
+        let mut memo: HashMap<String, Vec<(Match<'_>, bool)>> = HashMap::new();
         for segmentation in &segmentations {
             let mut patterns = segmentation.patterns();
             let count = patterns.len();
@@ -161,10 +161,11 @@ impl Engine {
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
             scored.reserve(hits.len());
-            for hit in hits {
+            for (hit, trusted) in hits {
                 let full_last = last.complete
                     && hit.syllables().nth(count - 1) == Some(patterns[count - 1].text);
                 scored.push(Scored {
+                    hard_exact: hit.exact && (trusted || self.learner.weight(hit.text) > 0),
                     hit,
                     full_last,
                     coverage: segmentation.letters(),
@@ -183,13 +184,14 @@ impl Engine {
                     .entry(pattern_key(prefix))
                     .or_insert_with(|| self.lookup_exact_all(&positions[..prefix_len]));
                 let abbreviated = abbreviated_count(prefix);
-                for hit in hits.iter().copied() {
+                for (hit, _trusted) in hits.iter().copied() {
                     scored.push(Scored {
                         // 对整个输入来说它不是精确命中，只是覆盖了前面一部分
                         hit: Match {
                             exact: false,
                             ..hit
                         },
+                        hard_exact: false,
                         full_last: true,
                         coverage: prefix_letters,
                         abbreviated,
@@ -207,7 +209,7 @@ impl Engine {
         // `ba` 在「做了」后面出 吧、句首出 把
         let log_total = (self.total_frequency() as f64).max(1.0).ln();
         let letters = choice_key(scope, scope.len());
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
+        ranking::rank(&mut scored, MAX_CANDIDATES, self.exact_bonus, |item| {
             let hit = &item.hit;
             // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
             let covered = correction

@@ -47,26 +47,51 @@ impl Engine {
     }
 
     /// 主词库与用户词一起查（每个位置多种写法）。用户词是用户自己选过的（云联想接受的词等），排序上靠 weight 自然靠前。
+    ///
+    /// 每个命中带一个「可信来源」标记：主词库与用户词为真，导入的附加词库（CEDICT、雾凇那类）为假。
+    /// 排序里只有可信来源的「音节数完全一致」才当硬键——冷僻的导入词不该顶掉用户自己的词和常用短词。
     pub(in crate::engine) fn lookup_all(
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
-    ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_pattern_alt(positions);
-        for dictionary in self.all_dictionaries().into_iter().skip(1) {
-            hits.extend(dictionary.lookup_pattern_alt(positions));
+    ) -> Vec<(Match<'_>, bool)> {
+        let mut hits = Vec::new();
+        for (index, dictionary) in self.all_dictionaries().into_iter().enumerate() {
+            let trusted = self.trusted_dictionary(index, dictionary);
+            hits.extend(
+                dictionary
+                    .lookup_pattern_alt(positions)
+                    .into_iter()
+                    .map(|hit| (hit, trusted)),
+            );
         }
         hits
     }
 
-    /// 只要音节数正好等于位置数的词，主词库与用户词一起查。
+    /// 只要音节数正好等于位置数的词，主词库与用户词一起查。可信标记同 [`Self::lookup_all`]。
     pub(in crate::engine) fn lookup_exact_all(
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
-    ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_exact_alt(positions);
-        for dictionary in self.all_dictionaries().into_iter().skip(1) {
-            hits.extend(dictionary.lookup_exact_alt(positions));
+    ) -> Vec<(Match<'_>, bool)> {
+        let mut hits = Vec::new();
+        for (index, dictionary) in self.all_dictionaries().into_iter().enumerate() {
+            let trusted = self.trusted_dictionary(index, dictionary);
+            hits.extend(
+                dictionary
+                    .lookup_exact_alt(positions)
+                    .into_iter()
+                    .map(|hit| (hit, trusted)),
+            );
         }
         hits
+    }
+
+    /// 这本词库算不算「可信来源」：主词库（`all_dictionaries` 的第一本）与用户词库。
+    /// 其余都是导入的附加词库——词表大、冷僻词多，只让它们的精确命中拿一个加分而不是硬键。
+    fn trusted_dictionary(&self, index: usize, dictionary: &Dictionary) -> bool {
+        index == 0
+            || self
+                .learner
+                .user_words()
+                .is_some_and(|user| std::ptr::eq(dictionary, user))
     }
 }
