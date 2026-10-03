@@ -556,6 +556,13 @@ fn segment_longest_prefix(text: &str) -> Result<(Vec<Segmentation>, &str), Parse
 /// 未打完的 `kaif` 也吃完。吃不到任何字母说明候选与输入的切分方式不一致，就此停止。
 /// 按输入串记选择用的键：作用域开头 `len` 个字节里的字母（去掉分隔符 `'`），
 /// 查询时按候选覆盖的字母数截取同一个串，两边才对得上。
+/// 命中覆盖的那段输入串。`covered` 是按命中词的读音数出来的字母数，纠错生效时会用
+/// `to_original` 换算回原串的位置，可能比输入串还长；超了按整串算，别让 `get` 返回 `None`
+/// ——那样选择次数会被静默读成 0（同输入串下选过的词再也排不到前面）。
+fn choice_input(letters: &str, covered: usize) -> &str {
+    letters.get(..covered.min(letters.len())).unwrap_or(letters)
+}
+
 fn choice_key(scope: &str, len: usize) -> String {
     scope[..len.min(scope.len())]
         .chars()

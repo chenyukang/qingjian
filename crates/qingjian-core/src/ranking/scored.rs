@@ -33,14 +33,14 @@ pub struct Scored<'a> {
 /// 与 [`SortKey`] 的前几项同序，只是不拿文本做最后的平手项（预选边界上的平手谁留下无所谓）。
 pub type PreselectKey = u128;
 
-/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；第五项是同输入串下的选择次数，
-/// 第六项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
+/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；第四项是同输入串下的选择次数，
+/// 第五项是原样命中、第六项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
 pub type SortKey<'a> = (
     Reverse<bool>,
     Reverse<usize>,
     usize,
-    Reverse<bool>,
     Reverse<u32>,
+    Reverse<bool>,
     Reverse<i64>,
     bool,
     usize,
@@ -78,8 +78,12 @@ impl<'a> Scored<'a> {
             Reverse(self.hit.exact),
             Reverse(self.coverage),
             self.abbreviated,
-            Reverse(self.full_last),
+            // 选择次数排在「原样命中」之前：用户在同一个输入串下亲手选过的词，比
+            // 「哪个是原样命中、哪个是模糊音命中」更能说明他要哪个
+            //（`xiangcao` 下「湘超」是模糊音命中，排在「香草」后面，选多少次都翻不过来；
+            // 翻过来的唯一途径是总选择加分，那个封顶 20 次）
             Reverse(choice),
+            Reverse(self.full_last),
             Reverse((score * 1000.0).round() as i64),
             self.altered(),
             self.hit.text.chars().count(),
