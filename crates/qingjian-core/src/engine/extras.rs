@@ -134,7 +134,9 @@ impl Engine {
                 !(c.kind == CandidateKind::English && c.text.eq_ignore_ascii_case(&literal))
             });
             items.insert(0, english_candidate(&literal));
-            position += 1;
+            // `retain` 可能把列表缩短（留下的都是从 0 开始的），插完之后把 `position` 夹到长度以内，
+            // 否则后面按它插入会越界 panic（热引擎回放时踩到过：`position` 是 2、列表只剩 1 条）
+            position = position.min(items.len());
         }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
