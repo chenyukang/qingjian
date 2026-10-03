@@ -4,6 +4,7 @@ use super::item::Item;
 use super::{HIGHLIGHT_INSET, INDEX_GAP, Metrics, Renderer};
 use crate::canvas::Canvas;
 use crate::frame::{Frame, Row};
+use crate::vertical_order::VerticalOrder;
 
 impl Renderer {
     pub(super) fn horizontal_size(&mut self, frame: &Frame, m: &Metrics) -> (f32, f32) {
@@ -69,6 +70,7 @@ impl Renderer {
         (items, row_height)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn draw_horizontal(
         &mut self,
         canvas: &mut Canvas,
@@ -77,13 +79,22 @@ impl Renderer {
         left: f32,
         y: f32,
         content_width: f32,
+        order: VerticalOrder,
     ) {
         if frame.rows.is_empty() {
             return;
         }
         // 量尺寸时已整形过一遍，这里再整形一遍；等渲染器定型再把结果从 render 传下来。
         let (items, row_height) = self.items(&frame.rows, m);
-        let top = y + m.row_padding();
+        // BottomUp（候选窗在光标上方）时那句译文从候选行下面挪到上面，候选行整体下移
+        let annotation_height = match order {
+            VerticalOrder::TopDown => 0.0,
+            VerticalOrder::BottomUp => self
+                .highlighted_annotation_size(frame, m)
+                .map_or(0.0, |(_, height)| height),
+        };
+        let row_top = y + annotation_height;
+        let top = row_top + m.row_padding();
         let text_height = m.px(m.theme.text_font.line_height);
         let inset = m.px(HIGHLIGHT_INSET);
         let mut x = left + m.padding() + inset;
@@ -94,7 +105,7 @@ impl Renderer {
                     canvas,
                     m,
                     x - inset,
-                    y,
+                    row_top,
                     item_width + inset * 2.0,
                     row_height,
                 );
@@ -130,7 +141,10 @@ impl Renderer {
         // 高亮候选的译文
         if let Some(row) = frame.highlighted.and_then(|i| frame.rows.get(i)) {
             let mut x = left + m.padding() + inset;
-            let annotation_top = y + row_height + m.row_padding() / 2.0;
+            let annotation_top = match order {
+                VerticalOrder::TopDown => row_top + row_height + m.row_padding() / 2.0,
+                VerticalOrder::BottomUp => y + m.row_padding() / 2.0,
+            };
             for (segment, tone) in &row.annotation {
                 let style = m.annotation_style(m.tone_color(*tone));
                 x += self.draw_text(canvas, segment, &style, x, annotation_top);

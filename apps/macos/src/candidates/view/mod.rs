@@ -19,6 +19,7 @@ use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
 use qingjian_platform::{CandidateRenderer, LayoutMode};
+use qingjian_render::VerticalOrder;
 
 use super::bitmap::BitmapPainter;
 use super::cloud_icon::CloudIcon;
@@ -35,6 +36,9 @@ pub struct Ivars {
 
     /// 竖排 / 横排。
     layout: Cell<LayoutMode>,
+
+    /// 内容靠哪边排：候选窗在光标下方是 `TopDown`，在上方是 `BottomUp`。
+    order: Cell<VerticalOrder>,
 
     /// 云联想的小云朵。
     cloud: CloudIcon,
@@ -118,6 +122,7 @@ impl CandidateView {
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
             layout: Cell::new(LayoutMode::default()),
+            order: Cell::new(VerticalOrder::default()),
             cloud,
             theme,
             bitmap: RefCell::new(None),
@@ -183,14 +188,16 @@ impl CandidateView {
         self.ivars().layout.set(layout);
     }
 
-    /// 更新内容并返回需要的窗口尺寸。
-    pub fn set_frame(&self, frame: &Frame) -> NSSize {
+    /// 更新内容并返回需要的窗口尺寸。两个方向的尺寸相同，先拿尺寸定位置、再按位置重画一次就能换向。
+    pub fn set_frame(&self, frame: &Frame, order: VerticalOrder) -> NSSize {
         *self.ivars().frame.borrow_mut() = frame.clone();
+        self.ivars().order.set(order);
         self.setNeedsDisplay(true);
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
             return bitmap.set_frame(
                 frame,
                 self.ivars().layout.get(),
+                order,
                 self.is_dark(),
                 self.backing_scale(),
             );
@@ -202,16 +209,21 @@ impl CandidateView {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
         let (top_width, top_height) = self.top_line_size(&frame);
-        let (body_width, body_height) = match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.vertical_size(&frame),
-            LayoutMode::Horizontal if frame.columns > 0 => self.matrix_size(&frame),
-            LayoutMode::Horizontal => self.horizontal_size(&frame),
-        };
+        let (body_width, body_height) = self.body_size(&frame);
         let width = top_width.max(body_width);
         NSSize::new(
             width + theme.padding * 2.0,
             top_height + body_height + theme.padding * 2.0,
         )
+    }
+
+    /// 候选体的宽高（不含拼音行与内边距）。
+    fn body_size(&self, frame: &Frame) -> (f64, f64) {
+        match self.ivars().layout.get() {
+            LayoutMode::Vertical => self.vertical_size(frame),
+            LayoutMode::Horizontal if frame.columns > 0 => self.matrix_size(frame),
+            LayoutMode::Horizontal => self.horizontal_size(frame),
+        }
     }
 
     /// 顶部拼音行（含右侧整句补全）需要的宽高；没有这一行时都是 0。
@@ -379,6 +391,7 @@ impl CandidateView {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
         let bounds = self.bounds();
+        let order = self.ivars().order.get();
 
         // 背景
         theme.background.set();
@@ -389,13 +402,23 @@ impl CandidateView {
         )
         .fill();
 
-        let mut y = theme.padding;
-        y += self.draw_top_line(&frame, y);
+        // 与渲染器的 render 一致：TopDown 时拼音行占最上面；BottomUp（候选窗在光标上方）时拼音行落到最下
+        let start = theme.padding;
+        let (body_y, top_y) = match order {
+            VerticalOrder::TopDown => (start + self.top_line_size(&frame).1, start),
+            VerticalOrder::BottomUp => {
+                let body_height = self.body_size(&frame).1;
+                (start, start + body_height)
+            }
+        };
         match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.draw_vertical(&frame, y, bounds),
-            LayoutMode::Horizontal if frame.columns > 0 => self.draw_matrix(&frame, y, bounds),
-            LayoutMode::Horizontal => self.draw_horizontal(&frame, y, bounds),
+            LayoutMode::Vertical => self.draw_vertical(&frame, body_y, bounds, order),
+            LayoutMode::Horizontal if frame.columns > 0 => {
+                self.draw_matrix(&frame, body_y, bounds, order);
+            }
+            LayoutMode::Horizontal => self.draw_horizontal(&frame, body_y, bounds, order),
         }
+        self.draw_top_line(&frame, top_y);
     }
 
     /// 顶部拼音行：各段按样式画、我们自己画光标（不依赖应用画插入点）、右侧整句补全。返回占用高度。
@@ -451,12 +474,22 @@ impl CandidateView {
         cursor_x - x + CARET_WIDTH
     }
 
-    fn draw_vertical(&self, frame: &Frame, mut y: f64, bounds: NSRect) {
+    fn draw_vertical(&self, frame: &Frame, mut y: f64, bounds: NSRect, order: VerticalOrder) {
         let theme = self.theme();
         let columns = self.columns(&frame.rows);
         let text_x = theme.padding + columns.index_width + theme.column_gap;
         let annotation_x = text_x + columns.text_width + theme.column_gap;
-        for (i, row) in frame.rows.iter().enumerate() {
+        // BottomUp（候选窗在光标上方）时页码先占最上面，候选行再倒着走：末位排在最上、首选落到最下
+        let rows = frame.rows.len();
+        if order == VerticalOrder::BottomUp {
+            y += self.draw_footer(frame, y, bounds.size.width);
+        }
+        for step in 0..rows {
+            let i = match order {
+                VerticalOrder::TopDown => step,
+                VerticalOrder::BottomUp => rows - 1 - step,
+            };
+            let row = &frame.rows[i];
             if i == frame.highlighted {
                 let rect = NSRect::new(
                     NSPoint::new(theme.padding / 2.0, y),
@@ -488,32 +521,50 @@ impl CandidateView {
             }
             y += columns.row_height;
         }
-        if let Some(footer) = frame.footer.as_deref() {
-            let size = self.measure(footer, &theme.index_font);
-            self.draw_text(
-                footer,
-                &theme.index_font,
-                &theme.index_color,
-                y + theme.row_padding,
-                bounds.size.width - theme.padding - size.width,
-            );
+        if order == VerticalOrder::TopDown {
+            self.draw_footer(frame, y, bounds.size.width);
         }
     }
 
+    /// 页码：靠右一行（BottomUp 时它排到候选体最上面）。返回它占的高度，含它下面的行距。
+    fn draw_footer(&self, frame: &Frame, y: f64, width: f64) -> f64 {
+        let Some(footer) = frame.footer.as_deref() else {
+            return 0.0;
+        };
+        let theme = self.theme();
+        let size = self.measure(footer, &theme.index_font);
+        self.draw_text(
+            footer,
+            &theme.index_font,
+            &theme.index_color,
+            y + theme.row_padding,
+            width - theme.padding - size.width,
+        );
+        size.height + theme.row_padding
+    }
+
     /// 横排：候选排成一行，高亮那个下面单独一行译文，页码在行尾。
-    fn draw_horizontal(&self, frame: &Frame, y: f64, bounds: NSRect) {
+    fn draw_horizontal(&self, frame: &Frame, y: f64, bounds: NSRect, order: VerticalOrder) {
         if frame.rows.is_empty() {
             return;
         }
         let theme = self.theme();
         let (items, row_height) = self.items(&frame.rows);
-        let baseline = y + theme.row_padding;
+        // BottomUp（候选窗在光标上方）时那句译文从候选行下面挪到上面，候选行整体下移
+        let annotation_height = match order {
+            VerticalOrder::TopDown => 0.0,
+            VerticalOrder::BottomUp => self
+                .highlighted_annotation_size(frame)
+                .map_or(0.0, |(_, height)| height),
+        };
+        let row_top = y + annotation_height;
+        let baseline = row_top + theme.row_padding;
         let mut x = theme.padding + HIGHLIGHT_INSET;
         for (i, (row, item)) in frame.rows.iter().zip(&items).enumerate() {
             let item_width = item.index_width + INDEX_GAP + item.text_width;
             if i == frame.highlighted {
                 let rect = NSRect::new(
-                    NSPoint::new(x - HIGHLIGHT_INSET, y),
+                    NSPoint::new(x - HIGHLIGHT_INSET, row_top),
                     NSSize::new(item_width + HIGHLIGHT_INSET * 2.0, row_height),
                 );
                 self.fill_highlight(rect);
@@ -548,7 +599,10 @@ impl CandidateView {
         // 高亮候选的译文
         if let Some(row) = frame.rows.get(frame.highlighted) {
             let mut x = theme.padding + HIGHLIGHT_INSET;
-            let top = y + row_height + theme.row_padding / 2.0;
+            let top = match order {
+                VerticalOrder::TopDown => row_top + row_height + theme.row_padding / 2.0,
+                VerticalOrder::BottomUp => y + theme.row_padding / 2.0,
+            };
             for (segment, tone) in &row.annotation {
                 x += self.draw_text(
                     segment,

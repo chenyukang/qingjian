@@ -4,6 +4,7 @@
 
 use objc2_app_kit::{NSColor, NSFont};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
+use qingjian_render::VerticalOrder;
 
 use super::{CandidateView, HIGHLIGHT_INSET, INDEX_GAP};
 use crate::candidates::frame::Frame;
@@ -59,7 +60,7 @@ impl CandidateView {
         )
     }
 
-    pub(super) fn draw_matrix(&self, frame: &Frame, y: f64, bounds: NSRect) {
+    pub(super) fn draw_matrix(&self, frame: &Frame, y: f64, bounds: NSRect, order: VerticalOrder) {
         if frame.rows.is_empty() {
             return;
         }
@@ -68,14 +69,26 @@ impl CandidateView {
         let columns = frame.columns.max(1);
         let text_height = self.measure("x", &theme.text_font).height;
         let origin = theme.padding + HIGHLIGHT_INSET;
+        let grid_rows = frame.rows.len().div_ceil(columns);
+        let info_height = self.measure("x", &theme.annotation_font).height + theme.row_padding;
+        // BottomUp（候选窗在光标上方）时信息行排到最上、网格行也倒过来，首选仍在最下一行
+        let grid_y = match order {
+            VerticalOrder::TopDown => y,
+            VerticalOrder::BottomUp => y + info_height,
+        };
         for (i, row) in frame.rows.iter().enumerate() {
             let (text, _) = &cells.texts[i];
             if text.is_empty() && row.index.is_empty() {
                 continue;
             }
+            let grid_row = i / columns;
+            let shown_row = match order {
+                VerticalOrder::TopDown => grid_row,
+                VerticalOrder::BottomUp => grid_rows - 1 - grid_row,
+            };
             let cell_width = cells.column_widths[i % columns];
             let x = origin + cells.offset(i % columns, theme.column_gap);
-            let row_y = y + cells.row_height * (i / columns) as f64;
+            let row_y = grid_y + cells.row_height * shown_row as f64;
             let baseline = row_y + theme.row_padding;
             if i == frame.highlighted {
                 self.fill_highlight(NSRect::new(
@@ -102,8 +115,12 @@ impl CandidateView {
             );
         }
         // 信息行：页码靠右；左边先放被截断的高亮候选的完整文本，再放译文，放不下的截断
-        let grid_rows = frame.rows.len().div_ceil(columns);
-        let info_top = y + cells.row_height * grid_rows as f64 + theme.row_padding / 2.0;
+        let info_top = match order {
+            VerticalOrder::TopDown => {
+                y + cells.row_height * grid_rows as f64 + theme.row_padding / 2.0
+            }
+            VerticalOrder::BottomUp => y + theme.row_padding / 2.0,
+        };
         let right = bounds.size.width - theme.padding;
         let mut budget = right - origin;
         if let Some(footer) = frame.footer.as_deref() {

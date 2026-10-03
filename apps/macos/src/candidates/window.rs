@@ -9,6 +9,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
+use qingjian_render::VerticalOrder;
 
 use super::frame::Frame;
 use super::theme::Theme;
@@ -33,6 +34,9 @@ pub struct CandidateWindow {
     /// 当前外观（跟随系统时为 `None`）；换面板时要重设。
     appearance: Option<Retained<NSAppearance>>,
 
+    /// 内容靠哪边排：窗口贴在光标下方是 `TopDown`，贴在上方是 `BottomUp`（候选项由下往上）。
+    order: VerticalOrder,
+
     /// 用来取屏幕尺寸。
     mtm: MainThreadMarker,
 }
@@ -45,6 +49,7 @@ impl CandidateWindow {
             panel,
             view,
             appearance: None,
+            order: VerticalOrder::default(),
             mtm,
         }
     }
@@ -55,8 +60,14 @@ impl CandidateWindow {
             self.hide();
             return;
         }
-        let size = self.view.set_frame(&frame);
-        let origin = self.place(size, anchor);
+        // 先按当前方向量出尺寸（两个方向的尺寸一样），据此决定贴上方还是下方；方向变了再画一次
+        let size = self.view.set_frame(&frame, self.order);
+        let (origin, order) = self.place(size, anchor);
+        if order != self.order {
+            self.order = order;
+            self.view.set_frame(&frame, order);
+            tracing::debug!(?order, "候选窗口换向：内容跟着倒过来");
+        }
         self.panel.setFrame_display(NSRect::new(origin, size), true);
         self.order_front_on_active_space();
         if !self.panel.isVisible() {
@@ -133,9 +144,9 @@ impl CandidateWindow {
         self.view.theme().max_rows
     }
 
-    /// 窗口左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
+    /// 窗口左下角坐标与内容方向：贴在光标行下方（`TopDown`）；下方放不下放上方（`BottomUp`）；不出光标所在的那块屏幕。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
-    fn place(&self, size: NSSize, anchor: NSRect) -> NSPoint {
+    fn place(&self, size: NSSize, anchor: NSRect) -> (NSPoint, VerticalOrder) {
         let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
             Some(screen) if !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO) => {
                 (anchor, screen)
@@ -156,17 +167,17 @@ impl CandidateWindow {
         let below = anchor.origin.y - CARET_GAP - size.height;
         let above = anchor.origin.y + anchor.size.height + CARET_GAP;
         let top = screen.origin.y + screen.size.height;
-        let y = if below >= screen.origin.y {
-            below
+        let (y, order) = if below >= screen.origin.y {
+            (below, VerticalOrder::TopDown)
         } else if above + size.height <= top {
-            above
+            (above, VerticalOrder::BottomUp)
         } else {
             // 上下都放不下（屏幕很矮或窗口很高）：贴屏幕底边，宁可盖住光标也别出屏
-            screen.origin.y
+            (screen.origin.y, VerticalOrder::TopDown)
         };
         // 无论怎么算，最后都要落在这块屏幕里：出屏等于不显示
         let max_y = (top - size.height).max(screen.origin.y);
-        NSPoint::new(x, y.clamp(screen.origin.y, max_y))
+        (NSPoint::new(x, y.clamp(screen.origin.y, max_y)), order)
     }
 }
 

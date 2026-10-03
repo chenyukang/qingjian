@@ -8,7 +8,7 @@ use std::time::Instant;
 use clap::Parser;
 use qingjian_render::{
     FontLibrary, Frame, Layout, Preedit, PreeditSegment, PreeditStyle, Renderer, Row, Shadow,
-    StatusCell, Theme, Tone,
+    StatusCell, Theme, Tone, VerticalOrder,
 };
 
 #[derive(Parser)]
@@ -78,27 +78,63 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let shadow = (!args.no_shadow).then_some(Shadow::mac_panel());
 
-    let scenes: [(&str, Frame, Layout); 7] = [
-        ("matrix-horizontal", matrix(), Layout::Horizontal),
-        ("nihao-vertical", nihao(), Layout::Vertical),
+    let scenes: [(&str, Frame, Layout, VerticalOrder); 9] = [
+        (
+            "matrix-horizontal",
+            matrix(),
+            Layout::Horizontal,
+            VerticalOrder::TopDown,
+        ),
+        (
+            "nihao-vertical",
+            nihao(),
+            Layout::Vertical,
+            VerticalOrder::TopDown,
+        ),
         (
             "nihao-horizontal",
             nihao_with_sentence(),
             Layout::Horizontal,
+            VerticalOrder::TopDown,
         ),
-        ("cloud-vertical", cloud(), Layout::Vertical),
-        ("corrected-vertical", corrected_japanese(), Layout::Vertical),
+        (
+            "cloud-vertical",
+            cloud(),
+            Layout::Vertical,
+            VerticalOrder::TopDown,
+        ),
+        (
+            "corrected-vertical",
+            corrected_japanese(),
+            Layout::Vertical,
+            VerticalOrder::TopDown,
+        ),
         (
             "corrected-horizontal",
             corrected_japanese(),
             Layout::Horizontal,
+            VerticalOrder::TopDown,
         ),
-        ("probe", probe(), Layout::Vertical),
+        ("probe", probe(), Layout::Vertical, VerticalOrder::TopDown),
+        // 候选窗贴到光标上方时用的排布：末尾两个场景与上面同帧，只换方向
+        (
+            "nihao-vertical-bottom-up",
+            nihao(),
+            Layout::Vertical,
+            VerticalOrder::BottomUp,
+        ),
+        (
+            "matrix-horizontal-bottom-up",
+            matrix(),
+            Layout::Horizontal,
+            VerticalOrder::BottomUp,
+        ),
     ];
     for (theme_name, theme) in [("light", Theme::light()), ("dark", Theme::dark())] {
-        for (scene, frame, layout) in &scenes {
+        for (scene, frame, layout, order) in &scenes {
             let started = Instant::now();
-            let rendered = renderer.render(frame, *layout, &theme, args.scale, shadow.as_ref())?;
+            let rendered =
+                renderer.render(frame, *layout, *order, &theme, args.scale, shadow.as_ref())?;
             let elapsed = started.elapsed();
             let path = args.out.join(format!("{scene}-{theme_name}.png"));
             rendered.pixmap.save_png(&path)?;

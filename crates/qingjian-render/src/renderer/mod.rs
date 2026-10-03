@@ -21,6 +21,7 @@ use crate::layout::Layout;
 use crate::shadow::Shadow;
 use crate::text::{TextPainter, TextSize, TextStyle};
 use crate::theme::{FontSpec, Theme};
+use crate::vertical_order::VerticalOrder;
 
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
@@ -130,16 +131,20 @@ impl Renderer {
     }
 
     /// 画一帧。`scale` 是点 → 像素的倍数（Retina 为 2）；带 `shadow` 时位图四周留出阴影的边。
+    /// `order` 是内容靠哪边排：候选窗贴到光标上方时传 [`VerticalOrder::BottomUp`]，首选与拼音行才会紧贴光标。
     pub fn render(
         &mut self,
         frame: &Frame,
         layout: Layout,
+        order: VerticalOrder,
         theme: &Theme,
         scale: f32,
         shadow: Option<&Shadow>,
     ) -> Result<Rendered, RenderError> {
         let metrics = Metrics { theme, scale };
-        let (content_width, content_height) = self.preferred_size(frame, layout, &metrics);
+        let top = self.top_line_size(frame, &metrics);
+        let body = self.body_size(frame, layout, &metrics);
+        let (content_width, content_height) = preferred_size(top, body, layout, &metrics);
         let margin = shadow.map_or(0.0, |s| metrics.px(s.margin()));
         let width = (content_width + margin * 2.0).ceil();
         let height = (content_height + margin * 2.0).ceil();
@@ -159,19 +164,23 @@ impl Renderer {
             radius,
             theme.colors.background,
         );
-        let mut y = margin + metrics.padding();
-        y += self.draw_top_line(&mut canvas, frame, &metrics, margin, y);
-        match layout {
-            Layout::Vertical => {
-                self.draw_vertical(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-            Layout::Horizontal if frame.columns > 0 => {
-                self.draw_matrix(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-            Layout::Horizontal => {
-                self.draw_horizontal(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-        }
+        // 内容整块的起点由 order 定：TopDown 时拼音行占最上面；BottomUp 时候选体占最上面，拼音行落到最下
+        let start = margin + metrics.padding();
+        let (body_y, top_y) = match order {
+            VerticalOrder::TopDown => (start + top.1, start),
+            VerticalOrder::BottomUp => (start, start + body.1),
+        };
+        self.draw_body(
+            &mut canvas,
+            frame,
+            layout,
+            &metrics,
+            margin,
+            body_y,
+            content_width,
+            order,
+        );
+        self.draw_top_line(&mut canvas, frame, &metrics, margin, top_y);
         Ok(Rendered {
             pixmap: canvas.into_pixmap(),
             content_x: margin as u32,
@@ -194,21 +203,39 @@ impl Renderer {
         self.text.trace_families(text, &metrics.text_style())
     }
 
-    /// 内容需要的像素宽高（不含阴影边）。
-    fn preferred_size(&mut self, frame: &Frame, layout: Layout, m: &Metrics) -> (f32, f32) {
-        let (top_width, top_height) = self.top_line_size(frame, m);
-        let (body_width, body_height) = match layout {
+    /// 按排布把候选体交给对应的画法。
+    #[allow(clippy::too_many_arguments)]
+    fn draw_body(
+        &mut self,
+        canvas: &mut Canvas,
+        frame: &Frame,
+        layout: Layout,
+        m: &Metrics,
+        left: f32,
+        y: f32,
+        content_width: f32,
+        order: VerticalOrder,
+    ) {
+        match layout {
+            Layout::Vertical => {
+                self.draw_vertical(canvas, frame, m, left, y, content_width, order);
+            }
+            Layout::Horizontal if frame.columns > 0 => {
+                self.draw_matrix(canvas, frame, m, left, y, content_width, order);
+            }
+            Layout::Horizontal => {
+                self.draw_horizontal(canvas, frame, m, left, y, content_width, order);
+            }
+        }
+    }
+
+    /// 候选体的像素宽高（不含拼音行与阴影边）。
+    fn body_size(&mut self, frame: &Frame, layout: Layout, m: &Metrics) -> (f32, f32) {
+        match layout {
             Layout::Vertical => self.vertical_size(frame, m),
             Layout::Horizontal if frame.columns > 0 => self.matrix_size(frame, m),
             Layout::Horizontal => self.horizontal_size(frame, m),
-        };
-        let width = top_width.max(body_width) + m.padding() * 2.0;
-        // 竖排时候选都很短（没有译词）窗口会窄得难看，给个下限
-        let width = match layout {
-            Layout::Vertical => width.max(m.px(MIN_VERTICAL_WIDTH)),
-            Layout::Horizontal => width,
-        };
-        (width, top_height + body_height + m.padding() * 2.0)
+        }
     }
 
     pub(super) fn measure(&mut self, text: &str, style: &TextStyle) -> TextSize {
@@ -307,4 +334,15 @@ impl Renderer {
             m.theme.colors.highlight,
         );
     }
+}
+
+/// 整块内容需要的像素宽高（不含阴影边）：拼音行与候选体取较宽的一个。
+fn preferred_size(top: (f32, f32), body: (f32, f32), layout: Layout, m: &Metrics) -> (f32, f32) {
+    let width = top.0.max(body.0) + m.padding() * 2.0;
+    // 竖排时候选都很短（没有译词）窗口会窄得难看，给个下限
+    let width = match layout {
+        Layout::Vertical => width.max(m.px(MIN_VERTICAL_WIDTH)),
+        Layout::Horizontal => width,
+    };
+    (width, top.1 + body.1 + m.padding() * 2.0)
 }

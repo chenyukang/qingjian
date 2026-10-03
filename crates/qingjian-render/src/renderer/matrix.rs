@@ -7,6 +7,7 @@ use crate::canvas::Canvas;
 use crate::color::Color;
 use crate::frame::Frame;
 use crate::text::TextStyle;
+use crate::vertical_order::VerticalOrder;
 
 /// 帧没给列宽时，一格里候选词最多多宽（按候选字号的倍数）。
 const MAX_CELL_EMS: f32 = 4.0;
@@ -58,6 +59,7 @@ impl Renderer {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn draw_matrix(
         &mut self,
         canvas: &mut Canvas,
@@ -66,6 +68,7 @@ impl Renderer {
         left: f32,
         y: f32,
         content_width: f32,
+        order: VerticalOrder,
     ) {
         if frame.rows.is_empty() {
             return;
@@ -75,14 +78,26 @@ impl Renderer {
         let text_height = m.px(m.theme.text_font.line_height);
         let inset = m.px(HIGHLIGHT_INSET);
         let origin = left + m.padding() + inset;
+        let grid_rows = frame.rows.len().div_ceil(columns);
+        let info_height = m.annotation_style(m.theme.colors.gloss).line_height + m.row_padding();
+        // BottomUp（候选窗在光标上方）时信息行排到最上、网格行也倒过来，首选仍在最下一行
+        let grid_y = match order {
+            VerticalOrder::TopDown => y,
+            VerticalOrder::BottomUp => y + info_height,
+        };
         for (i, row) in frame.rows.iter().enumerate() {
             let (text, _) = &cells.texts[i];
             if text.is_empty() && row.index.is_empty() {
                 continue;
             }
+            let grid_row = i / columns;
+            let shown_row = match order {
+                VerticalOrder::TopDown => grid_row,
+                VerticalOrder::BottomUp => grid_rows - 1 - grid_row,
+            };
             let cell_width = cells.column_widths[i % columns];
             let x = origin + cells.offset(i % columns, m.column_gap());
-            let row_y = y + cells.row_height * (i / columns) as f32;
+            let row_y = grid_y + cells.row_height * shown_row as f32;
             let top = row_y + m.row_padding();
             if Some(i) == frame.highlighted {
                 self.fill_highlight(
@@ -115,8 +130,12 @@ impl Renderer {
             );
         }
         // 信息行：页码靠右；左边先放被截断的高亮候选的完整文本，再放译文，放不下的截断
-        let grid_rows = frame.rows.len().div_ceil(columns);
-        let info_top = y + cells.row_height * grid_rows as f32 + m.row_padding() / 2.0;
+        let info_top = match order {
+            VerticalOrder::TopDown => {
+                y + cells.row_height * grid_rows as f32 + m.row_padding() / 2.0
+            }
+            VerticalOrder::BottomUp => y + m.row_padding() / 2.0,
+        };
         let right = left + content_width - m.padding();
         let mut budget = right - origin;
         if let Some(footer) = frame.footer.as_deref() {

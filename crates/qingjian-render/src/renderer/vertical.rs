@@ -4,6 +4,7 @@ use super::columns::Columns;
 use super::{Metrics, Renderer};
 use crate::canvas::Canvas;
 use crate::frame::{Frame, Row};
+use crate::vertical_order::VerticalOrder;
 
 impl Renderer {
     pub(super) fn vertical_size(&mut self, frame: &Frame, m: &Metrics) -> (f32, f32) {
@@ -51,6 +52,7 @@ impl Renderer {
         columns
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn draw_vertical(
         &mut self,
         canvas: &mut Canvas,
@@ -59,13 +61,24 @@ impl Renderer {
         left: f32,
         mut y: f32,
         content_width: f32,
+        order: VerticalOrder,
     ) {
         // 量尺寸时已整形过一遍，这里再整形一遍；等渲染器定型再把结果从 render 传下来。
         let columns = self.columns(&frame.rows, m);
         let text_x = left + m.padding() + columns.index_width + m.column_gap();
         let annotation_x = text_x + columns.text_width + m.column_gap();
         let text_height = m.px(m.theme.text_font.line_height);
-        for (i, row) in frame.rows.iter().enumerate() {
+        // BottomUp（候选窗在光标上方）时页码先占最上面，候选行再倒着走：末位排在最上、首选落到最下贴着光标
+        let rows = frame.rows.len();
+        if order == VerticalOrder::BottomUp {
+            y += self.draw_footer(canvas, frame, m, left, y, content_width);
+        }
+        for step in 0..rows {
+            let i = match order {
+                VerticalOrder::TopDown => step,
+                VerticalOrder::BottomUp => rows - 1 - step,
+            };
+            let row = &frame.rows[i];
             if Some(i) == frame.highlighted {
                 self.fill_highlight(
                     canvas,
@@ -93,16 +106,33 @@ impl Renderer {
             }
             y += columns.row_height;
         }
-        if let Some(footer) = frame.footer.as_deref() {
-            let style = m.index_style();
-            let size = self.measure(footer, &style);
-            self.draw_text(
-                canvas,
-                footer,
-                &style,
-                left + content_width - m.padding() - size.width,
-                y + m.row_padding(),
-            );
+        if order == VerticalOrder::TopDown {
+            self.draw_footer(canvas, frame, m, left, y, content_width);
         }
+    }
+
+    /// 页码：靠右一行（BottomUp 时它排到候选体最上面）。返回它占的高度，含它下面的行距。
+    fn draw_footer(
+        &mut self,
+        canvas: &mut Canvas,
+        frame: &Frame,
+        m: &Metrics,
+        left: f32,
+        y: f32,
+        content_width: f32,
+    ) -> f32 {
+        let Some(footer) = frame.footer.as_deref() else {
+            return 0.0;
+        };
+        let style = m.index_style();
+        let size = self.measure(footer, &style);
+        self.draw_text(
+            canvas,
+            footer,
+            &style,
+            left + content_width - m.padding() - size.width,
+            y + m.row_padding(),
+        );
+        size.height + m.row_padding()
     }
 }

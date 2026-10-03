@@ -7,7 +7,7 @@ use std::rc::Rc;
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 use qingjian_render::{
     FontLibrary, Frame, Layout, Rendered, RenderedStatus, Renderer, Shadow, StatusCell, Theme,
-    UiFont, system_fonts,
+    UiFont, VerticalOrder, system_fonts,
 };
 
 use crate::dispatch::RenderSettings;
@@ -85,9 +85,17 @@ impl Painter {
             LayoutMode::Horizontal => Layout::Horizontal,
         };
         let started = std::time::Instant::now();
+        // 候选窗从上往下排：Windows 这边还没有「放不下就翻到光标上方」的排布，方向固定
         let rendered = self
             .renderer
-            .render(frame, layout, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render(
+                frame,
+                layout,
+                VerticalOrder::TopDown,
+                &theme(dark),
+                scale(dpi),
+                Some(&SHADOW),
+            )
             .inspect_err(|error| tracing::warn!(%error, "候选窗渲染失败"))
             .ok()?;
         tracing::debug!(
