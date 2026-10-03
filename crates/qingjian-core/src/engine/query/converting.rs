@@ -39,7 +39,9 @@ impl Engine {
                 // 整段本身就是英文词（`database`）：备选整句会把那条英文候选再往后挤，只给一条
                 let alternates = !self.scope_is_english_word();
                 let sentences = self.plain_sentence(items, best, typos, alternates);
-                let position = leading_english(items);
+                // 用户在这个输入串下亲手选过的词不让整句插到前面：自己选过的东西比「模型猜的那句」
+                // 更算数，否则整句会把那个词永远摁在第二位（`湘BA` 选过一次，整句仍出「湘把」）
+                let position = leading_english(items).max(self.chosen_word_floor(items));
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
                 // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分
@@ -65,6 +67,19 @@ impl Engine {
                 }
             }
         }
+    }
+
+    /// 首位是**用户在这个输入串下亲手选过的**词时返回 1，否则 0：整句候选的插入位置至少在这儿之后。
+    fn chosen_word_floor(&self, items: &[Candidate]) -> usize {
+        let scope = self.composition.scope();
+        let decoded = self.decode(scope);
+        let pinyin = decoded.as_ref().map_or(scope, |decoded| decoded.pinyin());
+        let key = choice_key(pinyin, pinyin.len());
+        let chosen = items.first().is_some_and(|candidate| {
+            candidate.kind == CandidateKind::Chinese
+                && self.learner.choice_weight(&key, &candidate.text) > 0
+        });
+        usize::from(chosen)
     }
 
     /// 整段拼音的整句候选：最优切分至少两个音节、且最优路径不止一个词时才有（空格上屏的就是它）。

@@ -345,6 +345,105 @@ fn a_sentence_the_converter_did_not_rank_first_still_teaches() {
 }
 
 #[test]
+fn a_han_latin_word_can_be_coined_by_repeating_it() {
+    // `湘` + 尾巴原样上屏 `BA`：汉字+字母的自造词要能进用户词库。
+    // 原来两道门都关着：原样上屏不记「接在上一个词后面」，自动造词又要求「字数 == 音节数」
+    //（`湘ba` 1 汉字 2 音节）
+    let shared = Arc::new(Mutex::new((
+        Vec::new(),
+        crate::sentence::UserNgram::default(),
+    )));
+    let learner = WordLearner {
+        shared: Arc::clone(&shared),
+        ..WordLearner::default()
+    };
+    let dictionary = Dictionary::parse("湘\txiang\t20000\n吧\tba\t3000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
+
+    for _ in 0..2 {
+        engine.set_input("xiangba");
+        let xiang = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == "湘")
+            .expect("湘");
+        engine.commit(&xiang);
+        assert_eq!(engine.take_raw(), "ba", "尾巴原样上屏");
+    }
+
+    engine.set_input("xiangba");
+    let texts: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        texts.iter().any(|text| text == "湘ba"),
+        "自造词要出来：{texts:?}"
+    );
+}
+
+#[test]
+fn a_word_can_span_the_previous_commit() {
+    // `村` 上屏后打 `ba`：词库里的 村BA 要凑得出来。整词候选只在当前这段拼音里查，
+    // 已经上屏的「村」不在缓冲区里，靠把上一个词的音节接到切分前面才查得到
+    let dictionary =
+        Dictionary::parse("村\tcun\t20000\n村BA\tcun ba\t9000\n吧\tba\t3000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+
+    // 开关关着（缺省）：接不上
+    let mut off = Engine::new(
+        Dictionary::parse("村\tcun\t20000\n村BA\tcun ba\t9000\n吧\tba\t3000\n").unwrap(),
+    );
+    off.set_input("cun");
+    let village = off
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "村")
+        .expect("村");
+    off.commit(&village);
+    off.set_input("ba");
+    assert!(
+        off.query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.text != "BA"),
+        "缺省不跨上屏凑词"
+    );
+
+    engine.set_join_previous_word(true);
+    engine.set_input("cun");
+    let village = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "村")
+        .expect("村");
+    engine.commit(&village);
+    engine.set_input("ba");
+    let items = engine.query().unwrap().candidates.items;
+    // 候选只放尾巴：「村」已经在文档里了
+    assert_eq!(
+        (items[0].text.as_str(), items[0].syllables.as_slice()),
+        ("BA", &["ba".to_owned()][..])
+    );
+    assert_eq!(engine.commit(&items[0].clone()), "BA");
+}
+
+#[test]
 fn shifted_keys_keep_the_capital_in_the_preedit() {
     // 双拼 + `shuangpin_raw_preedit`：行内拼音就是敲的键，大写得看得见（`DJu`）。
     // 匹配仍按小写算（`dan` + `sh`），所以候选照旧是「但是」；回车原样上屏也带大写
