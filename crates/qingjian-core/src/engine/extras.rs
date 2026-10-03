@@ -39,14 +39,27 @@ impl Engine {
     }
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
-    pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
+    /// `pinyin` 是解出来的拼音：双拼（`uijm`）与注音下敲的键不是拼音本身，敲的键没命中就拿它再认一遍。
+    pub(super) fn insert_shortcuts(
+        &self,
+        items: &mut Vec<Candidate>,
+        scope: &str,
+        pinyin: Option<String>,
+    ) {
         let expression_char =
             if self.zhuyin && crate::zhuyin::layout::map_key(self.modes().expression).is_some() {
                 '\0'
             } else {
                 self.modes().expression
             };
-        let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
+        let now = jiff::Zoned::now();
+        let mut shortcuts = shortcut::candidates(scope, expression_char, &now);
+        if shortcuts.is_empty()
+            && let Some(pinyin) = pinyin.as_deref()
+            && pinyin != scope
+        {
+            shortcuts = shortcut::candidates(pinyin, expression_char, &now);
+        }
         if shortcuts.is_empty() {
             return;
         }

@@ -178,3 +178,31 @@ fn shuangpin_raw_commit_does_not_learn_decodable_keys_as_english() {
     engine.set_input("gist");
     assert!(looks_like_english_word_in(&engine));
 }
+
+#[test]
+fn calendar_shortcuts_follow_decoded_pinyin_under_shuangpin() {
+    let mut engine = xiaohe();
+    // 小鹤：sh→u、i→i、j→j、ian→m，所以 uijm 解出来是 shi'jian
+    engine.set_input("uijm");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "shi'jian");
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::Shortcut),
+        "双拼下按解出来的拼音也该出时间快捷候选"
+    );
+    // 相对日期同理
+    engine.set_input("mktm"); // ming tian
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "ming'tian");
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::Shortcut)
+    );
+}

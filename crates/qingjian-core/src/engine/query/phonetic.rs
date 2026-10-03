@@ -40,7 +40,7 @@ impl Engine {
             Err(error) => {
                 let mut items = Vec::new();
                 self.insert_english(&mut items, true);
-                self.insert_shortcuts(&mut items, keys);
+                self.insert_shortcuts(&mut items, keys, None);
                 if items.is_empty() {
                     return Err(error);
                 }
@@ -219,8 +219,14 @@ impl Engine {
                     head_wins,
                 );
             }
-            // 快捷候选按敲的键认（`rq` 日期），双拼下也是
-            self.insert_shortcuts(&mut items, keys);
+            // 快捷候选先按敲的键认（`rq` 日期）；双拼 / 注音下敲的键不是拼音，再按解出来的拼音认一遍（`uijm` → shijian）
+            self.insert_shortcuts(
+                &mut items,
+                keys,
+                segmentations
+                    .first()
+                    .map(|segmentation| segmentation.joined("")),
+            );
             self.insert_emoji(&mut items);
         }
         let rank = start.elapsed();
