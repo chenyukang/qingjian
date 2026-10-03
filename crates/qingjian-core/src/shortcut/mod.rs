@@ -1,6 +1,7 @@
 //! 快捷候选（搜狗「v 模式」的那一套）：不查词库、由输入本身直接算出来的候选。
 //!
-//! - `rq` / `sj` / `xq`：今天的日期、现在的时间、星期几，插在本地候选第二位起。
+//! - `rq` / `riqi` / `jintian`、`sj` / `shijian`、`xq` / `xingqi`：今天的日期、现在的时间、星期几；
+//!   `mingtian` / `zuotian` / `houtian` 出明天 / 昨天 / 后天的日期。都插在本地候选第二位起。
 //! - 表达式键（缺省 `v`）开头进表达式模式：`v1+2` 出 `3` 与 `1+2=3`，`v123` 出中文数字与金额（小写与大写），
 //!   `v123.5` 出小数读法与金额，同样各有小写与大写（一百二十三元五角 / 壹佰贰拾叁元伍角）。
 //!   表达式模式下缓冲区允许数字与运算符，候选不走拼音解析。
@@ -14,7 +15,7 @@ use jiff::Zoned;
 
 use crate::candidate::{Candidate, CandidateKind};
 
-pub use calendar::{date_forms, time_forms, weekday_forms};
+pub use calendar::{date_forms, date_forms_offset, time_forms, weekday_forms};
 pub use evaluator::evaluate;
 pub use numeral::{
     amount_lower, amount_upper, chinese_decimal_lower, chinese_decimal_upper, chinese_lower,
@@ -62,9 +63,12 @@ pub fn is_expression_char(c: char) -> bool {
 /// 按输入算快捷候选；不是快捷输入时为空。`expression` 是表达式键；`now` 由调用方给，测试可固定时间。
 pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> {
     let texts: Vec<String> = match input {
-        "rq" => date_forms(now),
-        "sj" => time_forms(now),
-        "xq" => weekday_forms(now),
+        "rq" | "riqi" | "jintian" => date_forms(now),
+        "sj" | "shijian" => time_forms(now),
+        "xq" | "xingqi" => weekday_forms(now),
+        "mingtian" => date_forms_offset(now, 1),
+        "zuotian" => date_forms_offset(now, -1),
+        "houtian" => date_forms_offset(now, 2),
         _ => match input.strip_prefix(expression) {
             Some(body) => expression_forms(body),
             None => Vec::new(),
@@ -168,6 +172,30 @@ mod tests {
         assert_eq!(texts("sj"), ["19:06", "19:06:23", "19点06分"]);
         assert_eq!(texts("xq"), ["星期四", "周四"]);
         assert!(texts("rqi").is_empty());
+    }
+
+    #[test]
+    fn calendar_shortcuts_accept_full_pinyin_and_relative_days() {
+        // 全拼别名：和两字母缩写同一份结果（微信输入法那套习惯）
+        assert_eq!(texts("riqi"), ["2026年9月3日", "2026-09-03", "2026/09/03"]);
+        assert_eq!(texts("jintian"), texts("rq"));
+        assert_eq!(texts("shijian"), ["19:06", "19:06:23", "19点06分"]);
+        assert_eq!(texts("xingqi"), ["星期四", "周四"]);
+        // 相对日期
+        assert_eq!(
+            texts("mingtian"),
+            ["2026年9月4日", "2026-09-04", "2026/09/04"]
+        );
+        assert_eq!(
+            texts("zuotian"),
+            ["2026年9月2日", "2026-09-02", "2026/09/02"]
+        );
+        assert_eq!(
+            texts("houtian"),
+            ["2026年9月5日", "2026-09-05", "2026/09/05"]
+        );
+        // 不是快捷码的拼音不受影响
+        assert!(texts("riqihao").is_empty());
     }
 
     #[test]

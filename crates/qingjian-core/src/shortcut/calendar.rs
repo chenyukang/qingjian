@@ -3,9 +3,20 @@
 use jiff::Zoned;
 use jiff::civil::Weekday;
 
-/// `rq`：`2026年9月3日`、`2026-09-03`、`2026/09/03`。
+/// `rq` / `jintian`：`2026年9月3日`、`2026-09-03`、`2026/09/03`。
 pub fn date_forms(now: &Zoned) -> Vec<String> {
-    let (year, month, day) = (now.year(), now.month(), now.day());
+    forms(now.year(), now.month(), now.day())
+}
+
+/// `mingtian` / `zuotian` / `houtian`：前后几天的日期，同样三种写法。算不出来（超出范围）就退回今天。
+pub fn date_forms_offset(now: &Zoned, days: i64) -> Vec<String> {
+    match now.date().checked_add(jiff::Span::new().days(days)) {
+        Ok(date) => forms(date.year(), date.month(), date.day()),
+        Err(_) => date_forms(now),
+    }
+}
+
+fn forms(year: i16, month: i8, day: i8) -> Vec<String> {
     vec![
         format!("{year}年{month}月{day}日"),
         format!("{year}-{month:02}-{day:02}"),
