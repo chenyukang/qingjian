@@ -43,6 +43,9 @@ pub struct GeneralPage {
     /// 中英之间自动加空格。
     mixed_space: Retained<NSButton>,
 
+    /// 英文候选从几个字母起。
+    english_min_letters: Retained<NSPopUpButton>,
+
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
@@ -178,6 +181,24 @@ impl GeneralPage {
             mtm,
             "我用Rust写的 → 我用 Rust 写的；标点、已有的空格、字母数字相邻的地方不动。",
         );
+        let english_min_letters = row_popup(
+            layout,
+            mtm,
+            "英文候选从几个字母起",
+            &[
+                "1 个字母起".to_owned(),
+                "2 个字母起".to_owned(),
+                "3 个字母起".to_owned(),
+                "4 个字母起".to_owned(),
+            ],
+            Setting::EnglishMinLetters,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "短输入（o、en）几乎都在打中文，调大可以把这些字母候选挡掉；英文模式与「拼音头 + 英文尾」不受影响。",
+        );
         let chinese_first = checkbox(
             mtm,
             "输入拼音时中文候选排在英文词前面",
@@ -213,6 +234,7 @@ impl GeneralPage {
             english_off_in_apps,
             emoji,
             mixed_space,
+            english_min_letters,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -260,6 +282,10 @@ impl GeneralPage {
             .setEnabled(general.english_candidates);
         set_checked(&self.emoji, general.emoji_candidates);
         set_checked(&self.mixed_space, general.mixed_space);
+        select(
+            &self.english_min_letters,
+            Some(general.english_min_letters().saturating_sub(1).min(3)),
+        );
         set_checked(&self.chinese_first, general.chinese_first);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }

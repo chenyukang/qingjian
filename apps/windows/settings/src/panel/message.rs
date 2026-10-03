@@ -16,6 +16,7 @@ pub(crate) enum Message {
     EnglishCandidates(bool),
     EmojiCandidates(bool),
     MixedSpace(bool),
+    EnglishMinLetters(Option<f64>),
     ChineseFirst(bool),
     /// 中文模式下 Shift+字母：交给应用（缺省）还是进组句缓冲区。
     ShiftLetter(Option<usize>),

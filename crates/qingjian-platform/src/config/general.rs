@@ -52,6 +52,10 @@ pub struct GeneralConfig {
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
+    /// 输入字母少于这个数时不给英文候选（缺省 1 = 都给）：`o`、`en` 这类短输入几乎都在打中文，
+    /// 调大就能把那些字母候选挡掉。只影响中文模式下的英文词；英文模式与「拼音头 + 英文尾」不受影响。
+    pub english_min_letters: usize,
+
     /// 候选里是否给 emoji（`笑` → 😄，紧跟在那个词后面）。
     pub emoji_candidates: bool,
 
@@ -136,6 +140,7 @@ impl Default for GeneralConfig {
             font: String::new(),
             preedit: PreeditMode::default(),
             english_candidates: true,
+            english_min_letters: 1,
             emoji_candidates: true,
             traditional: false,
             chinese_first: false,
@@ -254,6 +259,11 @@ impl GeneralConfig {
     /// 夹到合法范围的每页候选数。
     pub fn page_size(&self) -> usize {
         self.page_size.clamp(1, MAX_PAGE_SIZE)
+    }
+
+    /// 夹到合法范围的「英文候选最短输入字母数」（1–9）。
+    pub fn english_min_letters(&self) -> usize {
+        self.english_min_letters.clamp(1, MAX_PAGE_SIZE)
     }
 
     /// 翻页键对；写得不对（不是两个不同的 ASCII 可见字符）时退回缺省。

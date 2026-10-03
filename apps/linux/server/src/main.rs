@@ -85,6 +85,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_emoji(config.general.emoji_candidates);
     engine.set_mixed_space(config.general.mixed_space);
+    engine.set_english_min_letters(config.general.english_min_letters());
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())

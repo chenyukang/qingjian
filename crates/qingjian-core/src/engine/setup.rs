@@ -479,6 +479,12 @@ impl Engine {
         self.mixed_space = on;
     }
 
+    /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`）：短输入（`o`、`en`）几乎都在打中文，
+    /// 这个门槛把那些字母候选挡掉。只影响中文模式下的英文词，英文模式（Caps Lock）与英文尾段不受影响。
+    pub fn set_english_min_letters(&mut self, letters: usize) {
+        self.english_min_letters = letters.max(1);
+    }
+
     /// 按 `[general] mixed_space` 决定上屏文本与上文之间要不要补空格：上一次上屏以汉字结尾、
     /// 这段以字母 / 数字开头（或反过来）时补一个，标点与空格两侧都不补。
     /// 学习、日志、译词都按原文走，只有插入的文本与撤销计数走这里。

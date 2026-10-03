@@ -66,6 +66,10 @@ impl Component for Settings {
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
             Message::EmojiCandidates(on) => self.save("general", "emoji_candidates", on),
             Message::MixedSpace(on) => self.save("general", "mixed_space", on),
+            Message::EnglishMinLetters(Some(value)) => {
+                let letters = (value.round() as i64).clamp(1, 4);
+                self.save("general", "english_min_letters", letters);
+            }
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);

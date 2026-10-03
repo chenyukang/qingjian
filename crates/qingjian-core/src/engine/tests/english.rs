@@ -633,3 +633,29 @@ fn a_long_raw_commit_with_english_in_the_middle_is_not_learned() {
         "只有真正像一个词的才该进个人英文词表"
     );
 }
+
+#[test]
+fn short_input_can_skip_english_candidates() {
+    let words = WordList::parse("o\to\t4000\nok\tok\t4500\nkey\tkey\t5120\n").unwrap();
+    let mut engine = engine().with_english(words);
+    let has_english = |engine: &mut Engine| {
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English)
+    };
+    // 缺省 1：敲 o 就给英文候选（O）
+    engine.set_input("o");
+    assert!(has_english(&mut engine));
+    // `[general] english_min_letters = 3`：两个字母以内不给英文候选
+    engine.set_english_min_letters(3);
+    for input in ["o", "ok"] {
+        engine.set_input(input);
+        assert!(!has_english(&mut engine), "{input} 不该有英文候选");
+    }
+    engine.set_input("key");
+    assert!(has_english(&mut engine), "三个字母起照给");
+}

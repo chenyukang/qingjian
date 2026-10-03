@@ -209,6 +209,8 @@ impl Router {
         self.engine.set_emoji(config.general.emoji_candidates);
         self.engine.set_mixed_space(config.general.mixed_space);
         self.engine
+            .set_english_min_letters(config.general.english_min_letters());
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);

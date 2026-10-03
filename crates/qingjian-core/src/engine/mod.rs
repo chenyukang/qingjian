@@ -293,6 +293,9 @@ pub struct Engine {
 
     /// 汉字与相邻的 ASCII 字母 / 数字之间是否补一个空格（`[general] mixed_space`）。
     mixed_space: bool,
+
+    /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`，缺省 1 = 都给）。
+    english_min_letters: usize,
 }
 
 /// 形码编码最长几位（五笔四码）：混输下超过它的输入只可能是拼音。
@@ -458,6 +461,7 @@ impl Engine {
             opencc: None,
             traditional_map: std::cell::RefCell::new(HashMap::new()),
             mixed_space: false,
+            english_min_letters: 1,
         }
     }
 }

@@ -217,6 +217,8 @@ font = ""
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
+# 输入字母少于这个数时不显示英文候选（缺省 1 = 都给）：o、en 这类短输入几乎都在打中文，调大可以把那些字母候选挡掉
+english_min_letters = 1
 # 候选里是否给 emoji（笑 → 😄）：紧跟在对应候选词后面；false 就不出 emoji
 emoji_candidates = true
 
@@ -589,6 +591,7 @@ mod tests {
         assert_eq!(config.general.preedit, PreeditMode::Window);
         assert_eq!(config.general.learning_language, "en");
         assert!(config.general.english_candidates);
+        assert_eq!(config.general.english_min_letters, 1);
         assert!(config.general.emoji_candidates);
         assert!(!config.general.mixed_space);
         assert!(!config.general.traditional);

@@ -134,6 +134,15 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EmojiCandidates)),
         ),
         field(
+            "英文候选从几个字母起",
+            "短输入（o、en）几乎都在打中文，调大可以把这些字母候选挡掉；英文模式与「拼音头 + 英文尾」不受影响。",
+            NumberBox::new()
+                .minimum(1.0)
+                .maximum(4.0)
+                .value(g.english_min_letters() as f64)
+                .on_value_changed(context.callback(Message::EnglishMinLetters)),
+        ),
+        field(
             "中英之间自动加空格",
             "我用Rust写的 → 我用 Rust 写的；标点、已有的空格、字母数字相邻的地方不动。",
             ToggleSwitch::new()

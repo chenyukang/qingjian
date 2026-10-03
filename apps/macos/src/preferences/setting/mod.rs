@@ -122,6 +122,9 @@ pub enum Setting {
     /// `[general] mixed_space`，勾选框：汉字与相邻字母 / 数字之间自动补空格。
     MixedSpace,
 
+    /// `[general] english_min_letters`，弹出菜单 1–4：输入几个字母起才给英文候选。
+    EnglishMinLetters,
+
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
 
@@ -224,6 +227,7 @@ impl Setting {
             Self::EnglishCandidates => 14,
             Self::EmojiCandidates => 57,
             Self::MixedSpace => 58,
+            Self::EnglishMinLetters => 59,
             Self::ChineseFirst => 42,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
@@ -292,6 +296,7 @@ impl Setting {
             14 => Self::EnglishCandidates,
             57 => Self::EmojiCandidates,
             58 => Self::MixedSpace,
+            59 => Self::EnglishMinLetters,
             42 => Self::ChineseFirst,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
@@ -377,6 +382,7 @@ mod tests {
             Setting::EnglishCandidates,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
+            Setting::EnglishMinLetters,
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,

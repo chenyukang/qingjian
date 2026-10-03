@@ -69,6 +69,10 @@ impl Engine {
         if text.contains('\'') {
             return;
         }
+        // `[general] english_min_letters`：输入字母太少时直接不给英文候选（这一段几乎总是在打中文）
+        if text.bytes().filter(u8::is_ascii_alphabetic).count() < self.english_min_letters {
+            return;
+        }
         let english_candidate = |word: &str| Candidate {
             text: word.to_owned(),
             kind: CandidateKind::English,
