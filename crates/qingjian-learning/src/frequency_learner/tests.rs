@@ -283,9 +283,9 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
     learner.learn_english("Gist");
     learner.learn_english("python");
     assert_eq!(learner.english_count(), 2);
-    // 第一次敲的写法留下，次数合并
-    assert_eq!(learner.user_english().unwrap().get("gist"), Some("gist"));
-    assert_eq!(learner.user_english().unwrap().complete("g", 3), ["gist"]);
+    // 次数按小写合并；显示形式用带大写的那个写法（`gist` → `Gist`，`GitHub`/`iPhone` 这类才显示得对）
+    assert_eq!(learner.user_english().unwrap().get("gist"), Some("Gist"));
+    assert_eq!(learner.user_english().unwrap().complete("g", 3), ["Gist"]);
     learner.flush();
     let reloaded = FrequencyLearner::from_path(&path).unwrap();
     assert_eq!(reloaded.english_count(), 2);
@@ -294,5 +294,5 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
         Some("python")
     );
     let saved = std::fs::read_to_string(FrequencyLearner::english_path(&path)).unwrap();
-    assert!(saved.contains("gist\t2"));
+    assert!(saved.contains("Gist\t2"), "{saved}");
 }

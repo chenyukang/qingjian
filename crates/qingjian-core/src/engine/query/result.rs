@@ -22,21 +22,26 @@ pub(crate) fn join_marked(segmentations: &[Segmentation], tail: &str) -> String 
 pub(crate) fn join_marked_typed(typed: &str, segmentations: &[Segmentation], tail: &str) -> String {
     let mut text = String::new();
     let mut offset = 0;
+    // 分隔符只在**真有下半段**时补：双拼下音节的长度按全拼算（`dan` 三个字母）而敲的是键
+    // （`dj` 两个），长度对不上的那一段切片是空的，硬补就会多出一个尾巴（`DJu` → `DJu'`）
+    fn push_part(text: &mut String, part: &str) {
+        if part.is_empty() {
+            return;
+        }
+        if !text.is_empty() {
+            text.push('\'');
+        }
+        text.push_str(part);
+    }
     if let Some(first) = segmentations.first() {
-        for (index, syllable) in first.syllables.iter().enumerate() {
-            if index > 0 {
-                text.push('\'');
-            }
+        for syllable in &first.syllables {
             let end = (offset + syllable.text.len()).min(typed.len());
-            text.push_str(&typed[offset..end]);
+            push_part(&mut text, &typed[offset..end]);
             offset = end;
         }
     }
     if !tail.is_empty() {
-        if !text.is_empty() {
-            text.push('\'');
-        }
-        text.push_str(&typed[offset.min(typed.len())..]);
+        push_part(&mut text, &typed[offset.min(typed.len())..]);
     }
     text
 }

@@ -48,7 +48,7 @@ impl Engine {
                     segmentations: Vec::new(),
                     candidates: CandidateList { items },
                     tail: keys.to_owned(),
-                    text: self.composition.text().to_owned(),
+                    text: self.composition.typed_text(),
                     cursor: self.composition.cursor(),
                     rest,
                     decoded_keys: self.shuangpin.is_some() || self.zhuyin,
@@ -236,16 +236,22 @@ impl Engine {
             .as_ref()
             .filter(|_| head_wins)
             .map_or(tail, |t| &keys[t.head_len..]);
-        let typed_display = decoded.as_ref().map(|d| d.marked()).or_else(|| {
-            // 中文模式下 Shift 敲的大写：匹配按小写算，拼音行仍按敲的样子显示（`Cpan`）
-            (correction.is_none() && self.composition.has_shifted())
-                .then(|| join_marked_typed(&self.composition.typed_scope(), &segmentations, tail))
-        });
+        // 中文模式下 Shift 敲的大写：匹配按小写算，拼音行仍按敲的样子显示。
+        // 双拼下这句同样成立、而且必须优先：`DJu` 展开成全拼（`dan'sh`）就无处放大写了
+        let typed_display = if correction.is_none() && self.composition.has_shifted() {
+            Some(join_marked_typed(
+                &self.composition.typed_scope(),
+                &segmentations,
+                tail,
+            ))
+        } else {
+            decoded.as_ref().map(|d| d.marked())
+        };
         Ok(Query {
             segmentations,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
-            text: self.composition.text().to_owned(),
+            text: self.composition.typed_text(),
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,

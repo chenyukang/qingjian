@@ -103,6 +103,14 @@ impl Learner for FrequencyLearner {
             .english
             .entry(word.to_ascii_lowercase())
             .or_insert_with(|| (word.to_owned(), 0));
+        // 表里已经记着全小写的（从别处导进来的 `google`），这次用户打的是 `Google`：显示形式换成他的写法。
+        // 混合大小写的写法（`GitHub`、`iPhone`）比全小写更接近用户要的；只有从全小写升级到带大写时才换，
+        // 免得显示形式在几种写法之间来回跳
+        if entry.0.bytes().all(|b| !b.is_ascii_uppercase())
+            && word.bytes().any(|b| b.is_ascii_uppercase())
+        {
+            entry.0 = word.to_owned();
+        }
         entry.1 += 1;
         let count = entry.1;
         self.english_dirty = true;

@@ -76,7 +76,7 @@ impl Engine {
             segmentations: Vec::new(),
             candidates: CandidateList { items },
             tail: keys.to_owned(),
-            text: self.composition.text().to_owned(),
+            text: self.composition.typed_text(),
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: false,
