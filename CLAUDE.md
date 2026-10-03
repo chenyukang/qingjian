@@ -32,6 +32,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `docs/` 分四类（索引在 `docs/README.md`）：`design/` 设计与决定、`plan/` 路线与待办、`notes/` 工程记录（性能、复盘、踩坑、crate 实现要点）、
 `user/` 用户文档（官网构建时拉取渲染，约定见 `docs/user/README.md`，措辞面向用户、不出现实现词）。
 
+改候选排序 / 学习行为之前先读 [docs/notes/ranking-and-learning.md](docs/notes/ranking-and-learning.md)：
+两把尺子怎么用（`--replay` 不带 `--user-dict` 是冷引擎，数字不代表真实体验）、结构键与得分的取舍、
+几处「读状态时机」陷阱（链上上一个词、`passthrough_pending`、候选插入下标），以及取材纪律
+（别拿用户真实学习数据跑验证脚本）。
+
+
 ## 常用命令
 
 ```bash
