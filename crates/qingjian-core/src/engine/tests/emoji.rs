@@ -45,3 +45,17 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
     assert_eq!(engine.commit(&emoji), "👨‍💻");
     assert_eq!(engine.composition().text(), "zhe");
 }
+
+#[test]
+fn emoji_switch_turns_candidates_off_and_back_on() {
+    let table = EmojiTable::parse("开发\t👨‍💻\n").unwrap();
+    let mut engine = engine().with_emoji(table);
+    engine.set_emoji(false);
+    engine.set_input("kaifa");
+    let off = engine.query().unwrap().candidates.items;
+    assert!(!off.iter().any(|c| c.kind == CandidateKind::Emoji));
+    // 关掉只是不出 emoji，表还留着，再打开立刻回来
+    engine.set_emoji(true);
+    let on = engine.query().unwrap().candidates.items;
+    assert!(on.iter().any(|c| c.kind == CandidateKind::Emoji));
+}

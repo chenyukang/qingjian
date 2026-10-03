@@ -52,6 +52,9 @@ pub struct GeneralConfig {
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
+    /// 候选里是否给 emoji（`笑` → 😄，紧跟在那个词后面）。
+    pub emoji_candidates: bool,
+
     /// 繁体输出模式。
     pub traditional: bool,
     /// 中文模式下中英混输时中文候选总排在英文词前面。缺省关：拼音不像话的输入（`hello`）英文词排第一，
@@ -129,6 +132,7 @@ impl Default for GeneralConfig {
             font: String::new(),
             preedit: PreeditMode::default(),
             english_candidates: true,
+            emoji_candidates: true,
             traditional: false,
             chinese_first: false,
             shift_letter: ShiftLetter::default(),

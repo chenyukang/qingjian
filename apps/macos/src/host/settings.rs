@@ -355,6 +355,9 @@ impl Host {
             (Setting::EnglishCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "english_candidates", on);
             }
+            (Setting::EmojiCandidates, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "emoji_candidates", on);
+            }
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }

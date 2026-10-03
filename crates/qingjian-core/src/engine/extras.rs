@@ -148,6 +148,9 @@ impl Engine {
     /// emoji 候选：前几个中文候选里有配 emoji 的，emoji 紧跟在那个词后面，右侧标注它对应的词。
     /// 词后面紧挨着的英文词候选（中文优先时 `key` → 可以、key）不被 emoji 挤开，emoji 排在它之后。
     pub(super) fn insert_emoji(&self, items: &mut Vec<Candidate>) {
+        if !self.emoji_on {
+            return;
+        }
         let Some(table) = &self.emoji else { return };
         let mut inserted = 0;
         let mut index = 0;

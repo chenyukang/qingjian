@@ -21,6 +21,7 @@ impl Host {
         self.apply_custom_phrases(&config);
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_chinese_first(config.general.chinese_first);
+        self.engine.set_emoji(config.general.emoji_candidates);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.apply_scheme(config.general.scheme(), config.general.wubi());

@@ -217,6 +217,8 @@ font = ""
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
+# 候选里是否给 emoji（笑 → 😄）：紧跟在对应候选词后面；false 就不出 emoji
+emoji_candidates = true
 
 # 繁体输出模式。开启后上屏繁体，不影响词库和个人词频的简体记录。
 traditional = false
@@ -585,6 +587,7 @@ mod tests {
         assert_eq!(config.general.preedit, PreeditMode::Window);
         assert_eq!(config.general.learning_language, "en");
         assert!(config.general.english_candidates);
+        assert!(config.general.emoji_candidates);
         assert!(!config.general.traditional);
         assert_eq!(config.general.shuangpin(), None);
         assert_eq!(config.general.log_level, LogLevel::Info);

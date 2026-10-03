@@ -226,6 +226,11 @@ impl Engine {
         self
     }
 
+    /// emoji 候选开关（`[general] emoji_candidates`）：关掉只是不再插 emoji 候选，表留着随时能再开。
+    pub fn set_emoji(&mut self, on: bool) {
+        self.emoji_on = on;
+    }
+
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
         self.fuzzy = rules;
         self

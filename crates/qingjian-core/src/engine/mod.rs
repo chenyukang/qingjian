@@ -258,6 +258,9 @@ pub struct Engine {
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
 
+    /// emoji 候选开关（`[general] emoji_candidates`）：关掉只是不再插 emoji，表还留着，随时能再开。
+    emoji_on: bool,
+
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
     aux_code: Option<String>,
@@ -441,6 +444,7 @@ impl Engine {
             code: None,
             phonetic: true,
             emoji: None,
+            emoji_on: true,
             aux_code: None,
             aux_enabled: false,
             aux_show: false,

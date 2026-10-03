@@ -206,6 +206,7 @@ impl Router {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_chinese_first(config.general.chinese_first);
+        self.engine.set_emoji(config.general.emoji_candidates);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine

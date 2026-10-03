@@ -127,6 +127,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishCandidates)),
         ),
         field(
+            "候选里给 emoji",
+            "笑 → 😄，紧跟在对应候选词后面；关掉后候选里只剩词、译词与英文词。",
+            ToggleSwitch::new()
+                .is_on(g.emoji_candidates)
+                .on_toggled(context.callback(Message::EmojiCandidates)),
+        ),
+        field(
             "但在终端和代码编辑器里不给",
             "终端、Windows Terminal、VS Code、Cursor、JetBrains 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
             ToggleSwitch::new()

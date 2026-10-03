@@ -37,6 +37,9 @@ pub struct GeneralPage {
     /// 终端 / 编辑器里不给英文候选。
     english_off_in_apps: Retained<NSButton>,
 
+    /// 候选里给 emoji。
+    emoji: Retained<NSButton>,
+
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
@@ -158,6 +161,13 @@ impl GeneralPage {
             mtm,
             "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
         );
+        let emoji = checkbox(mtm, "候选里给 emoji", Setting::EmojiCandidates, target);
+        row_checkbox(layout, &emoji);
+        note(
+            layout,
+            mtm,
+            "笑 → 😄，紧跟在对应候选词后面；关掉后候选里只剩词、译词与英文词。",
+        );
         let chinese_first = checkbox(
             mtm,
             "输入拼音时中文候选排在英文词前面",
@@ -191,6 +201,7 @@ impl GeneralPage {
             traditional,
             english,
             english_off_in_apps,
+            emoji,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -236,6 +247,7 @@ impl GeneralPage {
         );
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
+        set_checked(&self.emoji, general.emoji_candidates);
         set_checked(&self.chinese_first, general.chinese_first);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
