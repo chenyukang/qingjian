@@ -1,8 +1,71 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
 use super::*;
+use crate::sentence::MAX_WORD_SYLLABLES;
+use qingjian_dictionary::SyllablePattern;
 
 impl Engine {
+    /// 上一个上屏的词 + 现在这段音节，正好是词库里的词时它的尾巴（`村` + `ba` → 「BA」，整词是 村BA）。
+    ///
+    /// 整词候选只在**当前这段拼音**里查，已经上屏的部分不在缓冲区里，所以「村 + ba」凑不出 村BA
+    ///（`try_auto_word` 也因此要等「一段拼音分两次选完」才造得出词）。这里把上一个词的音节接到
+    /// 当前切分前面再查一次，命中就把尾巴当候选：上一个词已经在文档里了，只需要插入剩下那部分。
+    /// 尾巴按普通的词上屏（输入串是它自己、词频照记），紧接着上一个词，接续转会计进个人 n-gram。
+    fn joined_with_previous(&self, segmentations: &[Segmentation]) -> Vec<Candidate> {
+        let Some(previous) = self.chain.previous() else {
+            return Vec::new();
+        };
+        let previous_syllables = self.chain.previous_syllables();
+        let Some(segmentation) = segmentations.first() else {
+            return Vec::new();
+        };
+        let patterns = segmentation.patterns();
+        let count = patterns.len();
+        let total = previous_syllables.len() + count;
+        if previous_syllables.is_empty() || patterns.is_empty() || total > MAX_WORD_SYLLABLES {
+            return Vec::new();
+        }
+        let mut positions: Vec<Vec<SyllablePattern<'_>>> = previous_syllables
+            .iter()
+            .map(|syllable| {
+                vec![SyllablePattern {
+                    text: syllable.as_str(),
+                    complete: true,
+                }]
+            })
+            .collect();
+        positions.extend(patterns.into_iter().map(|pattern| vec![pattern]));
+        let mut out: Vec<Candidate> = Vec::new();
+        for hit in self.lookup_all(&positions) {
+            if hit.syllable_count() != total {
+                continue;
+            }
+            let Some(tail) = hit.text.strip_prefix(previous) else {
+                continue;
+            };
+            if tail.is_empty() || out.iter().any(|candidate| candidate.text == tail) {
+                continue;
+            }
+            let syllables: Vec<String> = hit
+                .syllables()
+                .skip(previous_syllables.len())
+                .map(str::to_owned)
+                .collect();
+            if syllables.len() != count {
+                continue;
+            }
+            out.push(Candidate {
+                text: tail.to_owned(),
+                kind: CandidateKind::Chinese,
+                syllables,
+                reading: None,
+                translation: None,
+                aux_code: None,
+            });
+        }
+        out
+    }
+
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
     pub(super) fn query_phonetic(
         &self,
@@ -228,6 +291,18 @@ impl Engine {
                     .map(|segmentation| segmentation.joined("")),
             );
             self.insert_emoji(&mut items);
+            // 接上一个已上屏的词（`[general] join_previous_word`）：`村` 上屏后打 `ba`，
+            // 词库里有 村BA 就把尾巴「BA」放最前面——用户刚打的词就是它的一半，比纯上下文更确定
+            if self.join_previous_word {
+                let joined: Vec<Candidate> = self
+                    .joined_with_previous(&segmentations)
+                    .into_iter()
+                    .filter(|candidate| !items.iter().any(|item| item.text == candidate.text))
+                    .collect();
+                if !joined.is_empty() {
+                    items.splice(0..0, joined);
+                }
+            }
         }
         let rank = start.elapsed();
 

@@ -294,6 +294,9 @@ pub struct Engine {
     /// 汉字与相邻的 ASCII 字母 / 数字之间是否补一个空格（`[general] mixed_space`）。
     mixed_space: bool,
 
+    /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
+    join_previous_word: bool,
+
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`，缺省 1 = 都给）。
     english_min_letters: usize,
 }
@@ -466,6 +469,7 @@ impl Engine {
             opencc: None,
             traditional_map: std::cell::RefCell::new(HashMap::new()),
             mixed_space: false,
+            join_previous_word: false,
             english_min_letters: 1,
         }
     }

@@ -479,6 +479,11 @@ impl Engine {
         self.mixed_space = on;
     }
 
+    /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
+    pub fn set_join_previous_word(&mut self, on: bool) {
+        self.join_previous_word = on;
+    }
+
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`）：短输入（`o`、`en`）几乎都在打中文，
     /// 这个门槛把那些字母候选挡掉。只影响中文模式下的英文词，英文模式（Caps Lock）与英文尾段不受影响。
     pub fn set_english_min_letters(&mut self, letters: usize) {

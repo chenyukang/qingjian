@@ -24,6 +24,8 @@ impl Host {
         self.engine.set_emoji(config.general.emoji_candidates);
         self.engine.set_mixed_space(config.general.mixed_space);
         self.engine
+            .set_join_previous_word(config.general.join_previous_word);
+        self.engine
             .set_english_min_letters(config.general.english_min_letters());
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());

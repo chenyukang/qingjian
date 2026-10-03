@@ -80,6 +80,10 @@ pub struct GeneralConfig {
     /// 缺省关：标点、已有的空格、字母数字相邻的地方都不动；中英分两次上屏时也会补上接缝那个空格。
     pub mixed_space: bool,
 
+    /// 接上一个已上屏的词：`村` 上屏后打 `ba`，词库里有 村BA 时把尾巴「BA」也放进候选。
+    /// 缺省关：整词候选只在当前这段拼音里查，开了才会跨过上屏去词库里凑整词。
+    pub join_previous_word: bool,
+
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
 
@@ -148,6 +152,7 @@ impl Default for GeneralConfig {
             english_mode: true,
             full_width_punctuation: true,
             mixed_space: false,
+            join_previous_word: false,
             english_full_width_punctuation: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
