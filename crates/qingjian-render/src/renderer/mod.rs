@@ -47,8 +47,10 @@ const HIGHLIGHT_INSET: f32 = 5.0;
 /// 光学字号（点）：20 pt 以下 CoreText 给系统字体用的就是这一档。
 const OPTICAL_SIZE: f32 = 17.0;
 
-/// 竖排候选窗口的最小宽度（点）。
-const MIN_VERTICAL_WIDTH: f32 = 200.0;
+/// 竖排候选窗口的最小宽度（点）。候选都很短、又没译词时窗口会贴得很窄，给一个下限；
+/// 但 200 对短内容留白太多（`wo'de` 七条一两个字自然只要 96 点），改成 120：
+/// 单字候选不至于挤，带译词的（自然宽度 160 上下）也贴内容而不是抻到 200。
+const MIN_VERTICAL_WIDTH: f32 = 120.0;
 
 pub struct Renderer {
     /// 文字测绘。
