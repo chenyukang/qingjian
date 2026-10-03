@@ -275,6 +275,101 @@ fn shift_letters_join_the_buffer_only_when_configured() {
 }
 
 #[test]
+fn a_fuzzy_hit_that_the_user_picked_counts_for_this_input() {
+    // 双拼下 `cc` 解成 `cao`：「香草」是原样命中，「湘超」（xiang chao）靠模糊音命中。
+    // 用户在这个输入串下亲手选过一次「湘超」，下次就该它排第一——不能再被「原样命中优先」压着，
+    // 也不能因为命中词的读音比输入串多一个字母（xiangchao vs xiangcao）就把选择次数读成 0
+    let rules = FuzzyRules {
+        c_ch: true,
+        ..FuzzyRules::default()
+    };
+    let dictionary = Dictionary::parse("香草\txiang cao\t9000\n湘超\txiang chao\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary)
+        .with_learner(Box::new(CountingLearner(HashMap::new())))
+        .with_fuzzy(rules);
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+
+    engine.set_input("xlcc");
+    let first = engine.query().unwrap().candidates.items[0].text.clone();
+    assert_eq!(first, "香草");
+
+    let target = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "湘超")
+        .expect("模糊音下也出湘超");
+    engine.commit(&target);
+
+    engine.set_input("xlcc");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "湘超");
+}
+
+#[test]
+fn a_sentence_the_converter_did_not_rank_first_still_teaches() {
+    // 用户选的整句常常不是 Viterbi 最优那条（「我喜欢湘超」输给「我喜欢想超」那种）。
+    // 回推词序列时只比对最优路径的文本，等于「选了模型不偏爱的路径就什么都不记」——
+    // 那条路径的个人 bigram 一直不涨，下次还是排后面。这里 开发 是最优路径，用户要 开阀
+    let dictionary = Dictionary::parse("开发\tkai fa\t9000\n开阀\tkai fa\t1000\n").unwrap();
+    let shared = Arc::new(Mutex::new((
+        Vec::new(),
+        crate::sentence::UserNgram::default(),
+    )));
+    let learner = WordLearner {
+        shared: Arc::clone(&shared),
+        ..WordLearner::default()
+    };
+    let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
+
+    engine.set_input("kaifa");
+    let best = engine.query().unwrap().candidates.items[0].text.clone();
+    assert_eq!(best, "开发", "最优路径");
+
+    let chosen = Candidate {
+        text: "开阀".to_owned(),
+        kind: CandidateKind::Sentence,
+        syllables: vec!["kai".to_owned(), "fa".to_owned()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    engine.commit(&chosen);
+    let ngram = &shared.lock().unwrap().1;
+    assert_eq!(
+        ngram.pair(None, "开阀"),
+        1,
+        "整句上屏也要把词序列记进个人 n-gram"
+    );
+}
+
+#[test]
+fn shifted_keys_keep_the_capital_in_the_preedit() {
+    // 双拼 + `shuangpin_raw_preedit`：行内拼音就是敲的键，大写得看得见（`DJu`）。
+    // 匹配仍按小写算（`dan` + `sh`），所以候选照旧是「但是」；回车原样上屏也带大写
+    let mut engine = Engine::new(Dictionary::parse("但是\tdan shi\t9000\n").unwrap());
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+    engine.set_shuangpin_raw_preedit(true);
+    engine.set_shift_letter_compose(true);
+    for c in "DJu".chars() {
+        engine.push(c);
+    }
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "但是");
+    assert_eq!(query.marked_text(), "DJu");
+    assert_eq!(
+        query
+            .marked_segments()
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<Vec<_>>(),
+        ["DJu"]
+    );
+    assert_eq!(engine.take_raw(), "DJu");
+}
+
+#[test]
 fn expression_mode_skips_pinyin_and_evaluates() {
     let mut engine = self::engine();
     assert!(!engine.expression_mode());

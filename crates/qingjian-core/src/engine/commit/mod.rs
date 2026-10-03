@@ -7,7 +7,7 @@ use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
     AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
-    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, segment_longest_prefix,
+    EXPLICIT_TRANSITION_WEIGHT, Engine, SENTENCE_LEARN_PATHS, choice_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::typo;
@@ -421,17 +421,34 @@ impl Engine {
         {
             return Some(words);
         }
-        let conversion = match (self.decode(scope), self.active_correction(scope)) {
-            (Some(decoded), _) => {
-                self.convert_sentence(&decoded.segmentation()?.patterns(), true)?
-            }
-            (None, Some(c)) => self.convert_sentence(&c.segmentation.patterns(), false)?,
+        let paths = match (self.decode(scope), self.active_correction(scope)) {
+            (Some(decoded), _) => self.sentence_paths(
+                &decoded.segmentation()?.patterns(),
+                true,
+                false,
+                SENTENCE_LEARN_PATHS,
+            ),
+            (None, Some(c)) => self.sentence_paths(
+                &c.segmentation.patterns(),
+                false,
+                false,
+                SENTENCE_LEARN_PATHS,
+            ),
             (None, None) => {
                 let (segmentations, _) = segment_longest_prefix(scope).ok()?;
-                self.convert_sentence(&segmentations.first()?.patterns(), true)?
+                self.sentence_paths(
+                    &segmentations.first()?.patterns(),
+                    true,
+                    false,
+                    SENTENCE_LEARN_PATHS,
+                )
             }
         };
-        (conversion.text == candidate.text).then_some(conversion.words)
+        // 在备选路径里找文本对得上的那条：只看最优路径的话，用户选了模型不偏爱的那条就等于什么都没记
+        paths
+            .into_iter()
+            .find(|conversion| conversion.text == candidate.text)
+            .map(|conversion| conversion.words)
     }
 
     /// 头段拼音的转换加上英文尾段，与 `text` 对得上时的词序列。

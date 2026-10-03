@@ -374,6 +374,11 @@ const RESCORE_PATHS: usize = 6;
 /// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
 const SENTENCE_CANDIDATES: usize = 3;
 
+/// 整句上屏时回推词序列，要看过几条候选路径。
+/// 用户选的常常不是 Viterbi 最优那条（`woxihuanxiangchao` → 「我喜欢湘超」而不是「我喜欢想超」），
+/// 只比对最优路径的文本会把这次选择整个丢掉、那条路径永远学不起来。
+const SENTENCE_LEARN_PATHS: usize = 8;
+
 /// 短于这么多音节的不给备选整句：那时候选表里的词级候选比另一种读法有用。
 const ALTERNATE_MIN_SYLLABLES: usize = 4;
 
