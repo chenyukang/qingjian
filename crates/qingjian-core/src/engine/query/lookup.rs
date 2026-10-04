@@ -55,8 +55,8 @@ impl Engine {
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<(Match<'_>, bool)> {
         let mut hits = Vec::new();
-        for (index, dictionary) in self.all_dictionaries().into_iter().enumerate() {
-            let trusted = self.trusted_dictionary(index, dictionary);
+        for dictionary in self.lookup_dictionaries() {
+            let trusted = self.trusted_dictionary(dictionary);
             hits.extend(
                 dictionary
                     .lookup_pattern_alt(positions)
@@ -73,8 +73,8 @@ impl Engine {
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<(Match<'_>, bool)> {
         let mut hits = Vec::new();
-        for (index, dictionary) in self.all_dictionaries().into_iter().enumerate() {
-            let trusted = self.trusted_dictionary(index, dictionary);
+        for dictionary in self.lookup_dictionaries() {
+            let trusted = self.trusted_dictionary(dictionary);
             hits.extend(
                 dictionary
                     .lookup_exact_alt(positions)
@@ -85,10 +85,10 @@ impl Engine {
         hits
     }
 
-    /// 这本词库算不算「可信来源」：主词库（`all_dictionaries` 的第一本）与用户词库。
+    /// 这本词库算不算「可信来源」：主词库与用户词库。
     /// 其余都是导入的附加词库——词表大、冷僻词多，只让它们的精确命中拿一个加分而不是硬键。
-    fn trusted_dictionary(&self, index: usize, dictionary: &Dictionary) -> bool {
-        index == 0
+    fn trusted_dictionary(&self, dictionary: &Dictionary) -> bool {
+        std::ptr::eq(dictionary, &self.dictionary)
             || self
                 .learner
                 .user_words()

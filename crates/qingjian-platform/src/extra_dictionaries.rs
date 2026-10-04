@@ -50,14 +50,46 @@ pub fn load(
     user_dir: Option<&Path>,
     config: &DictionariesConfig,
 ) -> Vec<Dictionary> {
-    let mut loaded = Vec::new();
+    let loaded = load_split(bundled_dir, user_dir, config);
+    loaded.bundled.into_iter().chain(loaded.imported).collect()
+}
+
+/// 加载结果分成两组，壳按需分别交给引擎。
+#[derive(Debug, Default)]
+pub struct LoadedDictionaries {
+    /// 随包的领域词库（按 `[dictionaries] domains` 挑）。
+    pub bundled: Vec<Dictionary>,
+
+    /// 用户在 `dicts/` 下自己放的（CEDICT、雾凇那类）：词表大、冷僻词多，
+    /// 引擎第一键不查它们（见 `Engine::set_bulk_dictionaries`）。
+    pub imported: Vec<Dictionary>,
+}
+
+impl LoadedDictionaries {
+    /// 一共加载了几本（日志用）。
+    pub fn len(&self) -> usize {
+        self.bundled.len() + self.imported.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// 同 [`load`]，但把随包领域词库与用户导入的分开返回：用户导入的那批要单独标成「大而杂」的词库。
+pub fn load_split(
+    bundled_dir: Option<&Path>,
+    user_dir: Option<&Path>,
+    config: &DictionariesConfig,
+) -> LoadedDictionaries {
+    let mut loaded = LoadedDictionaries::default();
     if let Some(dir) = bundled_dir {
         for (stem, path) in list(dir) {
             if !config.is_domain_enabled(&stem) {
                 tracing::debug!(name = %stem, "随包领域词库未打开，跳过");
                 continue;
             }
-            loaded.extend(open(&stem, &path));
+            loaded.bundled.extend(open(&stem, &path));
         }
     }
     if let Some(dir) = user_dir {
@@ -66,7 +98,7 @@ pub fn load(
                 tracing::debug!(name = %stem, "附加词库已关闭，跳过");
                 continue;
             }
-            loaded.extend(open(&stem, &path));
+            loaded.imported.extend(open(&stem, &path));
         }
     }
     loaded

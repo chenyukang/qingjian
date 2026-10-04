@@ -176,6 +176,15 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         }
         engine.set_extra_dictionaries(extras);
     }
+    if !args.bulk_dict.is_empty() {
+        let mut bulk = Vec::new();
+        for path in &args.bulk_dict {
+            let dictionary = Dictionary::from_path(path)?;
+            tracing::info!(path = %path.display(), entries = dictionary.len(), "导入词库（第一键不查）已加载");
+            bulk.push(dictionary);
+        }
+        engine.set_bulk_dictionaries(bulk);
+    }
     // 英文候选的中文释义可选
     let zh_glossary = args::default_data_file("glossary-zh.tsv");
     if zh_glossary.is_file() {

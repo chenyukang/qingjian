@@ -104,13 +104,14 @@ impl Host {
     /// 按当前配置重新加载 `dicts/` 目录（导入、移除、开关之后）。
     pub fn reload_dictionaries(&mut self) {
         let config = self.settings.config().dictionaries.clone();
-        let loaded = extra_dictionaries::load(
+        let loaded = extra_dictionaries::load_split(
             paths::bundled_dicts_dir().as_deref(),
             paths::dicts_dir().as_deref(),
             &config,
         );
         tracing::info!(count = loaded.len(), "附加词库已装配");
-        self.engine.set_extra_dictionaries(loaded);
+        self.engine.set_extra_dictionaries(loaded.bundled);
+        self.engine.set_bulk_dictionaries(loaded.imported);
         self.applied_dictionaries = config;
     }
 }

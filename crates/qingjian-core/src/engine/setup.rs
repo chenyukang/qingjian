@@ -484,6 +484,27 @@ impl Engine {
         self.exact_bonus = bonus;
     }
 
+    /// 设置「大而杂」的导入词库（用户在 `dicts/` 下的那些）。见 [`Engine::bulk_dictionaries`]。
+    pub fn set_bulk_dictionaries(&mut self, dictionaries: Vec<Dictionary>) {
+        self.bulk_dictionaries = dictionaries;
+    }
+
+    /// 词级查询要查哪些词库。第一键（作用域只有一个字符）跳过导入的大词库，
+    /// 从第二个键起全都查。整句、词频统计那些地方仍用 [`Self::all_dictionaries`]。
+    pub(super) fn lookup_dictionaries(&self) -> Vec<&Dictionary> {
+        let first_key = self.composition.scope().chars().count() <= 1;
+        let mut all = self.all_dictionaries();
+        if first_key {
+            all.retain(|dictionary| {
+                !self
+                    .bulk_dictionaries
+                    .iter()
+                    .any(|bulk| std::ptr::eq(*dictionary, bulk))
+            });
+        }
+        all
+    }
+
     /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
     pub fn set_join_previous_word(&mut self, on: bool) {
         self.join_previous_word = on;
@@ -591,6 +612,9 @@ impl Engine {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
+        // 导入的「大而杂」词库也算全部词库的一部分（词频归一化、整句词图都要用它们）；
+        // 只有词级查询的第一键把它们剔掉，见 [`Self::lookup_dictionaries`]
+        all.extend(self.bulk_dictionaries.iter());
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }

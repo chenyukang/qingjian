@@ -297,6 +297,11 @@ pub struct Engine {
     /// 接上一个已上屏的词凑整词（`[general] join_previous_word`）：`村` 上屏后打 `ba` 出「BA」。
     join_previous_word: bool,
 
+    /// 「大而杂」的导入词库（用户在 `dicts/` 里放的那些：CEDICT、雾凇）。**第一键（一个字母）不查它们**：
+    /// 单字母命中七八万条、九成是冷僻词，查了既慢（实测首键 8.5 → 4.1 ms）又把常用字挤下去。
+    /// 从第二个键起照常参与，和主词库、随包领域词库、用户词完全一样。
+    bulk_dictionaries: Vec<Dictionary>,
+
     /// 导入词库里「音节数与输入完全一致」的加分（`--tune exact-bonus=N`）：只影响附加词库的命中，
     /// 主词库与用户词仍走硬键。见 [`crate::ranking::rank`]。
     exact_bonus: f64,
@@ -480,6 +485,7 @@ impl Engine {
             traditional_map: std::cell::RefCell::new(HashMap::new()),
             mixed_space: false,
             join_previous_word: false,
+            bulk_dictionaries: Vec::new(),
             exact_bonus: DEFAULT_EXACT_BONUS,
             english_min_letters: 1,
         }

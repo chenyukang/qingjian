@@ -390,6 +390,38 @@ fn a_han_latin_word_can_be_coined_by_repeating_it() {
 }
 
 #[test]
+fn the_first_key_skips_bulk_dictionaries() {
+    // 导入的大词库（CEDICT、雾凇那类）第一键不查：单字母命中七八万条、九成是冷僻词，
+    // 查了既慢（实测首键 8.5 → 4.1 ms）又把常用字挤下去。第二个键起照常参与
+    let mut engine = Engine::new(Dictionary::parse("我\two\t20000\n").unwrap());
+    // 「随包领域词库」放一条不相干的词；要测的是「导入的大词库」里那些冷僻词第一键不出现
+    let extra = Dictionary::parse("开饭\tkai fan\t800\n").unwrap();
+    let bulk = Dictionary::parse("沃兹涅先斯基\two zi nie xian si ji\t100\n").unwrap();
+    engine.set_extra_dictionaries(vec![extra]);
+    engine.set_bulk_dictionaries(vec![bulk]);
+
+    let texts = |engine: &mut Engine, keys: &str| -> Vec<String> {
+        engine.set_input(keys);
+        engine
+            .query()
+            .map(|q| q.candidates.items.into_iter().map(|c| c.text).collect())
+            .unwrap_or_default()
+    };
+    assert!(
+        !texts(&mut engine, "w")
+            .iter()
+            .any(|t| t.starts_with("沃兹")),
+        "第一键不该查导入的大词库"
+    );
+    assert!(
+        texts(&mut engine, "wo")
+            .iter()
+            .any(|t| t.starts_with("沃兹")),
+        "第二键起照常查"
+    );
+}
+
+#[test]
 fn a_word_can_span_the_previous_commit() {
     // `村` 上屏后打 `ba`：词库里的 村BA 要凑得出来。整词候选只在当前这段拼音里查，
     // 已经上屏的「村」不在缓冲区里，靠把上一个词的音节接到切分前面才查得到

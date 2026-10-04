@@ -70,11 +70,14 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
     // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件
-    engine.set_extra_dictionaries(extra_dictionaries::load(
+    // 随包领域词库与用户导入的分开接：后者第一键不查（见 Engine::set_bulk_dictionaries）
+    let dictionaries = extra_dictionaries::load_split(
         paths::bundled_dicts_dir().as_deref(),
         paths::dicts_dir().as_deref(),
         &settings.config().dictionaries,
-    ));
+    );
+    engine.set_extra_dictionaries(dictionaries.bundled);
+    engine.set_bulk_dictionaries(dictionaries.imported);
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
     if let Ok(path) =
         paths::resource("glossary-zh.qj").or_else(|_| paths::resource("glossary-zh.tsv"))

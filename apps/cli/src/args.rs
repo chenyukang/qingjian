@@ -45,6 +45,11 @@ pub struct Args {
     #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "en")]
     pub language: String,
 
+    /// 「大而杂」的导入词库（CEDICT、雾凇那类）：与 `--extra-dict` 一样参与查询，
+    /// 但**第一键（一个字母）不查它们**，用来验证首键延迟的收益。
+    #[arg(long = "bulk-dict", value_name = "PATH")]
+    pub bulk_dict: Vec<PathBuf>,
+
     /// 附加词库（.qj 或 TSV），可给多个，与主词库一起查
     #[arg(long)]
     pub extra_dict: Vec<PathBuf>,
