@@ -39,6 +39,9 @@ pub struct ShortcutsPage {
 
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
+
+    /// 纠错选中文字的组合键。
+    correct_selection: Retained<KeyRecorder>,
 }
 
 impl ShortcutsPage {
@@ -145,6 +148,20 @@ impl ShortcutsPage {
             "在应用里选中一段文字再按这个键，译文（学习语言）出现在候选窗口：回车替换选中的文字，Esc 保留原文。需要开着云服务。",
         );
         layout.space(GROUP_GAP);
+        let correct_selection = row_recorder(
+            layout,
+            mtm,
+            "纠错选中的文字",
+            Setting::CorrectSelectionKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "在应用里选中一段文字再按这个键，纠错结果出现在候选窗口（中文改错别字与标点，英文改拼写与语法，不翻译）：回车替换选中的文字，Esc 保留原文。需要开着云服务。",
+        );
+        layout.space(GROUP_GAP);
         note_full(
             layout,
             mtm,
@@ -170,6 +187,7 @@ impl ShortcutsPage {
             translation_second,
             delete_candidate,
             translate_selection,
+            correct_selection,
         }
     }
 
@@ -199,6 +217,9 @@ impl ShortcutsPage {
         self.translation_second.show(&second.key(), &second.label());
         let delete = config.shortcut.delete_keys();
         self.delete_candidate.show(&delete.key(), &delete.label());
+        let correct = config.shortcut.correct_selection;
+        self.correct_selection
+            .show(&correct.key_string(), &correct.label());
         let translate = config.shortcut.translate_selection;
         self.translate_selection
             .show(&translate.key_string(), &translate.label());

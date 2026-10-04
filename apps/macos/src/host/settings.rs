@@ -266,6 +266,18 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
                 }
             }
+            (Setting::CorrectSelectionKeys, SettingValue::Text(text)) => {
+                match text.parse::<KeyCombo>() {
+                    Ok(combo) => {
+                        self.settings.set_value(
+                            "shortcut",
+                            "correct_selection",
+                            combo.key_string(),
+                        );
+                    }
+                    Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
+                }
+            }
             (Setting::TranslateSelectionKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
                     Ok(combo) => {
@@ -302,6 +314,11 @@ impl Host {
                     "shortcut",
                     "translate_selection",
                     defaults.translate_selection.key_string(),
+                );
+                self.settings.set_value(
+                    "shortcut",
+                    "correct_selection",
+                    defaults.correct_selection.key_string(),
                 );
                 self.settings.set_value(
                     "shortcut",

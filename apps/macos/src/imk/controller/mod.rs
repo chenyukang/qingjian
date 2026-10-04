@@ -227,6 +227,14 @@ impl QingjianInputController {
         {
             return self.translate_selection(client);
         }
+        // 纠错快捷键（不在组句中）：读应用里的选区，交给云端纠错
+        let correct = host::with(|h| h.correct_keys).unwrap_or_default();
+        if pressed == correct.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(correct.key)
+            && !host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
+        {
+            return self.correct_selection(client);
+        }
         // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
         // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
         // 以前在这里被截走后原样还给应用，全角转换就没机会做了。

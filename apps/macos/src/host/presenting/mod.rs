@@ -31,12 +31,12 @@ impl Host {
     }
 
     /// 开始一次翻译：记下选区，窗口先显示「翻译中…」。调用方已发出请求。
-    pub fn begin_translation(&mut self, range: objc2_foundation::NSRange) {
+    pub fn begin_translation(&mut self, range: objc2_foundation::NSRange, placeholder: &str) {
         self.translation = Some(TranslationJob {
             range,
             result: None,
         });
-        self.reset_session(None, vec![cloud_candidate("翻译中…".to_owned())]);
+        self.reset_session(None, vec![cloud_candidate(placeholder.to_owned())]);
         self.await_prediction();
         self.render();
     }

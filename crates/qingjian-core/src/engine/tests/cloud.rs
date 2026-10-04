@@ -623,4 +623,14 @@ fn translation_works_while_composing_predictions_are_off() {
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].kind, PredictionKind::Translate);
     assert_eq!(sent[0].text, "你好世界");
+    drop(sent);
+
+    // 纠错同理：手动触发，不受联想的两个开关影响，也不指定目标语言
+    let sequence = engine.request_correction("  this are a apple,今天天汽不错。");
+    assert!(sequence.is_some(), "手动纠错仍然要发");
+    let sent = submitted.lock().unwrap();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[1].kind, PredictionKind::Correct);
+    assert_eq!(sent[1].text.trim(), "this are a apple,今天天汽不错。");
+    assert!(sent[1].target_language.is_empty(), "纠错不指定目标语言");
 }

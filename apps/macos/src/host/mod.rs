@@ -128,6 +128,9 @@ pub struct Host {
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
 
+    /// 纠错选中的文字的快捷键组合（`[shortcut] correct_selection`）。
+    pub correct_keys: KeyCombo,
+
     /// 正在显示的提示（候选窗口里一行字，几秒后自动收）。
     pub notice: Option<Notice>,
 

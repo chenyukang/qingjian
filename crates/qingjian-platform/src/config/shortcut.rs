@@ -25,6 +25,9 @@ pub struct ShortcutConfig {
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
+    /// 把应用里选中的文字纠错：中文改错别字与标点、英文改拼写与语法（需要云服务开着）。
+    pub correct_selection: KeyCombo,
+
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 }
@@ -42,6 +45,7 @@ impl Default for ShortcutConfig {
             translation,
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
+            correct_selection: KeyCombo::CORRECT_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
         }
     }

@@ -182,6 +182,35 @@ impl Engine {
         Some(self.prediction_sequence)
     }
 
+    /// 把应用里选中的一段文字交给云端纠错（壳里快捷键触发）：中文改错别字与标点、英文改拼写与语法，
+    /// 不翻译、不改原意。云服务关着、私密输入中、文字为空时不发，返回 `None`；
+    /// 结果从 [`Self::poll_prediction`] 的 `sentence` 里出。不进学习、不动缓冲区。
+    pub fn request_correction(&mut self, text: &str) -> Option<u64> {
+        let text = text.trim();
+        if !self.predictor.is_enabled() || self.private || text.is_empty() {
+            return None;
+        }
+        self.prediction_sequence += 1;
+        let request = PredictionRequest {
+            sequence: self.prediction_sequence,
+            kind: PredictionKind::Correct,
+            before: String::new(),
+            after: String::new(),
+            pinyin: String::new(),
+            letters: String::new(),
+            syllables: 0,
+            candidates: Vec::new(),
+            guess: String::new(),
+            max_items: 1,
+            want_sentence: true,
+            text: text.to_owned(),
+            target_language: String::new(),
+        };
+        self.last_prediction_kind = PredictionKind::Correct;
+        self.predictor.submit(request);
+        Some(self.prediction_sequence)
+    }
+
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;

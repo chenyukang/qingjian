@@ -6,9 +6,21 @@ impl QingjianInputController {
     /// Option+数字：上屏当前页第几个候选的译文（学习和拼音消耗与选那个候选一样）。
     /// 不在组句中时不管；候选没有译文就吞掉按键不动，免得 ¡™£ 进应用。
     /// 翻译应用里选中的文字：云服务关着、密码框、没有选区都不动（键交回应用）。
+    /// 翻译选中的文字（`[shortcut] translate_selection`）。
     pub(super) fn translate_selection(&self, client: TextClient<'_>) -> bool {
+        self.selection_job(client, SelectionJob::Translate)
+    }
+
+    /// 纠错选中的文字（`[shortcut] correct_selection`）：中文改错别字与标点、英文改拼写与语法，不翻译。
+    pub(super) fn correct_selection(&self, client: TextClient<'_>) -> bool {
+        self.selection_job(client, SelectionJob::Correct)
+    }
+
+    /// 翻译 / 纠错共用的流程：读应用里的选区 → 交给云端 → 结果进候选窗口等回车替换。
+    fn selection_job(&self, client: TextClient<'_>, job: SelectionJob) -> bool {
+        let (label, placeholder) = job.texts();
         if !host::with(|h| h.engine.prediction_enabled()).unwrap_or(false) {
-            tracing::info!("云服务没开，翻译快捷键不生效");
+            tracing::info!(label, "云服务没开，这个快捷键不生效");
             return false;
         }
         if secure_input::enabled() {
@@ -21,7 +33,7 @@ impl QingjianInputController {
             let anchor = client.caret_rect();
             host::with(|h| {
                 h.show_notice(
-                    "没有选中的文字，或这个应用不支持读取选区（最多 500 字）",
+                    &format!("没有选中的文字，或这个应用不支持读取选区（{label}，最多 500 字）"),
                     anchor,
                 )
             });
@@ -31,14 +43,18 @@ impl QingjianInputController {
         let anchor = client.caret_rect();
         let sent = host::with(|h| {
             h.anchor = anchor;
-            h.engine.request_translation(&text).is_some()
+            match job {
+                SelectionJob::Translate => h.engine.request_translation(&text),
+                SelectionJob::Correct => h.engine.request_correction(&text),
+            }
+            .is_some()
         })
         .unwrap_or(false);
         if !sent {
             return false;
         }
-        tracing::debug!(chars = text.chars().count(), "翻译选中文字");
-        host::with(|h| h.begin_translation(range));
+        tracing::debug!(chars = text.chars().count(), label, "选中文字交给云端");
+        host::with(|h| h.begin_translation(range, placeholder));
         true
     }
 
@@ -115,5 +131,22 @@ impl QingjianInputController {
         host::with(|h| h.status = Some(message));
         self.render(client);
         true
+    }
+}
+
+/// 选中文字交给云端的两种任务：翻译（译成学习语言 / 译回中文）与纠错（中文改错别字、英文改拼写语法）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelectionJob {
+    Translate,
+    Correct,
+}
+
+impl SelectionJob {
+    /// 日志里用的名字，与候选窗口里的占位文字。
+    fn texts(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Translate => ("翻译", "翻译中…"),
+            Self::Correct => ("纠错", "纠错中…"),
+        }
     }
 }

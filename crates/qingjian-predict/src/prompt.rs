@@ -54,11 +54,16 @@ text（选中的原文）、target_language（目标语言代码：zh 中文、e
 不要解释、不要加引号、不要加「译文：」之类的前缀。\
 输出 JSON：{\"sentence\": \"译文\"}";
 
+/// 纠错的系统提示：中文改错别字与标点，英文改拼写语法；不翻译、不改原意，只要改好的文本。
+pub const CORRECT_SYSTEM_PROMPT: &str = "\
+你是一个输入法的纠错助手。用户在应用里选中了一段文字并按了纠错快捷键，你会收到 JSON：text（选中的原文，可能是中文、英文或中英混排）。只改真正的错处：中文改错别字、用错的词与明显标点问题；英文改拼写、语法、大小写、单复数与搭配；中英之间的空格按书写习惯补上。保持原文的语言、意思、语气、换行与 Markdown / 代码结构，不要翻译、不要润色、不要改写、不要增删内容，没有错就原样返回。不要解释、不要加引号、不要加「纠错：」之类的前缀。输出 JSON：{\"sentence\": \"改好的文本\"}";
+
 pub fn system_prompt(request: &PredictionRequest) -> &'static str {
     match request.kind {
         PredictionKind::Compose => SYSTEM_PROMPT,
         PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
         PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT,
+        PredictionKind::Correct => CORRECT_SYSTEM_PROMPT,
     }
 }
 
@@ -293,6 +298,20 @@ mod tests {
             text: String::new(),
             target_language: String::new(),
         }
+    }
+
+    #[test]
+    fn each_request_kind_gets_its_own_system_prompt() {
+        let mut request = request("nihao", true);
+        request.kind = PredictionKind::Translate;
+        assert_eq!(system_prompt(&request), TRANSLATE_SYSTEM_PROMPT);
+        request.kind = PredictionKind::Correct;
+        assert_eq!(system_prompt(&request), CORRECT_SYSTEM_PROMPT);
+        // 纠错不翻译、不润色，只改错处
+        assert!(CORRECT_SYSTEM_PROMPT.contains("不要润色"));
+        assert!(
+            CORRECT_SYSTEM_PROMPT.contains("不要翻译") || CORRECT_SYSTEM_PROMPT.contains("不翻译")
+        );
     }
 
     #[test]

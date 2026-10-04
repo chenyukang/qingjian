@@ -27,6 +27,16 @@ impl KeyCombo {
         key: 't',
     };
 
+    pub const CORRECT_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: true,
+            shift: false,
+            control: true,
+            command: false,
+        },
+        key: 'c',
+    };
+
     /// 配置文件里的写法。
     pub fn key_string(&self) -> String {
         format!("{}+{}", self.modifiers.key(), self.key)
