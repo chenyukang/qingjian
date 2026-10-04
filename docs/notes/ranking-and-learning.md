@@ -65,6 +65,15 @@
 - 不要 `killall -9 TextInputMenuAgent TextInputSwitcher`（会把输入法栈搞坏）；重启输入法只 `pkill -x qingjian-macos`，
   或重装（`bundle.sh --install` 结尾自己会 kill）。
 - 判断跑的是不是新构建：进程启动时间（`ps -o lstart=`）晚于二进制 mtime。
+- **Electron / CodeMirror 里「替换选区 + 回车」要靠合成状态**（2026-10-04，AI 纠错上线）：
+  选中文字 → 快捷键 → 结果回来 → 回车接受时，Obsidian 会在选中那行的**上面**多出一个空行。
+  判据是两个 5 秒实验：**打拼音（有合成）时按回车不多空行**、**用空格接受不多空行** ——
+  即「有合成时按键先交给输入法」，而替换本身没问题。
+  三种替换写法都试过、都不对：`insertText:replacementRange:`（只有普通输入框 Chrome 认范围，
+  Electron 忽略）、`marked text + insertText` 在**接受那一刻**才建合成（回车已经被编辑器吃掉）、
+  裸 `insertText`（选区还留着）。
+  正解：**窗口一打开就把选区标成合成**（`setMarkedText` 带 replacementRange，内容先放原文），
+  接受 / 放弃时在合成里换成结果或原文再提交 —— 合成在手，回车就漏不进编辑器。
 - **别反复杀输入法与输入源 agent，坏了只有注销能修**（2026-10-04 把用户的输入法搞成"只能打英文"）：
   排查中反复 `pkill qingjian-macos`、还杀过 `TextInputMenuAgent` / `TextInputSwitcher`，之后系统在选青简时
   静默退回 ABC——进程能手动拉起、`tisl` 显示输入源已选中、签名有效、启动日志无报错，**从这些检查里看不出问题**，
