@@ -7,6 +7,19 @@ impl QingjianInputController {
     pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
         self.note_application(&client);
+        // 翻译 / 纠错结果开着时，回车就是「接受」，与空格同义。回车不走按键事件，
+        // 而是从 `doCommandBySelector:` 过（`insertNewline:`），不在最前面接住就和空格行为不一致：
+        // 原来它落到下面的 `pass_through('\n')`，往文档里打了个换行（实测反馈「回车和空格不一样」）
+        if host::with(|h| h.translation.is_some()).unwrap_or(false) {
+            // 回车 / 小键盘回车接受，Esc 放弃；都走命令路径（`insertNewline:` / `cancelOperation:`），
+            // 不在最前面接住就会落到下面的分支：回车往文档里打换行、Esc 什么也不做
+            if selector == sel!(insertNewline:) {
+                return self.handle_translation_review(36, client);
+            }
+            if selector == sel!(cancelOperation:) {
+                return self.handle_translation_review(53, client);
+            }
+        }
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；

@@ -83,7 +83,16 @@ impl QingjianInputController {
 
     /// 记下光标位置并按会话状态重画候选窗口。
     pub(super) fn render(&self, client: TextClient<'_>) {
-        let anchor = client.caret_rect();
+        // 翻译 / 纠错进行中：锚点用开始那一刻算好的（选区矩形或鼠标），别被这里覆盖——
+        // `caret_rect()` 问的是第 0 个字符，很多应用返回文档开头，弹框会跳到屏幕角落（实测反馈）
+        let anchor = host::with(|h| {
+            if h.translation.is_some() {
+                h.anchor
+            } else {
+                client.caret_rect()
+            }
+        })
+        .unwrap_or_else(|| client.caret_rect());
         host::with(|h| {
             h.anchor = anchor;
             h.render();
