@@ -91,7 +91,7 @@ impl QingjianInputController {
                             chars = result.chars().count(),
                             location = job.range.location,
                             length = job.range.length,
-                            "接受翻译 / 纠错结果（marked → insert 替换选区）"
+                            "接受翻译 / 纠错结果（insertText 替换选区）"
                         );
                         client.replace_range(&result, job.range);
                         host::with(|h| {
