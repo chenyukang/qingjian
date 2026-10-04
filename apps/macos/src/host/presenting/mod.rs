@@ -44,6 +44,7 @@ impl Host {
             original: original.to_owned(),
             unchanged_notice,
         });
+        tracing::info!(?self.anchor, "弹框开始显示（锚点）");
         self.reset_session(None, vec![cloud_candidate(placeholder.to_owned())]);
         self.await_prediction();
         self.render();

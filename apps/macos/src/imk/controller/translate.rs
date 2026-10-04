@@ -39,11 +39,17 @@ impl QingjianInputController {
             });
             return true;
         };
-        // 弹框锚点先在借用之外取好：取的过程会等应用回话，期间别的 IMK 回调可能重入。
-        // 优先用**选区**的矩形；应用不支持 `firstRectForCharacterRange:`（或返回零矩形）时退到鼠标位置——
-        // 用户刚用鼠标选完字，弹在鼠标旁最自然；原来用的 `caret_rect()` 问的是第 0 个字符，
-        // 很多应用返回文档开头，弹框就跑到角落去了
-        let anchor = client.rect_for_range(range).unwrap_or_else(mouse_anchor);
+        // 弹框锚点：**跟当前鼠标**。三种「问应用要位置」的办法都不靠谱：
+        // `caret_rect()` 问第 0 个字符（很多应用返回文档开头）、`firstRectForCharacterRange:`
+        // 在不少应用返回视图坐标或第一行、选区矩形的坐标系各家不一。锚在鼠标是最可预期的；
+        // 上下翻转与屏幕夹取由候选窗口自己负责
+        let anchor = mouse_anchor();
+        tracing::info!(
+            label,
+            chars = text.chars().count(),
+            ?anchor,
+            "选中文字的云端任务（锚在鼠标）"
+        );
         let sent = host::with(|h| {
             h.anchor = anchor;
             match job {
@@ -68,6 +74,11 @@ impl QingjianInputController {
             return false;
         };
         let label_hint = job.unchanged_notice;
+        tracing::info!(
+            key,
+            has_result = job.result.is_some(),
+            "翻译 / 纠错窗口收到按键"
+        );
         match key {
             // 回车 / 小键盘回车 / 空格 / 1：接受。结果还没回来时不能默默吞掉这个键
             // ——用户会以为「回车不接受、空格才接受」（实测反馈），这里明确告诉他还在等

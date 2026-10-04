@@ -11,6 +11,7 @@ impl QingjianInputController {
         // 而是从 `doCommandBySelector:` 过（`insertNewline:`），不在最前面接住就和空格行为不一致：
         // 原来它落到下面的 `pass_through('\n')`，往文档里打了个换行（实测反馈「回车和空格不一样」）
         if host::with(|h| h.translation.is_some()).unwrap_or(false) {
+            tracing::info!(selector = %selector, "翻译 / 纠错窗口：命令路径收到键");
             // 回车 / 小键盘回车接受，Esc 放弃；都走命令路径（`insertNewline:` / `cancelOperation:`），
             // 不在最前面接住就会落到下面的分支：回车往文档里打换行、Esc 什么也不做
             if selector == sel!(insertNewline:) {

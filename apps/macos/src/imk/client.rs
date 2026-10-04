@@ -117,25 +117,6 @@ impl<'a> TextClient<'a> {
 
     /// 光标（marked text 起点）所在行在屏幕坐标系里的矩形，用来定位候选窗口。
     /// 应用不支持时返回零矩形，窗口就会落在屏幕左下角，至少看得见。
-    /// 一段字符在屏幕上的矩形（`firstRectForCharacterRange:`）。翻译 / 纠错的弹框锚点用它，
-    /// 而不是 [`Self::caret_rect`]：后者问的是第 0 个字符，很多应用给的是文档开头，
-    /// 弹框会跑到屏幕角落（实测反馈「位置有时候不对」）。拿不到（零矩形、NaN）时返回 `None`。
-    pub fn rect_for_range(&self, range: objc2_foundation::NSRange) -> Option<NSRect> {
-        let mut actual = objc2_foundation::NSRange {
-            location: 0,
-            length: 0,
-        };
-        let rect: NSRect = unsafe {
-            msg_send![self.object, firstRectForCharacterRange: range, actualRange: &mut actual]
-        };
-        (rect.origin.x.is_finite()
-            && rect.origin.y.is_finite()
-            && rect.size.width.is_finite()
-            && rect.size.height.is_finite()
-            && rect.size.height > 0.0)
-            .then_some(rect)
-    }
-
     pub fn caret_rect(&self) -> NSRect {
         let mut rect = NSRect::ZERO;
         unsafe {
