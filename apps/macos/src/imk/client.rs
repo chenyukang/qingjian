@@ -61,21 +61,42 @@ impl<'a> TextClient<'a> {
     }
 
     /// 用 `text` 替换应用里 `range` 那段文字（翻译结果替换选区）。
-    /// 用 `text` 替换应用里选中的那段文字（翻译 / 纠错结果上屏）。
+    /// 把应用里选中的 `range` 标成一段**合成文本**（marked text），内容先放原文 `text`。
     ///
-    /// 只调 `insertText:`、**不传 `replacementRange`**：Chromium 系（Chrome、Electron）里
-    /// 「插入文本替换当前选区」是它自己的标准语义（就是选中文字后打字会覆盖它的机制）。
-    /// 三种写法都试过：
-    ///
-    /// - `insertText:replacementRange:`：只有普通输入框（Chrome）认范围，Electron（Obsidian）
-    ///   忽略范围、把文本放光标处，选区留着被应用自己的回车吃掉
-    /// - `setMarkedText:` + `insertText:`（marked text 两步）：选区能替换，但 Obsidian 的编辑器
-    ///   把合成当块级内容，提交时在上一行多出一个空行
-    /// - 现在的写法：交给应用自己替换选区
-    ///
-    /// `range` 只用于日志（接受时已经记下 location / length），这里不再使用。
-    pub fn replace_range(&self, text: &str, _range: NSRange) {
-        self.insert_text(text);
+    /// 翻译 / 纠错窗口一打开就调它，之后整段对话都在合成状态下进行：Chromium / Electron 在
+    /// **有合成时会把按键先交给输入法**（实测：Obsidian 里打拼音时按回车不会多出空行，
+    /// 而没有合成时按回车会被编辑器吃掉选区、再插一个换行）。原文先当合成内容，视觉上只是被划上
+    /// 合成下划线；结果回来后在 [`Self::finish_review`] 里换成结果并提交。
+    pub fn begin_review(&self, text: &str, range: NSRange) {
+        let string = NSString::from_str(text);
+        let end = NSRange::new(string.length(), 0);
+        unsafe {
+            let _: () = msg_send![
+                self.object,
+                setMarkedText: &*string,
+                selectionRange: end,
+                replacementRange: range
+            ];
+        }
+    }
+
+    /// 结束合成：把合成内容换成 `text` 并提交（接受用结果、放弃用原文）。
+    pub fn finish_review(&self, text: &str) {
+        let string = NSString::from_str(text);
+        let end = NSRange::new(string.length(), 0);
+        unsafe {
+            let _: () = msg_send![
+                self.object,
+                setMarkedText: &*string,
+                selectionRange: end,
+                replacementRange: NO_REPLACEMENT
+            ];
+            let _: () = msg_send![
+                self.object,
+                insertText: &*string,
+                replacementRange: NO_REPLACEMENT
+            ];
+        }
     }
 
     pub fn surrounding_text(&self, before: usize, after: usize) -> Option<SurroundingText> {

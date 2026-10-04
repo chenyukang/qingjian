@@ -63,6 +63,8 @@ impl QingjianInputController {
             return false;
         }
         tracing::debug!(chars = text.chars().count(), label, "选中文字交给云端");
+        // 先把这个选区标成合成：之后应用会把按键先交给我们，回车不会漏进编辑器
+        client.begin_review(&text, range);
         host::with(|h| h.begin_translation(range, placeholder, &text, unchanged_notice));
         true
     }
@@ -91,9 +93,9 @@ impl QingjianInputController {
                             chars = result.chars().count(),
                             location = job.range.location,
                             length = job.range.length,
-                            "接受翻译 / 纠错结果（insertText 替换选区）"
+                            "接受翻译 / 纠错结果（合成提交）"
                         );
-                        client.replace_range(&result, job.range);
+                        client.finish_review(&result);
                         host::with(|h| {
                             h.end_translation();
                             h.swallow_newline = from_return;
@@ -109,8 +111,10 @@ impl QingjianInputController {
                 }
                 true
             }
-            // Esc：放弃
+            // Esc：放弃——把合成内容还原成原文再提交，等于什么都没改
             53 => {
+                tracing::info!("放弃翻译 / 纠错结果（合成还原为原文）");
+                client.finish_review(&job.original);
                 host::with(|h| {
                     h.end_translation();
                     h.swallow_newline = false;
