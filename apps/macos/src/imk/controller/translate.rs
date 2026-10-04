@@ -86,7 +86,13 @@ impl QingjianInputController {
                 let from_return = matches!(key, 36 | 76);
                 match job.result {
                     Some(result) => {
-                        tracing::info!(key, chars = result.chars().count(), "接受翻译 / 纠错结果");
+                        tracing::info!(
+                            key,
+                            chars = result.chars().count(),
+                            location = job.range.location,
+                            length = job.range.length,
+                            "接受翻译 / 纠错结果（marked → insert 替换选区）"
+                        );
                         client.replace_range(&result, job.range);
                         host::with(|h| {
                             h.end_translation();

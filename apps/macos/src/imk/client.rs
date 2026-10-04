@@ -61,10 +61,27 @@ impl<'a> TextClient<'a> {
     }
 
     /// 用 `text` 替换应用里 `range` 那段文字（翻译结果替换选区）。
+    /// 用 `text` 替换应用里的 `range`（翻译 / 纠错结果上屏）。
+    ///
+    /// 走「先标成 marked text（带上要替换的范围），再提交」两步，而不是直接
+    /// `insertText:replacementRange:`：Chromium / Electron 那类应用（实测 Obsidian）只认 marked text
+    /// 上的 `replacementRange`，直接插入会**忽略范围**、把文本放到光标处，用户的选区留着，
+    /// 随后又被应用自己的回车吃掉（Chrome 的普通输入框两种都认，所以只有 Obsidian 出问题）。
     pub fn replace_range(&self, text: &str, range: NSRange) {
         let string = NSString::from_str(text);
+        let end = NSRange::new(string.length(), 0);
         unsafe {
-            let _: () = msg_send![self.object, insertText: &*string, replacementRange: range];
+            let _: () = msg_send![
+                self.object,
+                setMarkedText: &*string,
+                selectionRange: end,
+                replacementRange: range
+            ];
+            let _: () = msg_send![
+                self.object,
+                insertText: &*string,
+                replacementRange: NO_REPLACEMENT
+            ];
         }
     }
 
