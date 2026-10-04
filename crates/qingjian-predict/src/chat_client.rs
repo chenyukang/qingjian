@@ -66,7 +66,19 @@ impl ChatClient {
         let content = self
             .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
             .await?;
-        Ok(prompt::parse_reply(&content, request))
+        let reply = prompt::parse_reply(&content, request);
+        // 手动任务（翻译 / 纠错）解析不出文本时把原始回复记下来：模型偶尔不按 JSON 回，
+        // 光看「没有给出译文」没法判断是没回、还是回了个别的形状（2026-10-04 纠错第一次上线时踩到）
+        if reply.is_empty()
+            && matches!(
+                request.kind,
+                qingjian_core::PredictionKind::Translate | qingjian_core::PredictionKind::Correct
+            )
+        {
+            let head: String = content.chars().take(200).collect();
+            tracing::info!(chars = content.chars().count(), content = %head, kind = ?request.kind, "回复里没有可用文本");
+        }
+        Ok(reply)
     }
 
     /// 一问一答：系统提示 + 用户消息，要 JSON 对象，返回正文。联想与释义兜底共用。

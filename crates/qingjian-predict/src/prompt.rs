@@ -158,12 +158,54 @@ impl Reply {
 }
 
 /// 模型回复的原始形状，缺的字段当空。
+/// 手动任务（翻译 / 纠错）的回复取文本：先认 `sentence`，再认几个常见键名，最后把整段当纯文本。
+/// 模型偶尔不包 JSON、或者换个键名，这里宽容一点；反正结果在候选窗口里要用户回车才生效。
+fn plain_reply(content: &str, raw: &RawReply) -> Option<String> {
+    raw.sentence
+        .as_deref()
+        .or(raw.corrected.as_deref())
+        .or(raw.result.as_deref())
+        .or(raw.output.as_deref())
+        .map(str::to_owned)
+        .or_else(|| plain_text(content))
+        .map(|text| text.trim().to_owned())
+        .filter(|text| !text.is_empty())
+}
+
+/// 把一段回复当纯文本：剥掉 ``` 围栏（可选的语言标记）与首尾的引号。
+fn plain_text(content: &str) -> Option<String> {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let fenced = trimmed.strip_prefix("```").map(|rest| {
+        let rest = rest
+            .trim_start_matches(|c: char| c.is_ascii_alphanumeric())
+            .trim_start();
+        rest.strip_suffix("```").unwrap_or(rest)
+    });
+    let text = fenced.unwrap_or(trimmed).trim();
+    let text = text
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+        .unwrap_or(text);
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_owned())
+}
+
 #[derive(Deserialize, Default)]
 #[serde(default)]
 struct RawReply {
     words: Vec<RawWord>,
 
     sentence: Option<String>,
+
+    /// 手动任务（翻译 / 纠错）时模型偶尔换个键名给结果。
+    corrected: Option<String>,
+
+    /// 同上，另两个常见写法。
+    result: Option<String>,
+    output: Option<String>,
 
     /// 问字模式的答案。
     answers: Vec<RawWord>,
@@ -179,21 +221,32 @@ struct RawWord {
 
 /// 解析模型回复：去空、去重、去换行，截到 `max_items`。不要与本地首选相同的词，也不要没给拼音的词。
 pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
+    let manual = matches!(
+        request.kind,
+        PredictionKind::Translate | PredictionKind::Correct
+    );
     let raw: RawReply = match serde_json::from_str(content.trim()) {
         Ok(raw) => raw,
+        Err(_) if manual => {
+            // 模型没包 JSON、直接写正文（翻译/纠错常见）：把整段当结果，别丢空
+            return Reply {
+                words: Vec::new(),
+                sentence: plain_text(content),
+            };
+        }
         Err(_) => return Reply::default(),
     };
     if request.kind == PredictionKind::Question {
         return parse_answers(raw.answers, request.max_items);
     }
-    if request.kind == PredictionKind::Translate {
-        // 译文保留换行（原文可能是多段），只去首尾空白
+    if matches!(
+        request.kind,
+        PredictionKind::Translate | PredictionKind::Correct
+    ) {
+        // 译文 / 纠错结果保留换行（原文可能是多段），只去首尾空白
         return Reply {
             words: Vec::new(),
-            sentence: raw
-                .sentence
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty()),
+            sentence: plain_reply(content, &raw),
         };
     }
     let mut reply = Reply::default();
@@ -298,6 +351,35 @@ mod tests {
             text: String::new(),
             target_language: String::new(),
         }
+    }
+
+    #[test]
+    fn manual_replies_tolerate_plain_text_and_other_keys() {
+        let mut correct = request("", true);
+        correct.kind = PredictionKind::Correct;
+        correct.text = "this are a apple".to_owned();
+        let sentence = |content: &str| parse_reply(content, &correct).sentence.clone();
+        // 1) 标准 JSON
+        assert_eq!(
+            sentence(r#"{"sentence": "this is an apple"}"#).as_deref(),
+            Some("this is an apple")
+        );
+        // 2) 换个键名（模型偶尔用 corrected / result / output）
+        assert_eq!(
+            sentence(r#"{"corrected": "this is an apple"}"#).as_deref(),
+            Some("this is an apple")
+        );
+        // 3) 不包 JSON，直接写正文（可能还带 ``` 围栏）
+        assert_eq!(
+            sentence("```\nthis is an apple\n```").as_deref(),
+            Some("this is an apple")
+        );
+        assert_eq!(
+            sentence("今天天气不错。").as_deref(),
+            Some("今天天气不错。")
+        );
+        // 4) 组句请求仍然严格：纯文本不当结果
+        assert!(parse_reply("纯文本", &request("nihao", true)).is_empty());
     }
 
     #[test]
