@@ -31,7 +31,12 @@ impl Engine {
             self.remember_commit(LastCommit::plain(text));
             // 全角标点也是文本流的一部分，与直通字符攒在一起
             self.passthrough_pending.push_str(text);
-        } else {
+        } else if !c.is_ascii_alphanumeric() {
+            // 转不成全角的标点（`-`、`/`）算打断文本流，后面的接缝不再补空格。
+            // 但**字母数字不算打断**：壳对每个字符都是先 `punctuate` 再 `pass_through`，
+            // 数字没法组句、只能直通，这里一清 `recent_commits`，紧接着的
+            // `note_passthrough('9')` 就看不到前面的汉字了（`基本9` 前面补不出空格，
+            // 后面那个空格是 `点` 上屏时按接缝补的，于是只剩一边有空格）
             self.recent_commits.clear();
         }
         self.chain.reset();
