@@ -11,7 +11,7 @@ pub struct Punctuation {
     /// 下一个 `'` 是左引号。
     single_quote_open: bool,
 
-    /// 上一个上屏字符是 ASCII 数字：`3.14` 里的 `.` 保持半角。
+    /// 上一个上屏字符是 ASCII 数字：`3.14` 里的 `.`、`14:00` 里的 `:` 保持半角。
     after_digit: bool,
 }
 
@@ -23,9 +23,12 @@ impl Punctuation {
             ',' => "，",
             '.' if after_digit => return None,
             '.' => "。",
+            // 数字之间的冒号保持半角：时间 `14:00`、比分 `3:1`。
+            // 全角 `：` 的点在 1em 方框里居中，夹在数字之间看着两侧都是空白
+            ':' if after_digit => return None,
+            ':' => "：",
             '?' => "？",
             '!' => "！",
-            ':' => "：",
             ';' => "；",
             '(' => "（",
             ')' => "）",
@@ -88,5 +91,28 @@ mod tests {
         assert_eq!(p.convert('.'), None);
         p.note_committed("开发");
         assert_eq!(p.convert('.'), Some("。"));
+    }
+
+    #[test]
+    fn colon_after_digit_stays_ascii() {
+        let mut p = Punctuation::default();
+        // 时间：14:00
+        for c in "14".chars() {
+            p.note_passthrough(c);
+        }
+        assert_eq!(p.convert(':'), None);
+        // 秒：14:00:30
+        p.note_passthrough('0');
+        p.note_passthrough('0');
+        assert_eq!(p.convert(':'), None);
+        // 数字与冒号之间隔了空格就不是时间了，转全角
+        p.note_passthrough('4');
+        p.note_passthrough(' ');
+        assert_eq!(p.convert(':'), Some("："));
+        // 上屏的词以数字结尾同样算
+        p.note_committed("第1");
+        assert_eq!(p.convert(':'), None);
+        p.note_committed("开发");
+        assert_eq!(p.convert(':'), Some("："));
     }
 }
