@@ -65,6 +65,11 @@
 - 不要 `killall -9 TextInputMenuAgent TextInputSwitcher`（会把输入法栈搞坏）；重启输入法只 `pkill -x qingjian-macos`，
   或重装（`bundle.sh --install` 结尾自己会 kill）。
 - 判断跑的是不是新构建：进程启动时间（`ps -o lstart=`）晚于二进制 mtime。
+- **别反复杀输入法与输入源 agent，坏了只有注销能修**（2026-10-04 把用户的输入法搞成"只能打英文"）：
+  排查中反复 `pkill qingjian-macos`、还杀过 `TextInputMenuAgent` / `TextInputSwitcher`，之后系统在选青简时
+  静默退回 ABC——进程能手动拉起、`tisl` 显示输入源已选中、签名有效、启动日志无报错，**从这些检查里看不出问题**，
+  只有**注销重登**重建输入法栈才恢复。同类操作（kill 进程、改输入源启用状态、`launchctl kickstart imk*`）请先
+  想想有没有只读的确认办法，别在同一台正在用的机器上反复试。
 - **`bundle.sh --install` 结尾会 kill 输入法，别以为系统一定会按需自启**：客户端那边输入源仍显示"已激活"
   时不会产生新的激活事件，于是输入法一直不拉起、用户发现"打不出字"（2026-10-04 踩到，用户正在用）。
   装完要么显式启动一次，要么让用户切一次输入源；验证进程活着：`pgrep -x qingjian-macos`。
