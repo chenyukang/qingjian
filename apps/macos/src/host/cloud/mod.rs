@@ -88,17 +88,28 @@ impl Host {
 
     pub(super) fn apply_prediction(&mut self, prediction: Prediction) {
         // 翻译选中文字：译文作为唯一候选摆进窗口，等用户回车替换或 Esc 放弃
-        if let Some(job) = self.translation.as_mut() {
-            match prediction.sentence {
-                Some(text) => {
+        if self.translation.is_some() {
+            if let Some(text) = prediction.sentence {
+                let unchanged = {
+                    let Some(job) = self.translation.as_mut() else {
+                        return;
+                    };
                     job.result = Some(text.clone());
+                    (text == job.original).then_some(job.unchanged_notice)
+                };
+                if let Some(notice) = unchanged {
+                    // 结果与原文一样：让用户按回车等于什么都没改，不如直说
+                    tracing::info!("云端没有改动");
+                    self.end_translation();
+                    let anchor = self.anchor;
+                    self.show_notice(notice, anchor);
+                } else {
                     self.reset_session(None, vec![cloud_candidate(text)]);
                     self.render();
                 }
-                None => {
-                    tracing::info!("云端没有给出译文");
-                    self.end_translation();
-                }
+            } else {
+                tracing::info!("云端没有给出译文");
+                self.end_translation();
             }
             return;
         }

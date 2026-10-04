@@ -56,7 +56,7 @@ text（选中的原文）、target_language（目标语言代码：zh 中文、e
 
 /// 纠错的系统提示：中文改错别字与标点，英文改拼写语法；不翻译、不改原意，只要改好的文本。
 pub const CORRECT_SYSTEM_PROMPT: &str = "\
-你是一个输入法的纠错助手。用户在应用里选中了一段文字并按了纠错快捷键，你会收到 JSON：text（选中的原文，可能是中文、英文或中英混排）。只改真正的错处：中文改错别字、用错的词与明显标点问题；英文改拼写、语法、大小写、单复数与搭配；中英之间的空格按书写习惯补上。保持原文的语言、意思、语气、换行与 Markdown / 代码结构，不要翻译、不要润色、不要改写、不要增删内容，没有错就原样返回。不要解释、不要加引号、不要加「纠错：」之类的前缀。输出 JSON：{\"sentence\": \"改好的文本\"}";
+你是一个输入法的纠错助手。用户在应用里选中了一段文字并按了纠错快捷键，你会收到 JSON：text（选中的原文，可能是中文、英文或中英混排）。只改真正的错处：中文改错别字、用错的词与明显标点问题；英文改拼写、语法、大小写、单复数与搭配；中英之间的空格按书写习惯补上。保持原文的语言、意思、语气、换行与 Markdown / 代码结构，不要翻译、不要润色、不要改写、不要增删内容，**没有错就把 text 原样放进 sentence，sentence 永远不许为空字符串**（模型原来爱回空 sentence，用户按了快捷键却什么都得不到）。不要解释、不要加引号、不要加「纠错：」之类的前缀。输出 JSON：{\"sentence\": \"改好的文本\"}";
 
 pub fn system_prompt(request: &PredictionRequest) -> &'static str {
     match request.kind {
@@ -160,7 +160,7 @@ impl Reply {
 /// 模型回复的原始形状，缺的字段当空。
 /// 手动任务（翻译 / 纠错）的回复取文本：先认 `sentence`，再认几个常见键名，最后把整段当纯文本。
 /// 模型偶尔不包 JSON、或者换个键名，这里宽容一点；反正结果在候选窗口里要用户回车才生效。
-fn plain_reply(content: &str, raw: &RawReply) -> Option<String> {
+fn plain_reply(content: &str, raw: &RawReply, request: &PredictionRequest) -> Option<String> {
     raw.sentence
         .as_deref()
         .or(raw.corrected.as_deref())
@@ -170,6 +170,19 @@ fn plain_reply(content: &str, raw: &RawReply) -> Option<String> {
         .or_else(|| plain_text(content))
         .map(|text| text.trim().to_owned())
         .filter(|text| !text.is_empty())
+        .or_else(|| {
+            // 纠错：模型回了个空 `sentence`（实测遇到 `{"sentence": ""}`）时按「没有需要改的」处理，
+            // 把原文还回去——比什么都不给好。译文不能这么兜底（那等于假装翻译了）
+            if request.kind != PredictionKind::Correct || request.text.trim().is_empty() {
+                return None;
+            }
+            tracing::info!(
+                text = %request.text.chars().take(60).collect::<String>(),
+                content = %content.chars().take(120).collect::<String>(),
+                "纠错回复为空，按没有改动处理"
+            );
+            Some(request.text.trim().to_owned())
+        })
 }
 
 /// 把一段回复当纯文本：剥掉 ``` 围栏（可选的语言标记）与首尾的引号。
@@ -246,7 +259,7 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
         // 译文 / 纠错结果保留换行（原文可能是多段），只去首尾空白
         return Reply {
             words: Vec::new(),
-            sentence: plain_reply(content, &raw),
+            sentence: plain_reply(content, &raw, request),
         };
     }
     let mut reply = Reply::default();
@@ -351,6 +364,25 @@ mod tests {
             text: String::new(),
             target_language: String::new(),
         }
+    }
+
+    #[test]
+    fn an_empty_correction_reply_falls_back_to_the_original_text() {
+        let mut correct = request("", true);
+        correct.kind = PredictionKind::Correct;
+        correct.text = "今天天汽不错".to_owned();
+        // 模型回 `{"sentence": ""}`（上线当天实测遇到）：按「没有需要改的」处理，原文还回去
+        assert_eq!(
+            parse_reply(r#"{"sentence": ""}"#, &correct)
+                .sentence
+                .as_deref(),
+            Some("今天天汽不错")
+        );
+        // 译文不做这个兜底：空就是空，不能假装翻译了
+        let mut translate = correct.clone();
+        translate.kind = PredictionKind::Translate;
+        translate.target_language = "en".to_owned();
+        assert!(parse_reply(r#"{"sentence": ""}"#, &translate).is_empty());
     }
 
     #[test]

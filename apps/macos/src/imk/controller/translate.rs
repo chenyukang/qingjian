@@ -18,7 +18,7 @@ impl QingjianInputController {
 
     /// 翻译 / 纠错共用的流程：读应用里的选区 → 交给云端 → 结果进候选窗口等回车替换。
     fn selection_job(&self, client: TextClient<'_>, job: SelectionJob) -> bool {
-        let (label, placeholder) = job.texts();
+        let (label, placeholder, unchanged_notice) = job.texts();
         if !host::with(|h| h.engine.prediction_enabled()).unwrap_or(false) {
             tracing::info!(label, "云服务没开，这个快捷键不生效");
             return false;
@@ -54,7 +54,7 @@ impl QingjianInputController {
             return false;
         }
         tracing::debug!(chars = text.chars().count(), label, "选中文字交给云端");
-        host::with(|h| h.begin_translation(range, placeholder));
+        host::with(|h| h.begin_translation(range, placeholder, &text, unchanged_notice));
         true
     }
 
@@ -143,10 +143,10 @@ enum SelectionJob {
 
 impl SelectionJob {
     /// 日志里用的名字，与候选窗口里的占位文字。
-    fn texts(self) -> (&'static str, &'static str) {
+    fn texts(self) -> (&'static str, &'static str, &'static str) {
         match self {
-            Self::Translate => ("翻译", "翻译中…"),
-            Self::Correct => ("纠错", "纠错中…"),
+            Self::Translate => ("翻译", "翻译中…", "云端认为原文就是译文，没有改动"),
+            Self::Correct => ("纠错", "纠错中…", "云端认为没有需要修改的地方"),
         }
     }
 }
