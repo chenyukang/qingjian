@@ -7,6 +7,14 @@ impl QingjianInputController {
     pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
         self.note_application(&client);
+        // 刚用回车接受了翻译 / 纠错结果：同一颗键随后送来的这个 `insertNewline:` 要吃掉，
+        // 否则会落到下面「回车交给应用」那条分支，往文档里插一个换行
+        if selector == sel!(insertNewline:)
+            && host::with(|h| std::mem::replace(&mut h.swallow_newline, false)).unwrap_or(false)
+        {
+            tracing::info!("吃掉接受结果后的那个回车命令");
+            return true;
+        }
         // 翻译 / 纠错结果开着时，回车就是「接受」，与空格同义。回车不走按键事件，
         // 而是从 `doCommandBySelector:` 过（`insertNewline:`），不在最前面接住就和空格行为不一致：
         // 原来它落到下面的 `pass_through('\n')`，往文档里打了个换行（实测反馈「回车和空格不一样」）

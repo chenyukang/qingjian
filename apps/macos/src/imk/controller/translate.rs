@@ -73,7 +73,6 @@ impl QingjianInputController {
         let Some(job) = job else {
             return false;
         };
-        let label_hint = job.unchanged_notice;
         tracing::info!(
             key,
             has_result = job.result.is_some(),
@@ -83,11 +82,16 @@ impl QingjianInputController {
             // 回车 / 小键盘回车 / 空格 / 1：接受。结果还没回来时不能默默吞掉这个键
             // ——用户会以为「回车不接受、空格才接受」（实测反馈），这里明确告诉他还在等
             36 | 76 | 49 | 18 => {
+                // 回车系：同一颗键随后还会以 `insertNewline:` 命令送来一次，置标记让它被吃掉
+                let from_return = matches!(key, 36 | 76);
                 match job.result {
                     Some(result) => {
-                        tracing::debug!(%label_hint, "接受结果");
+                        tracing::info!(key, chars = result.chars().count(), "接受翻译 / 纠错结果");
                         client.replace_range(&result, job.range);
-                        host::with(|h| h.end_translation());
+                        host::with(|h| {
+                            h.end_translation();
+                            h.swallow_newline = from_return;
+                        });
                     }
                     None => {
                         tracing::debug!("结果还没到，按键先等一等");
@@ -101,7 +105,10 @@ impl QingjianInputController {
             }
             // Esc：放弃
             53 => {
-                host::with(|h| h.end_translation());
+                host::with(|h| {
+                    h.end_translation();
+                    h.swallow_newline = false;
+                });
                 true
             }
             _ => {

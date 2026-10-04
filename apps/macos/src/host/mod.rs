@@ -131,6 +131,10 @@ pub struct Host {
     /// 纠错选中的文字的快捷键组合（`[shortcut] correct_selection`）。
     pub correct_keys: KeyCombo,
 
+    /// 刚用回车接受了翻译 / 纠错结果：同一颗键随后还会以命令形式（`insertNewline:`）送来一次，
+    /// 那时任务已经结束、会落到「回车交给应用」那条分支往文档里插换行，所以这一次要吃掉。
+    pub swallow_newline: bool,
+
     /// 正在显示的提示（候选窗口里一行字，几秒后自动收）。
     pub notice: Option<Notice>,
 

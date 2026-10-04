@@ -212,6 +212,8 @@ impl QingjianInputController {
         };
         // 提示在显示：敲任何键先收掉，键照常处理
         host::with(|h| h.clear_notice());
+        // 上一颗键留下的「吃掉回车」标记到这里作废：只对同一颗回车后面的那个命令有效
+        host::with(|h| h.swallow_newline = false);
         // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用
         if host::with(|h| h.translation.is_some()).unwrap_or(false) {
             return self.handle_translation_review(key, client);
