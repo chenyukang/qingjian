@@ -30,7 +30,7 @@ impl QingjianInputController {
         let Some((text, range)) = client.selected_text(MAX_TRANSLATE_CHARS) else {
             // 分不清是没选还是应用不给读（不少 Electron 应用不支持），两种情况都提示一下，键吞掉
             tracing::debug!("没有选中的文字，或应用不支持读选区");
-            let anchor = client.caret_rect();
+            let anchor = mouse_anchor();
             host::with(|h| {
                 h.show_notice(
                     &format!("没有选中的文字，或这个应用不支持读取选区（{label}，最多 500 字）"),
@@ -39,8 +39,11 @@ impl QingjianInputController {
             });
             return true;
         };
-        // 光标位置先在借用之外取好：取的过程会等应用回话，期间别的 IMK 回调可能重入
-        let anchor = client.caret_rect();
+        // 弹框锚点先在借用之外取好：取的过程会等应用回话，期间别的 IMK 回调可能重入。
+        // 优先用**选区**的矩形；应用不支持 `firstRectForCharacterRange:`（或返回零矩形）时退到鼠标位置——
+        // 用户刚用鼠标选完字，弹在鼠标旁最自然；原来用的 `caret_rect()` 问的是第 0 个字符，
+        // 很多应用返回文档开头，弹框就跑到角落去了
+        let anchor = client.rect_for_range(range).unwrap_or_else(mouse_anchor);
         let sent = host::with(|h| {
             h.anchor = anchor;
             match job {
@@ -64,13 +67,24 @@ impl QingjianInputController {
         let Some(job) = job else {
             return false;
         };
+        let label_hint = job.unchanged_notice;
         match key {
-            // 回车 / 小键盘回车 / 空格 / 1：接受（译文还没到时先等）
+            // 回车 / 小键盘回车 / 空格 / 1：接受。结果还没回来时不能默默吞掉这个键
+            // ——用户会以为「回车不接受、空格才接受」（实测反馈），这里明确告诉他还在等
             36 | 76 | 49 | 18 => {
-                if let Some(result) = job.result {
-                    tracing::debug!("接受译文");
-                    client.replace_range(&result, job.range);
-                    host::with(|h| h.end_translation());
+                match job.result {
+                    Some(result) => {
+                        tracing::debug!(%label_hint, "接受结果");
+                        client.replace_range(&result, job.range);
+                        host::with(|h| h.end_translation());
+                    }
+                    None => {
+                        tracing::debug!("结果还没到，按键先等一等");
+                        host::with(|h| {
+                            let anchor = h.anchor;
+                            h.show_notice("云端还在算，结果回来后再按回车 / 空格", anchor);
+                        });
+                    }
                 }
                 true
             }
@@ -134,6 +148,14 @@ impl QingjianInputController {
     }
 }
 
+/// 应用给不出位置时的弹框锚点：当前鼠标位置（零高度，候选窗口会贴着它摆）。
+fn mouse_anchor() -> objc2_foundation::NSRect {
+    objc2_foundation::NSRect::new(
+        objc2_app_kit::NSEvent::mouseLocation(),
+        objc2_foundation::NSSize::new(0.0, 0.0),
+    )
+}
+
 /// 选中文字交给云端的两种任务：翻译（译成学习语言 / 译回中文）与纠错（中文改错别字、英文改拼写语法）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelectionJob {
@@ -145,8 +167,12 @@ impl SelectionJob {
     /// 日志里用的名字，与候选窗口里的占位文字。
     fn texts(self) -> (&'static str, &'static str, &'static str) {
         match self {
-            Self::Translate => ("翻译", "翻译中…", "云端认为原文就是译文，没有改动"),
-            Self::Correct => ("纠错", "纠错中…", "云端认为没有需要修改的地方"),
+            Self::Translate => (
+                "翻译",
+                "翻译中…",
+                "✓ 检查完毕：原文就是译文（云端没有改动）",
+            ),
+            Self::Correct => ("纠错", "纠错中…", "✓ 一切完美：没有需要修改的地方"),
         }
     }
 }
