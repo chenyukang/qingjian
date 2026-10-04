@@ -65,6 +65,9 @@
 - 不要 `killall -9 TextInputMenuAgent TextInputSwitcher`（会把输入法栈搞坏）；重启输入法只 `pkill -x qingjian-macos`，
   或重装（`bundle.sh --install` 结尾自己会 kill）。
 - 判断跑的是不是新构建：进程启动时间（`ps -o lstart=`）晚于二进制 mtime。
+- **`bundle.sh --install` 结尾会 kill 输入法，别以为系统一定会按需自启**：客户端那边输入源仍显示"已激活"
+  时不会产生新的激活事件，于是输入法一直不拉起、用户发现"打不出字"（2026-10-04 踩到，用户正在用）。
+  装完要么显式启动一次，要么让用户切一次输入源；验证进程活着：`pgrep -x qingjian-macos`。
 
 ## 测试范围与提交
 
