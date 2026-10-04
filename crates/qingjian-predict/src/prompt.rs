@@ -109,11 +109,24 @@ struct TranslateMessage<'a> {
     target_language: &'a str,
 }
 
+/// 纠错的用户消息。**必须带 `text`**：原来纠错落进了组句那套模板（只有 pinyin / 候选），
+/// 模型根本没看到用户选中的那段文字，自然回一个空句子（2026-10-04 上线当天踩到）。
+#[derive(Serialize)]
+struct CorrectMessage<'a> {
+    text: &'a str,
+}
+
 pub fn user_prompt(request: &PredictionRequest) -> String {
     if request.kind == PredictionKind::Translate {
         return serde_json::to_string(&TranslateMessage {
             text: &request.text,
             target_language: &request.target_language,
+        })
+        .unwrap_or_default();
+    }
+    if request.kind == PredictionKind::Correct {
+        return serde_json::to_string(&CorrectMessage {
+            text: &request.text,
         })
         .unwrap_or_default();
     }
@@ -364,6 +377,17 @@ mod tests {
             text: String::new(),
             target_language: String::new(),
         }
+    }
+
+    #[test]
+    fn a_correction_asks_about_the_selected_text() {
+        let mut correct = request("", true);
+        correct.kind = PredictionKind::Correct;
+        correct.text = "今天天汽不错".to_owned();
+        let prompt = user_prompt(&correct);
+        // 组句那套模板里没有 text，纠错必须有——否则模型看不到要改什么
+        assert!(prompt.contains("今天天汽不错"), "{prompt}");
+        assert!(prompt.contains("\"text\""));
     }
 
     #[test]
