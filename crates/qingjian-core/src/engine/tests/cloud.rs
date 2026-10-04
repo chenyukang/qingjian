@@ -569,3 +569,58 @@ fn restoring_question_preserves_other_compositions() {
         assert!(engine.passthrough_pending.is_empty());
     }
 }
+
+/// 关掉联想（`slots = 0` + `sentence = false`）但要用云端做手动翻译的假 Predictor。
+struct TranslateOnlyPredictor {
+    submitted: std::sync::Arc<std::sync::Mutex<Vec<PredictionRequest>>>,
+}
+
+impl Predictor for TranslateOnlyPredictor {
+    fn policy(&self) -> PredictionPolicy {
+        PredictionPolicy {
+            slots: 0,
+            sentence: false,
+            ..PredictionPolicy::default()
+        }
+    }
+
+    fn submit(&mut self, request: PredictionRequest) {
+        self.submitted.lock().unwrap().push(request);
+    }
+
+    fn poll(&mut self) -> Option<Prediction> {
+        None
+    }
+}
+
+#[test]
+fn translation_works_while_composing_predictions_are_off() {
+    // `[predict] slots = 0` + `sentence = false`：组句时不再发请求（别白白上传光标附近的文本、白花 token），
+    // 但手动翻译（`⌃⌥T`）照旧能用——它只要求云服务开着
+    let submitted = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut engine = self::engine().with_predictor(Box::new(TranslateOnlyPredictor {
+        submitted: submitted.clone(),
+    }));
+
+    engine.set_input("nihao");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(
+        engine.request_prediction(
+            Some(SurroundingText {
+                before: "前文".to_owned(),
+                after: String::new(),
+            }),
+            &items
+        ),
+        None,
+        "联想两个都不要，组句时不该发请求"
+    );
+    assert!(submitted.lock().unwrap().is_empty(), "一个请求都不该发出去");
+
+    let sequence = engine.request_translation("你好世界");
+    assert!(sequence.is_some(), "手动翻译仍然要发");
+    let sent = submitted.lock().unwrap();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].kind, PredictionKind::Translate);
+    assert_eq!(sent[0].text, "你好世界");
+}

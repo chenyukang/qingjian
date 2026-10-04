@@ -92,6 +92,12 @@ impl Engine {
         } else {
             (PredictionKind::Compose, scope, before, after)
         };
+        // 云端词与整句补全都不要（`slots = 0` 且 `sentence = false`）：组句时就不再发请求。
+        // 只想用云端做手动翻译（`request_translation`）的用户，不该被白白上传光标附近的文本、白花 token。
+        // 问字（`?`/`u`）是用户手动触发的，仍然发
+        if matches!(kind, PredictionKind::Compose) && policy.slots == 0 && !policy.sentence {
+            return None;
+        }
         // 双拼：问云端用的是解出来的全拼，不是敲的键
         let decoded = self.decode(pinyin_source);
         let pinyin_source: &str = decoded.as_ref().map_or(pinyin_source, |d| d.pinyin());
