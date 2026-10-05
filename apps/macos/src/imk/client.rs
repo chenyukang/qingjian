@@ -144,6 +144,28 @@ impl<'a> TextClient<'a> {
         bundle.map(|b| b.to_string()).filter(|b| !b.is_empty())
     }
 
+    /// **插入点（光标）**所在行在屏幕坐标系里的矩形 —— 提示类弹框贴光标用。
+    ///
+    /// 与 [`Self::caret_rect`] 的区别：那个问的是**第 0 个字符**，很多应用（Electron / 浏览器）
+    /// 对第 0 个字符回的是文档开头，弹框会跳到屏幕角落（实测反馈）。
+    /// 这里先问应用当前的选中范围（`selectedRange`），再拿插入点问行高矩形 —— 那才是光标所在处。
+    /// 应用不支持时返回零矩形，调用方退回鼠标位置。
+    pub fn insertion_rect(&self) -> NSRect {
+        let mut rect = NSRect::ZERO;
+        unsafe {
+            let range: NSRange = msg_send![self.object, selectedRange];
+            if range.location == NSNotFound as usize {
+                return NSRect::ZERO;
+            }
+            let _: Option<Retained<NSDictionary>> = msg_send![
+                self.object,
+                attributesForCharacterIndex: range.location,
+                lineHeightRectangle: &mut rect
+            ];
+        }
+        rect
+    }
+
     /// 光标（marked text 起点）所在行在屏幕坐标系里的矩形，用来定位候选窗口。
     /// 应用不支持时返回零矩形，窗口就会落在屏幕左下角，至少看得见。
     pub fn caret_rect(&self) -> NSRect {

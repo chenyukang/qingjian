@@ -30,7 +30,7 @@ impl QingjianInputController {
         let Some((text, range)) = client.selected_text(MAX_TRANSLATE_CHARS) else {
             // 分不清是没选还是应用不给读（不少 Electron 应用不支持），两种情况都提示一下，键吞掉
             tracing::debug!("没有选中的文字，或应用不支持读选区");
-            let anchor = mouse_anchor();
+            let anchor = notice_anchor(client);
             host::with(|h| {
                 h.show_notice(
                     &format!("没有选中的文字，或这个应用不支持读取选区（{label}，最多 500 字）"),
@@ -189,7 +189,7 @@ impl QingjianInputController {
             host::with(|h| h.status = Some(message));
             self.render(client);
         } else {
-            let anchor = mouse_anchor();
+            let anchor = notice_anchor(client);
             host::with(|h| h.show_notice(&message, anchor));
         }
         true
@@ -206,7 +206,7 @@ impl QingjianInputController {
             host::with(|h| h.status = Some(message));
             self.render(client);
         } else {
-            let anchor = mouse_anchor();
+            let anchor = notice_anchor(client);
             host::with(|h| h.show_notice(&message, anchor));
         }
         true
@@ -227,6 +227,17 @@ impl QingjianInputController {
         host::with(|h| h.status = Some(message));
         self.render(client);
         true
+    }
+}
+
+/// 提示弹框的锚点：优先贴**光标**（插入点所在行），应用给不出位置时才退回鼠标。
+/// 翻译 / 纠错那种要贴**选区**的仍用鼠标（选区矩形各家坐标系不一，见那里的注释）。
+fn notice_anchor(client: TextClient<'_>) -> objc2_foundation::NSRect {
+    let rect = client.insertion_rect();
+    if rect.size.width > 0.0 || rect.size.height > 0.0 {
+        rect
+    } else {
+        mouse_anchor()
     }
 }
 
