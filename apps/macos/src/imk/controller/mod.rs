@@ -78,6 +78,8 @@ define_class!(
                 }
                 host::with(|h| {
                     h.cancel_prediction();
+                    // 用户切到别的输入法了：桌面上的指示器收起来（「当前不是青简就不显示」）
+                    h.dot.hide();
                     h.window.hide();
                 });
             });
@@ -100,6 +102,8 @@ define_class!(
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
                     h.indicator.activate();
+                    // 输入法激活了：悬浮指示器露出来（开关开着的话）
+                    h.sync_indicator_dot(modifiers::caps_lock_on());
                     h.watch.start();
                 });
             });

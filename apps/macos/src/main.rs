@@ -10,6 +10,7 @@ mod candidates;
 mod error;
 mod host;
 mod imk;
+mod indicator;
 mod menubar;
 mod preferences;
 

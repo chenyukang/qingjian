@@ -39,6 +39,7 @@ impl Host {
         self.hide_keys = config.shortcut.hide_keys();
         self.toggle_english_keys = config.shortcut.toggle_english;
         self.toggle_english_mode_keys = config.shortcut.toggle_english_mode;
+        self.status_bar = config.status_bar.clone();
         self.engine
             .set_english_in_pinyin(config.general.english_in_pinyin);
         self.translate_keys = config.shortcut.translate_selection;
@@ -112,6 +113,8 @@ impl Host {
             .as_deref()
             .is_some_and(|key| !key.trim().is_empty())
             || std::env::var(&config.predict.api_key_env).is_ok_and(|key| !key.trim().is_empty());
+        // 悬浮指示器：开关、位置、颜色都跟着配置走（Caps Lock 的变化由 0.25 秒的轮询补）
+        self.sync_indicator_dot(crate::imk::modifiers::caps_lock_on());
         self.dictionary_list = self.dictionary_infos();
         self.sort_preference_list = self.sort_preference_infos();
         self.preferences.sync(

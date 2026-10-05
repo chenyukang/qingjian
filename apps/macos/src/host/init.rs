@@ -129,6 +129,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             engine,
             window,
             indicator,
+            dot: crate::indicator::Indicator::new(mtm),
+            status_bar: StatusBarConfig::default(),
             menu,
             preferences,
             settings,

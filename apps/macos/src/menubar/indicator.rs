@@ -164,7 +164,11 @@ define_class!(
     impl ModeMonitor {
         #[unsafe(method(tick:))]
         fn tick(&self, _timer: Option<&AnyObject>) {
-            crate::host::with(|h| h.indicator.update());
+            let english = modifiers::caps_lock_on();
+            crate::host::with(|h| {
+                h.indicator.update();
+                h.sync_indicator_dot(english);
+            });
         }
 
         #[unsafe(method(collapse:))]

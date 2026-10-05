@@ -32,7 +32,8 @@ use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
     AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
     GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
+    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, StatusBarConfig, ThemeMode,
+    UpdateChannel,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -67,6 +68,12 @@ pub struct Host {
 
     /// 输入法菜单，挂在状态项和系统输入源菜单上。
     pub menu: InputMenu,
+
+    /// 桌面上的悬浮中 / 英指示器（`[status_bar]`）。
+    pub dot: crate::indicator::Indicator,
+
+    /// `[status_bar]` 当前这份配置（指示器按它摆位置、上色）。
+    pub status_bar: StatusBarConfig,
 
     /// 偏好设置窗口。
     pub preferences: PreferencesWindow,

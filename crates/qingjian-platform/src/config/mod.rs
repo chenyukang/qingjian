@@ -45,7 +45,7 @@ pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
-pub use status_bar::StatusBarConfig;
+pub use status_bar::{Anchor, Color, Shape, StatusBarConfig};
 pub use switch_key::{SwitchKey, SwitchKeys};
 pub use theme_mode::ThemeMode;
 pub use update::{UpdateChannel, UpdateConfig};
@@ -306,7 +306,7 @@ in_ing = false
 
 "#,
     template_apps!(),
-    r#"
+    r##"
 [dictionaries]
 # 随包的领域词库（法律 / 医学 / 地名 / 成语 / 诗词 / IT / 财经 / 饮食 / 动物 / 汽车 / 历史人物），列在这里的才加载；
 # 名字是文件名：animals automotive finance food historical_figures idioms it_computing law medicine places poetry_lines。
@@ -351,10 +351,24 @@ slots = 2
 sentence = true
 
 [status_bar]
-# 桌面上常驻、可拖动的悬浮状态条（Windows）：「中 / 英」格点一下切换模式（开着双拼时还显示方案名）、「，。」格切全角 / 半角标点、齿轮打开设置。
-# 只在当前输入法是青简时显示；与任务栏的中 / 英指示器并存
-# 默认关；开着时可以拖到任意位置，拖到哪下次还在哪（拖动结束时把位置写进下面的 x / y，不用手填）
+# 桌面上的悬浮中 / 英指示器。Windows 是显示「中 / 英」文字的悬浮状态条（可拖动）；
+# macOS 是不抢焦点、点击穿透的小圆点 —— 中文一个颜色、英文另一个颜色，一眼看出当前模式。
+# 只在当前输入法是青简时显示（切换到别的输入法就收起来）；与菜单栏的中 / 英指示器并存
+# 默认关
 enabled = false
+# 位置：anchor 是贴屏幕的哪一角 / 哪条边（top-left / top / top-right / left / center / right / bottom-left / bottom / bottom-right），
+# offset_x / offset_y 是离那两条边的距离（点）。拖动过的话用下面的 x / y（物理像素），不用手填
+anchor = "bottom-right"
+offset_x = 24
+offset_y = 24
+# 形状（circle 圆点 / square 方块 / rounded 圆角方块）与大小（点，6–48）
+shape = "circle"
+size = 12
+# 中文 / 英文输入时的颜色：#RRGGBB，也可以写 red / green / blue / orange / white / black
+chinese_color = "#E5484D"
+english_color = "#46A758"
+# 描一圈白边：深色壁纸和浅色窗口上都看得清
+outline = true
 # 记住的屏幕位置（物理像素，拖动后自动写入）；留空则首次出现在屏幕右下角
 # x = 0
 # y = 0
@@ -364,7 +378,7 @@ enabled = false
 check = true
 # 渠道：stable 只看正式版；beta 还会提示测试版（alpha / beta / rc）
 channel = "stable"
-"#
+"##
 );
 
 impl Config {
@@ -558,6 +572,23 @@ fn write_file(path: &Path, text: &str) -> Result<(), ConfigError> {
         path: path.to_owned(),
         source,
     })
+}
+
+#[cfg(test)]
+mod template_tests {
+    use super::*;
+
+    /// 首次运行写出的那份模板必须能原样读回配置：改模板时写错键名 / 引号会当场发现。
+    #[test]
+    fn the_template_parses_back_into_config() {
+        let config: Config = toml::from_str(TEMPLATE).expect("模板必须是合法配置");
+        // 指示器那节的新项在模板里都列着（用户照着改就行）
+        assert_eq!(config.status_bar.anchor, Anchor::BottomRight);
+        assert_eq!(config.status_bar.shape, Shape::Circle);
+        assert_eq!(config.status_bar.chinese_color, Color::CHINESE);
+        assert_eq!(config.status_bar.english_color, Color::ENGLISH);
+        assert!(config.status_bar.outline);
+    }
 }
 
 #[cfg(test)]
