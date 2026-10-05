@@ -84,7 +84,7 @@ pub(super) fn note_full(layout: &mut Layout, mtm: MainThreadMarker, text: &str) 
 }
 
 /// 说明小字与下一组之间的空隙。
-const NOTE_GAP: f64 = 10.0;
+const NOTE_GAP: f64 = 5.0;
 
 fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width: f64) {
     let label = small_label(mtm, text);

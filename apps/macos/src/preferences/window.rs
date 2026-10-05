@@ -77,8 +77,10 @@ const NAV_ICONS: [NavIcon; 12] = [
 ];
 
 /// 标签视图四周留白、底部状态行高度。
-const TAB_MARGIN: f64 = 14.0;
 const STATUS_HEIGHT: f64 = 18.0;
+
+/// 标题栏高度留给窗口：不算进来窗口会顶出屏幕，拖都拖不动。
+const TITLEBAR_ALLOWANCE: f64 = 30.0;
 
 /// 窗口比屏幕可用高度至少矮这么多（标题栏 + 上下留一点边）；页面比窗口高时自己滚。
 const SCREEN_MARGIN: f64 = 80.0;
@@ -208,7 +210,7 @@ impl PreferencesWindow {
             .map(|(_, layout, _)| layout.height() + PAGE_TOP)
             .fold(MIN_PAGE_HEIGHT, f64::max);
         // 设置项多了以后最高的一页会超出小屏幕：窗口封顶，超高的页放进滚动视图
-        let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
+        let page_height = tallest.min(max_content_height(mtm)).max(MIN_PAGE_HEIGHT);
         let text_x = SIDEBAR_WIDTH + 1.0 + CONTENT_MARGIN;
         let content_size = NSSize::new(
             text_x + PAGE_WIDTH + CONTENT_MARGIN,
@@ -242,11 +244,11 @@ impl PreferencesWindow {
             NSSize::new(170.0, 30.0),
         ));
         sidebar.addSubview(&brand);
-        let version_label = small_label(mtm, &format!("{version}（{build}）"));
+        let version_label = small_label(mtm, &format!("{version} · {build}"));
         version_label.setTextColor(Some(&NSColor::secondaryLabelColor()));
         version_label.setFrame(NSRect::new(
             NSPoint::new(25.0, content_size.height - 80.0),
-            NSSize::new(180.0, 20.0),
+            NSSize::new(184.0, 20.0),
         ));
         sidebar.addSubview(&version_label);
 
@@ -271,7 +273,8 @@ impl PreferencesWindow {
                     NSSize::new(170.0, 18.0),
                 ));
                 sidebar.addSubview(&label);
-                nav_y -= 22.0;
+                // 标题自己 18px 高，再多留 12px 才轮到条目，否则条目顶部压进标题里
+                nav_y -= 30.0;
             }
             let (symbol, color) = NAV_ICONS[index];
             let button = NavigationButton::new(
@@ -487,9 +490,18 @@ impl PreferencesWindow {
 }
 
 /// 一页最高能多高：主屏可用高度减去标题栏、标签栏、状态行与留白。取不到屏幕就不封顶。
-fn max_page_height(mtm: MainThreadMarker) -> f64 {
+/// 窗口整体高度上限：可见区域减掉四周留白、标题栏、状态行与右侧顶部的大标题区。
+///
+/// 以前这里只减旧的标签栏高度，换成"大标题 + 说明"之后 `HEADER_HEIGHT` 没算进来，
+/// 窗口就比屏幕高了 —— 标题栏被顶到屏幕上边以外，窗口都拖不动（踩过）。
+fn max_content_height(mtm: MainThreadMarker) -> f64 {
     NSScreen::mainScreen(mtm).map_or(f64::MAX, |screen| {
-        screen.visibleFrame().size.height - SCREEN_MARGIN - 2.0 * TAB_MARGIN - STATUS_HEIGHT
+        screen.visibleFrame().size.height
+            - SCREEN_MARGIN
+            - TITLEBAR_ALLOWANCE
+            - HEADER_HEIGHT
+            - STATUS_HEIGHT
+            - 16.0
     })
 }
 

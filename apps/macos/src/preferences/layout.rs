@@ -4,10 +4,10 @@ use objc2_app_kit::NSView;
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 /// 行高。
-pub const ROW_HEIGHT: f64 = 30.0;
+pub const ROW_HEIGHT: f64 = 26.0;
 
 /// 行距。
-pub const ROW_GAP: f64 = 12.0;
+pub const ROW_GAP: f64 = 9.0;
 
 /// 页内左右留白。
 pub const PAGE_PADDING: f64 = 24.0;
