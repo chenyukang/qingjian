@@ -23,7 +23,7 @@ pub fn glass_available() -> bool {
 /// 把视图裁成圆角：`wantsLayer` + `CALayer.cornerRadius` + `masksToBounds`。
 ///
 /// 不引 `objc2-quartz-core` 的 feature，直接 `msg_send` 设——这两个属性名很稳定。
-fn round_corners(view: &NSView, corner_radius: f64) {
+pub fn round_corners(view: &NSView, corner_radius: f64) {
     if corner_radius <= 0.0 {
         return;
     }

@@ -20,6 +20,12 @@ pub const MAX_DICTIONARIES: usize = 100;
 /// 「恢复」按钮的 tag 起点（避开词库段 200–400），后面加词在后置列表里的下标。
 const SORT_PREFERENCE_TAG_BASE: NSInteger = 500;
 
+/// 左侧栏导航条目的 tag 基址（`SelectPage(索引)`）。
+pub(super) const SELECT_PAGE_TAG_BASE: NSInteger = 600;
+
+/// 设置窗口一共有几页（左侧栏最多这么多个条目）。
+const MAX_PAGES: usize = 12;
+
 /// 一页最多列多少个后置 / 隐藏的词（tag 段的宽度）。
 pub const MAX_SORT_PREFERENCES: usize = 100;
 
@@ -224,6 +230,9 @@ pub enum Setting {
     /// 第 N 个标过「后置 / 隐藏」的词那一行的「恢复」按钮（下标是列表里的位置）。
     RestoreSortPreference(usize),
 
+    /// 左侧栏点了第 `index` 个页面。
+    SelectPage(usize),
+
     /// `[general] scheme`，弹出菜单：全拼 + 五套双拼 + 大千注音 + 关。
     Scheme,
 
@@ -311,6 +320,7 @@ impl Setting {
             Self::ImportDictionary => 19,
             Self::RestoreSortPreferences => 61,
             Self::RestoreSortPreference(index) => SORT_PREFERENCE_TAG_BASE + index as NSInteger,
+            Self::SelectPage(index) => SELECT_PAGE_TAG_BASE + index as NSInteger,
             Self::Scheme => 20,
             Self::Traditional => 47,
             Self::ShuangpinRawPreedit => 52,
@@ -401,6 +411,10 @@ impl Setting {
             18 => Self::ResetShortcuts,
             19 => Self::ImportDictionary,
             61 => Self::RestoreSortPreferences,
+            _ if tag >= SELECT_PAGE_TAG_BASE => {
+                let index = usize::try_from(tag - SELECT_PAGE_TAG_BASE).ok()?;
+                (index < MAX_PAGES).then_some(Self::SelectPage(index))?
+            }
             _ if tag >= SORT_PREFERENCE_TAG_BASE => {
                 let index = usize::try_from(tag - SORT_PREFERENCE_TAG_BASE).ok()?;
                 (index < MAX_SORT_PREFERENCES).then_some(Self::RestoreSortPreference(index))?
@@ -527,6 +541,7 @@ mod tests {
             Setting::ResetShortcuts,
             Setting::ImportDictionary,
             Setting::RestoreSortPreferences,
+            Setting::SelectPage(0),
             Setting::Scheme,
             Setting::Wubi,
             Setting::ShuangpinRawPreedit,

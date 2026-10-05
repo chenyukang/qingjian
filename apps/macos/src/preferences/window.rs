@@ -1,28 +1,80 @@
 //! 偏好设置窗口本体：把各页（`pages/`）装进标签视图，底部一行状态；刷新时逐页同步。
 
-use objc2::MainThreadMarker;
 use objc2::rc::Retained;
+use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSClipView, NSColor, NSScreen, NSScrollView, NSTabView, NSTabViewItem, NSTextField, NSView,
+    NSBox, NSBoxType, NSClipView, NSColor, NSFont, NSScreen, NSScrollView, NSTabView,
+    NSTabViewItem, NSTabViewType, NSTextField, NSView, NSVisualEffectBlendingMode,
+    NSVisualEffectMaterial, NSVisualEffectView,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
 use qingjian_platform::Config;
 
 use super::controls::{language_label, small_label};
-use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
+use super::layout::{Layout, PAGE_WIDTH};
+use super::navigation::NavigationButton;
 use super::pages::{
     AboutPage, AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage,
     IndicatorPage, PhrasesPage, ShortcutsPage, SortPreferencesPage, UpdateStatus, UsagePage,
     build_about,
 };
 use super::panel::PreferencesPanel;
+use super::setting::SELECT_PAGE_TAG_BASE;
 use super::target::PreferencesTarget;
 use crate::host::DictionaryInfo;
+use objc2_foundation::NSInteger;
 
 /// 每页顶部留白、页面最低高度（矮页也撑到这个高度，切页时窗口不跳）。
 const PAGE_TOP: f64 = 18.0;
 const MIN_PAGE_HEIGHT: f64 = 250.0;
+
+/// 左侧栏宽度（与 winlane 的设置窗一致）。
+const SIDEBAR_WIDTH: f64 = 220.0;
+/// 右侧内容区左边距（分隔线之后）。
+const CONTENT_MARGIN: f64 = 28.0;
+/// 右侧顶部「大标题 + 说明」占的高度。
+const HEADER_HEIGHT: f64 = 104.0;
+/// 侧栏条目高（含条目间空隙）。
+const NAV_ITEM_HEIGHT: f64 = 38.0;
+
+/// 页面清单：**(标题, 一句话说明)**，顺序必须与上面 push 的顺序一致。
+const PAGE_INFO: [(&str, &str); 12] = [
+    ("通用", "中英切换、候选与显示这些日常开关。"),
+    ("候选窗口", "候选窗字体、字号、行数、宽度与外观。"),
+    ("快捷键", "上屏、翻页、删词、隐藏候选、翻译与纠错这些按键。"),
+    ("自定义短语", "编码 → 短语，随打随换。"),
+    ("模糊音", "前后鼻音、平翘舌这类容易混的音。"),
+    ("词库", "内置词库、导入的词库与个人词表。"),
+    ("指示器", "桌面悬浮的「中 / 英」圆点与菜单栏状态项。"),
+    ("屏蔽词", "被后置 / 隐藏的候选，在这里逐条恢复。"),
+    ("云服务", "云端补全、翻译与纠错的接口与模型。"),
+    ("高级", "数据目录、日志这些不常碰的东西。"),
+    ("统计", "用过的词、学习次数与输入量。"),
+    ("关于", "版本、许可与项目信息。"),
+];
+
+/// 侧栏分组：`(从第几页开始, 分组标题)`。
+const NAV_GROUPS: [(usize, &str); 3] = [(0, "常用"), (3, "词库"), (6, "其他")];
+
+/// 侧栏条目的图标：SF Symbol 名 + 返回图标块颜色的构造函数。
+type NavIcon = (&'static str, fn() -> Retained<NSColor>);
+
+/// 侧栏每个条目的（SF Symbol, 图标块颜色）。
+const NAV_ICONS: [NavIcon; 12] = [
+    ("gearshape.fill", NSColor::systemGrayColor),
+    ("macwindow", NSColor::systemPinkColor),
+    ("keyboard", NSColor::systemPurpleColor),
+    ("text.badge.plus", NSColor::systemTealColor),
+    ("textformat.abc", NSColor::systemGreenColor),
+    ("books.vertical.fill", NSColor::systemBlueColor),
+    ("circle.fill", NSColor::systemCyanColor),
+    ("eye.slash.fill", NSColor::systemOrangeColor),
+    ("cloud.fill", NSColor::systemIndigoColor),
+    ("slider.horizontal.3", NSColor::systemBrownColor),
+    ("chart.bar.fill", NSColor::systemYellowColor),
+    ("info.circle.fill", NSColor::systemRedColor),
+];
 
 /// 标签视图四周留白、底部状态行高度。
 const TAB_MARGIN: f64 = 14.0;
@@ -35,6 +87,16 @@ const SCREEN_MARGIN: f64 = 80.0;
 pub struct PreferencesWindow {
     /// 窗口。
     panel: Retained<PreferencesPanel>,
+
+    /// 右侧内容区的标签视图（无边框，页签由左侧栏代替）。
+    tabs: Retained<NSTabView>,
+
+    /// 左侧栏条目，按页面顺序。
+    navigation: Vec<Retained<NavigationButton>>,
+
+    /// 右侧的大标题与说明。
+    page_title: Retained<NSTextField>,
+    page_description: Retained<NSTextField>,
 
     /// 「通用」页。
     general: GeneralPage,
@@ -140,27 +202,122 @@ impl PreferencesWindow {
         let about = build_about(&mut layout, mtm, &target, version, build);
         pages.push(page("关于", layout));
 
-        // 标签视图：先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸
+        // 几何：左 220 侧栏 + 一条分隔线 + 右侧（大标题 / 说明 / 页面 / 状态行）
         let tallest = pages
             .iter()
             .map(|(_, layout, _)| layout.height() + PAGE_TOP)
             .fold(MIN_PAGE_HEIGHT, f64::max);
-        // 设置项多了以后最高的一页会超出小屏幕，窗口底部（状态行）掉到程序坞后面：窗口封顶，超高的页放进滚动视图
+        // 设置项多了以后最高的一页会超出小屏幕：窗口封顶，超高的页放进滚动视图
         let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
-        let probe = NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, page_height));
-        let tabs = NSTabView::initWithFrame(mtm.alloc(), probe);
-        let inner = tabs.contentRect();
-        let chrome_width = PAGE_WIDTH - inner.size.width;
-        let chrome_height = page_height - inner.size.height;
-        let tabs_size = NSSize::new(PAGE_WIDTH + chrome_width, page_height + chrome_height);
+        let text_x = SIDEBAR_WIDTH + 1.0 + CONTENT_MARGIN;
         let content_size = NSSize::new(
-            tabs_size.width + 2.0 * TAB_MARGIN,
-            tabs_size.height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
+            text_x + PAGE_WIDTH + CONTENT_MARGIN,
+            page_height + HEADER_HEIGHT + STATUS_HEIGHT + 16.0,
         );
-        tabs.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
-            tabs_size,
+        let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
+        let backdrop = crate::ui::material::PanelBackdrop::new(
+            NSRect::new(NSPoint::ZERO, content_size),
+            crate::ui::material::DEFAULT_CORNER_RADIUS,
+            mtm,
+        );
+        content.addSubview(backdrop.view());
+
+        // 左侧栏：系统侧栏材质 + 品牌 + 分组条目（照 winlane 的设置窗）
+        let sidebar = NSVisualEffectView::initWithFrame(
+            NSVisualEffectView::alloc(mtm),
+            NSRect::new(
+                NSPoint::ZERO,
+                NSSize::new(SIDEBAR_WIDTH, content_size.height),
+            ),
+        );
+        sidebar.setMaterial(NSVisualEffectMaterial::Sidebar);
+        sidebar.setBlendingMode(NSVisualEffectBlendingMode::WithinWindow);
+        crate::ui::material::round_corners(&sidebar, crate::ui::material::DEFAULT_CORNER_RADIUS);
+        content.addSubview(&sidebar);
+
+        let brand = small_label(mtm, "青简");
+        brand.setFont(Some(&NSFont::boldSystemFontOfSize(21.0)));
+        brand.setFrame(NSRect::new(
+            NSPoint::new(24.0, content_size.height - 58.0),
+            NSSize::new(170.0, 30.0),
         ));
+        sidebar.addSubview(&brand);
+        let version_label = small_label(mtm, &format!("{version}（{build}）"));
+        version_label.setTextColor(Some(&NSColor::secondaryLabelColor()));
+        version_label.setFrame(NSRect::new(
+            NSPoint::new(25.0, content_size.height - 80.0),
+            NSSize::new(180.0, 20.0),
+        ));
+        sidebar.addSubview(&version_label);
+
+        let divider = NSBox::initWithFrame(
+            NSBox::alloc(mtm),
+            NSRect::new(
+                NSPoint::new(SIDEBAR_WIDTH, 0.0),
+                NSSize::new(1.0, content_size.height),
+            ),
+        );
+        divider.setBoxType(NSBoxType::Separator);
+        content.addSubview(&divider);
+
+        let mut navigation: Vec<Retained<NavigationButton>> = Vec::new();
+        let mut nav_y = content_size.height - 112.0;
+        for (index, (title, _)) in PAGE_INFO.iter().enumerate() {
+            if let Some((_, heading)) = NAV_GROUPS.iter().find(|(start, _)| *start == index) {
+                let label = small_label(mtm, heading);
+                label.setTextColor(Some(&NSColor::secondaryLabelColor()));
+                label.setFrame(NSRect::new(
+                    NSPoint::new(24.0, nav_y),
+                    NSSize::new(170.0, 18.0),
+                ));
+                sidebar.addSubview(&label);
+                nav_y -= 22.0;
+            }
+            let (symbol, color) = NAV_ICONS[index];
+            let button = NavigationButton::new(
+                title,
+                symbol,
+                color(),
+                NSRect::new(
+                    NSPoint::new(12.0, nav_y),
+                    NSSize::new(SIDEBAR_WIDTH - 24.0, 32.0),
+                ),
+                &target,
+                mtm,
+            );
+            button.setTag(SELECT_PAGE_TAG_BASE + index as NSInteger);
+            sidebar.addSubview(&button);
+            navigation.push(button);
+            nav_y -= NAV_ITEM_HEIGHT;
+        }
+
+        // 右侧：大标题 + 一句话说明 + 无边框的页面区
+        let page_title = small_label(mtm, PAGE_INFO[0].0);
+        page_title.setFont(Some(&NSFont::boldSystemFontOfSize(25.0)));
+        page_title.setFrame(NSRect::new(
+            NSPoint::new(text_x, content_size.height - 62.0),
+            NSSize::new(PAGE_WIDTH, 34.0),
+        ));
+        content.addSubview(&page_title);
+        let page_description = small_label(mtm, PAGE_INFO[0].1);
+        page_description.setTextColor(Some(&NSColor::secondaryLabelColor()));
+        page_description.setFrame(NSRect::new(
+            NSPoint::new(text_x, content_size.height - 96.0),
+            NSSize::new(PAGE_WIDTH, 30.0),
+        ));
+        content.addSubview(&page_description);
+
+        let tabs = NSTabView::initWithFrame(
+            NSTabView::alloc(mtm),
+            NSRect::new(
+                NSPoint::new(text_x, STATUS_HEIGHT + 8.0),
+                NSSize::new(PAGE_WIDTH, page_height),
+            ),
+        );
+        tabs.setTabViewType(NSTabViewType::NoTabsNoBorder);
+        tabs.setDrawsBackground(false);
+        content.addSubview(&tabs);
+
         for (title, layout, view) in pages {
             let own_height = (layout.height() + PAGE_TOP).max(page_height);
             view.setFrame(NSRect::new(
@@ -170,6 +327,7 @@ impl PreferencesWindow {
             layout.finish(&view, own_height);
             // SAFETY: identifier 允许为空；条目随 NSTabView 活着
             let item = unsafe { NSTabViewItem::initWithIdentifier(mtm.alloc(), None) };
+            // 标签页自己的标签不再显示（左侧栏代替它），留着只为无障碍
             item.setLabel(&NSString::from_str(title));
             if own_height > page_height {
                 item.setView(Some(&scrolling(mtm, &view, page_height, own_height)));
@@ -178,36 +336,25 @@ impl PreferencesWindow {
             }
             tabs.addTabViewItem(&item);
         }
-        let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
-        // 整窗玻璃：材质铺在 content 最底层，标签页与状态行浮在它上面
-        let backdrop = crate::ui::material::PanelBackdrop::new(
-            NSRect::new(NSPoint::ZERO, content_size),
-            crate::ui::material::DEFAULT_CORNER_RADIUS,
-            mtm,
-        );
-        content.addSubview(backdrop.view());
-        content.addSubview(&tabs);
+
         let status = small_label(mtm, "");
         status.setTextColor(Some(&NSColor::systemRedColor()));
         status.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN + PAGE_PADDING, TAB_MARGIN / 2.0),
-            NSSize::new(
-                content_size.width - 2.0 * (TAB_MARGIN + PAGE_PADDING),
-                STATUS_HEIGHT,
-            ),
+            NSPoint::new(text_x, 6.0),
+            NSSize::new(PAGE_WIDTH, STATUS_HEIGHT),
         ));
         content.addSubview(&status);
+
         let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
-        // 让玻璃能透到桌面：窗口自己不能画背景。**不动标题栏**（上一版设了
-        // titlebarAppearsTransparent + titleVisibility=Hidden，这版系统上把关闭/最小化那排
-        // 按钮弄坏了，窗口也关不掉）
+        // 让材质能透到桌面：窗口自己不能画背景。**不动标题栏**（设了
+        // titlebarAppearsTransparent + titleVisibility=Hidden 会把关闭/最小化那排按钮弄坏）
         panel.setOpaque(false);
         panel.setBackgroundColor(Some(&NSColor::clearColor()));
         panel.setTitle(&NSString::from_str("青简偏好设置"));
         panel.setContentView(Some(&content));
         panel.center();
 
-        Self {
+        let window = Self {
             panel,
             general,
             candidates,
@@ -222,7 +369,33 @@ impl PreferencesWindow {
             usage,
             about,
             status,
+            tabs,
+            navigation,
+            page_title,
+            page_description,
             _target: target,
+        };
+        window.select_page(0);
+        window
+    }
+
+    /// 切到第 `index` 页：内容区换页、右侧标题与说明跟着换、左侧栏高亮跟着挪。
+    pub fn select_page(&self, index: usize) {
+        if index >= self.navigation.len() {
+            return;
+        }
+        self.tabs.selectTabViewItemAtIndex(index as NSInteger);
+        if let Some((title, description)) = PAGE_INFO.get(index) {
+            self.page_title.setStringValue(&NSString::from_str(title));
+            self.page_description
+                .setStringValue(&NSString::from_str(description));
+        }
+        for (position, button) in self.navigation.iter().enumerate() {
+            button.setState(if position == index {
+                objc2_app_kit::NSControlStateValueOn
+            } else {
+                objc2_app_kit::NSControlStateValueOff
+            });
         }
     }
 

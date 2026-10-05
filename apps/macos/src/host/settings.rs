@@ -94,6 +94,11 @@ impl Host {
         // 密钥值不进日志
         tracing::info!(?setting, "设置");
         let config = self.settings.config().clone();
+        // 左侧栏导航：只切页面，不碰配置
+        if let Setting::SelectPage(index) = setting {
+            self.preferences.select_page(index);
+            return;
+        }
         match (setting, value) {
             (Setting::NewPhrase, _) => {
                 self.preferences.edit_phrase(&config, None);

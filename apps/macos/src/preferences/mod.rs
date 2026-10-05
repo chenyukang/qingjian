@@ -14,6 +14,7 @@ mod file_dialog;
 mod font_picker;
 mod key_recorder;
 mod layout;
+mod navigation;
 mod pages;
 mod panel;
 mod setting;
