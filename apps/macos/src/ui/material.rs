@@ -59,6 +59,24 @@ impl PanelBackdrop {
         Self { material }
     }
 
+    /// 强制用 `NSVisualEffectView` 毛玻璃（不走 Liquid Glass）。
+    ///
+    /// 候选窗就走这条：`NSGlassEffectView` 在这种"置顶非激活面板"上实测不渲染（候选框
+    /// 看着还是纯色），而 `.Popover` + `BehindWindow` 的毛玻璃一直是好用的。
+    pub fn frosted(frame: NSRect, corner_radius: f64, mtm: MainThreadMarker) -> Self {
+        let resize = NSAutoresizingMaskOptions::ViewWidthSizable
+            | NSAutoresizingMaskOptions::ViewHeightSizable;
+        let blur = NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), frame);
+        blur.setMaterial(NSVisualEffectMaterial::Popover);
+        blur.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
+        blur.setState(NSVisualEffectState::Active);
+        blur.setAutoresizingMask(resize);
+        let _ = corner_radius;
+        Self {
+            material: Material::Frosted(blur),
+        }
+    }
+
     /// 挂到窗口上的视图：玻璃本身，或毛玻璃容器。
     pub fn view(&self) -> &NSView {
         match &self.material {

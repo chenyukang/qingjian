@@ -234,7 +234,9 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     container.setAutoresizingMask(
         NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
-    let backdrop = crate::ui::material::PanelBackdrop::new(bounds, view.theme().corner_radius, mtm);
+    // 候选窗用毛玻璃（Liquid Glass 在置顶面板上不渲染，见 material.rs）
+    let backdrop =
+        crate::ui::material::PanelBackdrop::frosted(bounds, view.theme().corner_radius, mtm);
     container.addSubview(backdrop.view());
     // 不给候选视图挂 autoresizing：它的 frame 每次由 `show()` 精确设定
     container.addSubview(view);

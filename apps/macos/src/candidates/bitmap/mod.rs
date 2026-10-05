@@ -41,11 +41,14 @@ pub struct BitmapPainter {
 
     /// 最近一帧的尺寸（点）。
     size: NSSize,
+
+    /// 背景不透明度（玻璃底时 < 1）。
+    background_alpha: f64,
 }
 
 impl BitmapPainter {
     /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。字体库加载失败返回 `None`，调用方退回旧路径。
-    pub fn new(font: &str) -> Option<Self> {
+    pub fn new(font: &str, background_alpha: f64) -> Option<Self> {
         let started = std::time::Instant::now();
         let font = font.trim();
         let library = if font.is_empty() {
@@ -78,6 +81,7 @@ impl BitmapPainter {
             dark: false,
             scale: 2.0,
             size: NSSize::ZERO,
+            background_alpha,
         })
     }
 
@@ -127,11 +131,23 @@ impl BitmapPainter {
     }
 
     fn repaint(&mut self) {
-        let theme = if self.dark {
+        let mut theme = if self.dark {
             Theme::dark()
         } else {
             Theme::light()
         };
+        // 玻璃底：候选自己的背景要半透明，后面的毛玻璃才透得出来。透明度由调用方给
+        // （取自 macOS 那层主题的 background，`window.rs` 里设的）—— 否则这里画的就是
+        // 一整块不透明底色，把材质整个盖住（踩过）。
+        if self.background_alpha < 1.0 {
+            let bg = theme.colors.background;
+            theme.colors.background = qingjian_render::Color::rgba(
+                bg.r,
+                bg.g,
+                bg.b,
+                (f64::from(bg.a) * self.background_alpha) as u8,
+            );
+        }
         let started = std::time::Instant::now();
         let rendered = match self.renderer.render(
             &self.frame,

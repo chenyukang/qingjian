@@ -137,9 +137,10 @@ impl CandidateView {
             return;
         }
         *self.ivars().font.borrow_mut() = font.to_owned();
+        let alpha = self.theme().background.alphaComponent();
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
-            *bitmap = BitmapPainter::new(font);
+            *bitmap = BitmapPainter::new(font, alpha);
             drop(bitmap);
             self.setNeedsDisplay(true);
         }
@@ -150,7 +151,8 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                *bitmap = BitmapPainter::new(&self.ivars().font.borrow());
+                let alpha = self.theme().background.alphaComponent();
+                *bitmap = BitmapPainter::new(&self.ivars().font.borrow(), alpha);
             }
             CandidateRenderer::System if bitmap.is_some() => {
                 tracing::info!("候选窗切回 AppKit 绘制");
