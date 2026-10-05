@@ -422,6 +422,26 @@ impl Host {
                 }
                 return;
             }
+            (Setting::StatusBarChineseColor, SettingValue::Color(native))
+            | (Setting::StatusBarEnglishColor, SettingValue::Color(native)) => {
+                let english = matches!(setting, Setting::StatusBarEnglishColor);
+                match crate::indicator::config_color(&native) {
+                    Some(color) => {
+                        self.settings.set_value(
+                            "status_bar",
+                            if english {
+                                "english_color"
+                            } else {
+                                "chinese_color"
+                            },
+                            color.hex(),
+                        );
+                        self.apply_config(false);
+                    }
+                    None => tracing::warn!("取色器给的颜色转不成 sRGB，未改"),
+                }
+                return;
+            }
             (Setting::StatusBarChineseColor, SettingValue::Text(text))
             | (Setting::StatusBarEnglishColor, SettingValue::Text(text)) => {
                 let english = matches!(setting, Setting::StatusBarEnglishColor);

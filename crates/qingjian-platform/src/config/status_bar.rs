@@ -40,6 +40,10 @@ pub struct StatusBarConfig {
 
     /// 描一圈白色轮廓：桌面上背景颜色不定时（深色壁纸、浅色窗口）也看得清。缺省开。
     pub outline: bool,
+
+    /// 切换中 / 英时在光标处提示一句（「英文输入」「中文输入」）。缺省开；
+    /// 觉得啰嗦就关掉 —— 指示器的颜色本身已经说明了模式。
+    pub notice: bool,
 }
 
 impl Default for StatusBarConfig {
@@ -56,6 +60,7 @@ impl Default for StatusBarConfig {
             chinese_color: Color::CHINESE,
             english_color: Color::ENGLISH,
             outline: true,
+            notice: true,
         }
     }
 }

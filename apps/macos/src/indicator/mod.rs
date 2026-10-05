@@ -140,14 +140,28 @@ impl DotView {
     }
 }
 
-/// `qingjian_platform` 的 RGB 到 AppKit 的颜色。
-fn native_color(color: Color) -> Retained<NSColor> {
+/// `qingjian_platform` 的 RGB 到 AppKit 的颜色（设置页的取色器也用）。
+pub(crate) fn native_color(color: Color) -> Retained<NSColor> {
     NSColor::colorWithSRGBRed_green_blue_alpha(
         f64::from(color.red) / 255.0,
         f64::from(color.green) / 255.0,
         f64::from(color.blue) / 255.0,
         1.0,
     )
+}
+
+/// AppKit 颜色转回配置里的 RGB（先归到 sRGB：系统调色板给的颜色未必是 RGB 空间）。
+pub(crate) fn config_color(color: &NSColor) -> Option<Color> {
+    let space = objc2_app_kit::NSColorSpace::sRGBColorSpace();
+    let color = color.colorUsingColorSpace(&space)?;
+    let (mut red, mut green, mut blue, mut alpha) = (0.0, 0.0, 0.0, 0.0);
+    unsafe { color.getRed_green_blue_alpha(&mut red, &mut green, &mut blue, &mut alpha) };
+    let byte = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(Color {
+        red: byte(red),
+        green: byte(green),
+        blue: byte(blue),
+    })
 }
 
 /// 悬浮指示器：一个面板 + 里面那个形状。

@@ -4,8 +4,8 @@
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{
-    NSButton, NSColor, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSFont,
-    NSPopUpButton, NSSecureTextField, NSTextAlignment, NSTextField,
+    NSButton, NSColor, NSColorWell, NSColorWellStyle, NSControl, NSControlStateValueOff,
+    NSControlStateValueOn, NSFont, NSPopUpButton, NSSecureTextField, NSTextAlignment, NSTextField,
 };
 use objc2_foundation::{NSArray, NSRect, NSString};
 use qingjian_core::Language;
@@ -203,6 +203,24 @@ pub(super) fn button(
 }
 
 /// 可编辑单行文本框：回车或失焦时发 action。
+/// 一行「标题 + 取色器」用的控件：点一下弹系统调色板，`Minimal` 样式是不带边框的小色块。
+pub(super) fn color_well(
+    mtm: MainThreadMarker,
+    setting: Setting,
+    target: &PreferencesTarget,
+) -> Retained<NSColorWell> {
+    let well = NSColorWell::initWithFrame(mtm.alloc(), NSRect::ZERO);
+    well.setColorWellStyle(NSColorWellStyle::Minimal);
+    well.setSupportsAlpha(false);
+    wire(&well, setting, target);
+    well
+}
+
+/// 把取色器设成某个颜色（同步时用；`setColor` 不会触发 action）。
+pub(super) fn set_color(well: &NSColorWell, color: &NSColor) {
+    well.setColor(color);
+}
+
 pub(super) fn text_field(
     mtm: MainThreadMarker,
     setting: Setting,

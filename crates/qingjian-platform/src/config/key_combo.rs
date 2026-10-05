@@ -27,11 +27,14 @@ impl KeyCombo {
         key: 't',
     };
 
-    /// 中 / 英切换（缺省 `⌃⇧R`）：切到英文就是纯英文模式，候选只出英文单词、输入框显示键盘原样。
+    /// 中 / 英切换（缺省 `⌃R`）：切到英文就是纯英文模式，候选只出英文单词、输入框显示键盘原样。
+    ///
+    /// 注意 `⌃R` 在终端里是 shell 的反向历史搜索（`⌃R` 再 `⌃R` 往前翻）；青简在组句外也会
+    /// 吃掉这颗键，终端党可以改成 `control+shift+r` 这类不撞的键（`[shortcut] toggle_english_mode`）。
     pub const TOGGLE_ENGLISH_MODE_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: false,
-            shift: true,
+            shift: false,
             control: true,
             command: false,
         },

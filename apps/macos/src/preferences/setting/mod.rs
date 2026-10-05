@@ -149,6 +149,15 @@ pub enum Setting {
     /// `[status_bar] english_color`，文本框：英文时的颜色。
     StatusBarEnglishColor,
 
+    /// `[status_bar] notice`，勾选框：切模式时在光标处提示一句。
+    StatusBarNotice,
+
+    /// `[status_bar] offset_x`，文本框：离边的横向距离。
+    StatusBarOffsetX,
+
+    /// `[status_bar] offset_y`，文本框：离边的纵向距离。
+    StatusBarOffsetY,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -304,6 +313,9 @@ impl Setting {
             Self::StatusBarSize => 69,
             Self::StatusBarChineseColor => 70,
             Self::StatusBarEnglishColor => 71,
+            Self::StatusBarNotice => 72,
+            Self::StatusBarOffsetX => 73,
+            Self::StatusBarOffsetY => 74,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -390,6 +402,9 @@ impl Setting {
             69 => Self::StatusBarSize,
             70 => Self::StatusBarChineseColor,
             71 => Self::StatusBarEnglishColor,
+            72 => Self::StatusBarNotice,
+            73 => Self::StatusBarOffsetX,
+            74 => Self::StatusBarOffsetY,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -463,6 +478,9 @@ mod tests {
             Setting::StatusBarSize,
             Setting::StatusBarChineseColor,
             Setting::StatusBarEnglishColor,
+            Setting::StatusBarNotice,
+            Setting::StatusBarOffsetX,
+            Setting::StatusBarOffsetY,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,
