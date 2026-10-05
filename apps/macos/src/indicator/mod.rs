@@ -300,9 +300,10 @@ impl Indicator {
         let Some(panel) = &self.panel else {
             return;
         };
-        if self.visible {
-            return;
-        }
+        // **每次都重新置顶**：`self.visible` 只是"我们说它可见"，某些应用（全屏、切 Space、
+        // 自建窗口层级）会让这个 panel 事实上不再显示，而它仍然是 true——于是旧代码的提前
+        // 返回会让它**再也不出现**（Warp / WeChat / Obsidian 都踩过）。orderFrontRegardless
+        // 幂等，成本可以忽略，换来切应用时自愈。
         self.visible = true;
         panel.orderFrontRegardless();
     }
