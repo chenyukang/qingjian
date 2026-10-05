@@ -373,6 +373,8 @@ offset_y = 24
 # 形状（circle 圆点 / square 方块 / rounded 圆角方块）与大小（点，6–48）
 shape = "circle"
 size = 12
+# 菜单栏「中 / 英」旁边的云朵图标（云联想开着时的隐私提示）：不想看就设 false
+cloud_icon = true
 # 显示时机：follow 跟随输入源（不是青简就立刻收，缺省）/ sticky 跟随但延迟 1.5 秒收起 / always 一直显示
 visibility = "follow"
 # 中文 / 英文输入时的颜色：#RRGGBB，也可以写 red / green / blue / orange / white / black

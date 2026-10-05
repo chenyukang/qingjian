@@ -29,6 +29,7 @@ pub struct IndicatorPage {
     visibility: Retained<NSPopUpButton>,
     chinese_color: Retained<NSColorWell>,
     english_color: Retained<NSColorWell>,
+    cloud_icon: Retained<NSButton>,
     notice: Retained<NSButton>,
     offset_x: Retained<NSTextField>,
     offset_y: Retained<NSTextField>,
@@ -107,6 +108,13 @@ impl IndicatorPage {
             mtm,
             "离「位置」那条边留多少点（按回车保存）；偏移是相对九宫格算的，中心那格也按它平移。",
         );
+        let cloud_icon = checkbox(
+            mtm,
+            "菜单栏「中 / 英」旁显示云朵（云联想开着时的隐私提示）",
+            Setting::StatusBarCloudIcon,
+            target,
+        );
+        row_checkbox(layout, &cloud_icon);
         let notice = checkbox(
             mtm,
             "切换中 / 英时在光标处提示一句（「英文输入」「中文输入」）",
@@ -136,6 +144,7 @@ impl IndicatorPage {
             visibility,
             chinese_color,
             english_color,
+            cloud_icon,
             notice,
             offset_x,
             offset_y,
@@ -158,6 +167,7 @@ impl IndicatorPage {
         );
         set_color(&self.chinese_color, &native_color(bar.chinese_color));
         set_color(&self.english_color, &native_color(bar.english_color));
+        set_checked(&self.cloud_icon, bar.cloud_icon);
         set_checked(&self.notice, bar.notice);
         self.offset_x
             .setStringValue(&NSString::from_str(&bar.offset_x.to_string()));

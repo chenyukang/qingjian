@@ -41,6 +41,10 @@ pub struct StatusBarConfig {
     /// 描一圈白色轮廓：桌面上背景颜色不定时（深色壁纸、浅色窗口）也看得清。缺省开。
     pub outline: bool,
 
+    /// 菜单栏「中 / 英」旁边那个云朵：云联想开着时是**隐私提示**（一眼知道上下文会发出去）。
+    /// 缺省显示；嫌它占地方可以关掉，云联想照常工作。
+    pub cloud_icon: bool,
+
     /// 什么时候显示。缺省 `follow`：**系统输入源不是青简就立刻收起**。
     /// 另外两档是可选项：`sticky`（离开后延迟 1.5 秒再收，切应用时不闪）、`always`（只看总开关）。
     pub visibility: Visibility,
@@ -64,6 +68,7 @@ impl Default for StatusBarConfig {
             chinese_color: Color::CHINESE,
             english_color: Color::ENGLISH,
             outline: true,
+            cloud_icon: true,
             visibility: Visibility::Follow,
             notice: true,
         }

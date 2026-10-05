@@ -435,6 +435,11 @@ impl Host {
                 }
                 return;
             }
+            (Setting::StatusBarCloudIcon, SettingValue::Bool(on)) => {
+                self.settings.set_bool("status_bar", "cloud_icon", on);
+                self.apply_config(false);
+                return;
+            }
             (Setting::StatusBarNotice, SettingValue::Bool(on)) => {
                 self.settings.set_bool("status_bar", "notice", on);
                 self.apply_config(false);

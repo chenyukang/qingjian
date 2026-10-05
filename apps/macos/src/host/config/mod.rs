@@ -109,7 +109,8 @@ impl Host {
             self.applied_model = Some(config.model.clone());
         }
         let cloud_active = self.engine.prediction_enabled();
-        self.indicator.set_cloud(cloud_active);
+        self.indicator
+            .set_cloud(cloud_active && config.status_bar.cloud_icon);
         self.indicator.update();
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
