@@ -71,8 +71,9 @@ macOS 上可以把这一行展开成多行：先在「候选窗口」页的排�
 
 三条路都通向同一个「英文模式」（候选只出英文单词、输入框显示键盘原样、回车原样上屏）：
 
-- **轻拍 Shift**（缺省开，`[general] shift_tap_toggle`）：按下 250 毫秒内松开、期间没打别的键才算；
-  按住 Shift 打大写不受影响。中文输入法的老习惯，Windows 侧本来就有同一种设置（`[general] switch_mode`）
+- **轻拍 Shift**（缺省开，`[general] shift_tap_toggle`）：按下 300 毫秒内松开、期间没打别的键才算；
+  窗口长度可调（`[general] shift_tap_window_ms`，80–800，快捷键页有下拉）。按住 Shift 打大写不受影响。
+  中文输入法的老习惯，Windows 侧本来就有同一种设置（`[general] switch_mode`）
 - **快捷键**（缺省 `⌃⇧R`，`[shortcut] toggle_english_mode`）：想换成别的组合随手改。
   别挑 `⌃`+字母 —— 终端里那一族基本被 shell 的 readline 占着（`⌃R` 是反向历史搜索）
 - **Caps Lock**（`[general] english_candidates`）：亮着就是英文

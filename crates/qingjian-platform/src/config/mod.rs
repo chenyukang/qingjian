@@ -35,6 +35,7 @@ pub use candidate_renderer::CandidateRenderer;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use general::{
     DEFAULT_PAGE_KEYS, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
+    SHIFT_TAP_WINDOW_CHOICES,
 };
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
@@ -231,8 +232,10 @@ english_min_letters = 1
 # 候选里是否给 emoji（笑 → 😄）：紧跟在对应候选词后面；false 就不出 emoji
 emoji_candidates = true
 
-# 轻拍 Shift（按下 250 毫秒内松开、期间没打别的键）切换中 / 英。缺省开；按住 Shift 打大写不受影响
+# 轻拍 Shift（按下这么毫秒内松开、期间没打别的键）切换中 / 英。缺省开；按住 Shift 打大写不受影响
 shift_tap_toggle = true
+# 轻拍的判定窗口（毫秒，80–800）
+shift_tap_window_ms = 300
 # 繁体输出模式。开启后上屏繁体，不影响词库和个人词频的简体记录。
 traditional = false
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一

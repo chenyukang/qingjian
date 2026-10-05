@@ -4,7 +4,7 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
 use qingjian_core::ModeKeys;
-use qingjian_platform::{Config, PAGE_KEY_OPTIONS};
+use qingjian_platform::{Config, PAGE_KEY_OPTIONS, SHIFT_TAP_WINDOW_CHOICES};
 
 use crate::preferences::controls::{
     GROUP_GAP, button, checkbox, note, note_full, page_keys_label, row_checkbox, row_popup,
@@ -45,6 +45,9 @@ pub struct ShortcutsPage {
 
     /// 轻拍 Shift 切换中 / 英。
     shift_tap: Retained<NSButton>,
+
+    /// 轻拍的判定窗口。
+    shift_tap_window: Retained<NSPopUpButton>,
 
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
@@ -140,6 +143,16 @@ impl ShortcutsPage {
             layout,
             mtm,
             "中文输入法的老习惯，不用记住组合键。按住 Shift 打大写不受影响：只要期间敲了别的键就不算轻拍。",
+        );
+        let shift_tap_window = row_popup(
+            layout,
+            mtm,
+            "轻拍判定窗口",
+            SHIFT_TAP_WINDOW_CHOICES
+                .map(|ms| format!("{ms} 毫秒"))
+                .as_ref(),
+            Setting::ShiftTapWindow,
+            target,
         );
         layout.space(GROUP_GAP);
         let delete_candidate = row_recorder(
@@ -238,6 +251,7 @@ impl ShortcutsPage {
             hide_candidate,
             toggle_english_mode,
             shift_tap,
+            shift_tap_window,
             translate_selection,
             correct_selection,
         }
@@ -272,6 +286,12 @@ impl ShortcutsPage {
         let hide = config.shortcut.hide_keys();
         self.hide_candidate.show(&hide.key(), &hide.label());
         set_checked(&self.shift_tap, config.general.shift_tap_toggle);
+        select(
+            &self.shift_tap_window,
+            SHIFT_TAP_WINDOW_CHOICES
+                .iter()
+                .position(|ms| *ms == config.general.shift_tap_window_ms),
+        );
         let toggle_english_mode = config.shortcut.toggle_english_mode;
         self.toggle_english_mode.show(
             &toggle_english_mode.key_string(),

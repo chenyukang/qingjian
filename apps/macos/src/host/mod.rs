@@ -138,7 +138,10 @@ pub struct Host {
     /// 轻拍 Shift 切换中 / 英（`[general] shift_tap_toggle`）。
     pub shift_tap_toggle: bool,
 
-    /// Shift 按下的时刻：敲了别的键或超过 250 毫秒就作废，不算轻拍。
+    /// 轻拍的判定窗口（`[general] shift_tap_window_ms`）。
+    pub shift_tap_window: std::time::Duration,
+
+    /// Shift 按下的时刻：敲了别的键或超过 `shift_tap_window` 就作废，不算轻拍。
     pub shift_tap_armed: Option<std::time::Instant>,
 
     /// 用户用快捷键切到了英文模式（与 Caps Lock 并存：两个任一开着就是英文）。

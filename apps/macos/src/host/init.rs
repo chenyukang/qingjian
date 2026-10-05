@@ -156,6 +156,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             toggle_english_mode_keys: ShortcutConfig::default().toggle_english_mode,
             english_mode_manual: false,
             shift_tap_toggle: true,
+            shift_tap_window: std::time::Duration::from_millis(300),
             shift_tap_armed: None,
             status: None,
             input_log_enabled: None,

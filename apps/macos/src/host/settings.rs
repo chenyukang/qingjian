@@ -3,7 +3,7 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::{Anchor, Color, Shape, ShiftLetter};
+use qingjian_platform::{Anchor, Color, SHIFT_TAP_WINDOW_CHOICES, Shape, ShiftLetter};
 
 /// 「指示器」页大小下拉里那几档，与页面上的列表一致。
 const STATUS_BAR_SIZES: [i32; 8] = [8, 10, 12, 14, 16, 20, 24, 30];
@@ -444,6 +444,14 @@ impl Host {
                         self.apply_config(false);
                     }
                     Err(error) => tracing::warn!(%error, key, "偏移要写整数（点），未改"),
+                }
+                return;
+            }
+            (Setting::ShiftTapWindow, SettingValue::Index(index)) => {
+                if let Some(ms) = SHIFT_TAP_WINDOW_CHOICES.get(index) {
+                    self.settings
+                        .set_value("general", "shift_tap_window_ms", i64::from(*ms));
+                    self.apply_config(false);
                 }
                 return;
             }

@@ -161,6 +161,9 @@ pub enum Setting {
     /// `[general] shift_tap_toggle`，勾选框：轻拍 Shift 切换中 / 英。
     ShiftTapToggle,
 
+    /// `[general] shift_tap_window_ms`，弹出菜单：轻拍的判定窗口。
+    ShiftTapWindow,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -320,6 +323,7 @@ impl Setting {
             Self::StatusBarOffsetX => 73,
             Self::StatusBarOffsetY => 74,
             Self::ShiftTapToggle => 75,
+            Self::ShiftTapWindow => 76,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -410,6 +414,7 @@ impl Setting {
             73 => Self::StatusBarOffsetX,
             74 => Self::StatusBarOffsetY,
             75 => Self::ShiftTapToggle,
+            76 => Self::ShiftTapWindow,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -487,6 +492,7 @@ mod tests {
             Setting::StatusBarOffsetX,
             Setting::StatusBarOffsetY,
             Setting::ShiftTapToggle,
+            Setting::ShiftTapWindow,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

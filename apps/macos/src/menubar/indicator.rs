@@ -20,9 +20,6 @@ use crate::imk::modifiers;
 /// 手指轻拍大概 80–150 毫秒，40 毫秒一轮能稳稳抓到按下与松开两个边沿。
 const POLL_INTERVAL: f64 = 0.04;
 
-/// 轻拍的判定窗口：按下到松开不超过这么久才算，超过就是「按住」。
-const TAP_WINDOW: std::time::Duration = std::time::Duration::from_millis(250);
-
 /// 菜单栏标题与桌面指示器多久同步一次（`POLL_INTERVAL` 的多少轮）—— 它们的变化没那么急。
 const SLOW_EVERY: u32 = 6;
 
@@ -194,8 +191,14 @@ define_class!(
                     h.shift_tap_armed = h.shift_tap_toggle.then(std::time::Instant::now);
                 });
             } else if !shift && was {
-                let armed = crate::host::with(|h| h.shift_tap_armed.take()).flatten();
-                if armed.is_some_and(|at| at.elapsed() <= TAP_WINDOW) {
+                // 窗口长度是配置项（`[general] shift_tap_window_ms`，缺省 300）
+                let tapped = crate::host::with(|h| {
+                    h.shift_tap_armed
+                        .take()
+                        .is_some_and(|at| at.elapsed() <= h.shift_tap_window)
+                })
+                .unwrap_or(false);
+                if tapped {
                     crate::host::with(|h| h.tap_toggle_english());
                 }
             }

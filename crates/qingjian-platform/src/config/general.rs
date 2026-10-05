@@ -1,6 +1,12 @@
 use qingjian_core::ShuangpinScheme;
 use serde::{Deserialize, Serialize};
 
+/// 轻拍 Shift 的缺省判定窗口（毫秒）。
+pub const DEFAULT_SHIFT_TAP_WINDOW_MS: u32 = 300;
+
+/// 轻拍窗口给设置页选的几档（毫秒）—— 下拉框只列这些，配置文件里可以写任意值。
+pub const SHIFT_TAP_WINDOW_CHOICES: [u32; 7] = [150, 200, 250, 300, 400, 500, 800];
+
 use super::scheme::{Scheme, scheme_label};
 use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode};
 
@@ -64,10 +70,14 @@ pub struct GeneralConfig {
     /// 候选里是否给 emoji（`笑` → 😄，紧跟在那个词后面）。
     pub emoji_candidates: bool,
 
-    /// 轻拍 Shift（按下 250 毫秒内松开、期间没打别的键）切换中 / 英。缺省开。
+    /// 轻拍 Shift（按下 [`Self::shift_tap_window`] 内松开、期间没打别的键）切换中 / 英。缺省开。
     /// 中文输入法的老习惯（Windows 侧的 `[general] switch_mode` 也是同一种做法）；不想用就关掉，
     /// 按住 Shift 打大写不受影响 —— 只要期间敲了别的键就不算轻拍。
     pub shift_tap_toggle: bool,
+
+    /// 轻拍的判定窗口（毫秒）：Shift 按下到松开不超过这么久才算「轻拍」。缺省 300。
+    /// 按 Shift 的动作稍慢一点就超了，所以给得宽松些；80–800 之间夹取，免得填出个没法用的值。
+    pub shift_tap_window_ms: u32,
 
     /// 繁体输出模式。
     pub traditional: bool,
@@ -158,6 +168,7 @@ impl Default for GeneralConfig {
             english_in_pinyin: true,
             emoji_candidates: true,
             shift_tap_toggle: true,
+            shift_tap_window_ms: DEFAULT_SHIFT_TAP_WINDOW_MS,
             traditional: false,
             chinese_first: false,
             shift_letter: ShiftLetter::default(),
@@ -183,6 +194,11 @@ impl Default for GeneralConfig {
 }
 
 impl GeneralConfig {
+    /// 轻拍的判定窗口，夹到 80–800 毫秒。
+    pub fn shift_tap_window(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(u64::from(self.shift_tap_window_ms.clamp(80, 800)))
+    }
+
     /// 拼音侧方案。`scheme` 没写时用旧键（`shuangpin` / `zhuyin`）推，都没有就是全拼。
     pub fn scheme(&self) -> Scheme {
         let key = self.scheme.trim();
@@ -303,6 +319,17 @@ impl GeneralConfig {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn shift_tap_window_is_clamped() {
+        let mut general = GeneralConfig::default();
+        assert_eq!(general.shift_tap_window().as_millis(), 300);
+        general.shift_tap_window_ms = 5000;
+        assert_eq!(general.shift_tap_window().as_millis(), 800);
+        general.shift_tap_window_ms = 1;
+        assert_eq!(general.shift_tap_window().as_millis(), 80);
+    }
+
     use super::*;
 
     #[test]
