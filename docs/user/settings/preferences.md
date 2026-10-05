@@ -87,6 +87,9 @@ macOS 上可以把这一行展开成多行：先在「候选窗口」页的排�
 - **当前输入法不是青简时整个收起来** —— 切走就消失，切回来就出现
 - 位置：`anchor` 九选一（`bottom-right` 缺省）+ `offset_x` / `offset_y` 边距；颜色写 `#RRGGBB`
 - 缺省关：`[status_bar] enabled = true` 打开
+- **显示时机**（`[status_bar] visibility`，缺省 `follow`）：`follow` = 当前输入源不是青简就**立刻收起**；
+  `sticky` = 离开青简后等 1.5 秒再收（macOS 会记住每个应用各自的输入源，切应用时圆点不会跟着闪）；
+  `always` = 只看总开关，一直显示
 
 ```toml
 [status_bar]

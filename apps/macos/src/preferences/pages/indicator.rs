@@ -15,7 +15,7 @@ use crate::preferences::controls::{
 use crate::preferences::layout::{Layout, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
-use qingjian_platform::{Anchor, Config, Shape};
+use qingjian_platform::{Anchor, Config, Shape, Visibility};
 
 /// 大小下拉里给的几档（点）。
 const SIZES: [i32; 8] = [8, 10, 12, 14, 16, 20, 24, 30];
@@ -26,6 +26,7 @@ pub struct IndicatorPage {
     anchor: Retained<NSPopUpButton>,
     shape: Retained<NSPopUpButton>,
     size: Retained<NSPopUpButton>,
+    visibility: Retained<NSPopUpButton>,
     chinese_color: Retained<NSColorWell>,
     english_color: Retained<NSColorWell>,
     notice: Retained<NSButton>,
@@ -50,6 +51,19 @@ impl IndicatorPage {
             layout,
             mtm,
             "中文一个颜色、英文另一个颜色——不用盯菜单栏。它不抢焦点、点击穿透，压在普通窗口之上；按 ⌃⇧R 或 Caps Lock 切模式时跟着换色。",
+        );
+        let visibility = row_popup(
+            layout,
+            mtm,
+            "显示时机",
+            &Visibility::ALL.map(|v| v.name().to_owned()),
+            Setting::StatusBarVisibility,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "「跟随输入源」= 系统当前输入源不是青简就立刻收起（缺省）；「延迟收起」= 离开后等 1.5 秒再收（macOS 会记住每个应用各自的输入源，切应用时圆点不会跟着闪）；「一直显示」只看总开关。",
         );
         let anchor = row_popup(
             layout,
@@ -119,6 +133,7 @@ impl IndicatorPage {
             anchor,
             shape,
             size,
+            visibility,
             chinese_color,
             english_color,
             notice,
@@ -137,6 +152,10 @@ impl IndicatorPage {
         );
         select(&self.shape, Shape::ALL.iter().position(|s| *s == bar.shape));
         select(&self.size, SIZES.iter().position(|s| *s == bar.size));
+        select(
+            &self.visibility,
+            Visibility::ALL.iter().position(|v| *v == bar.visibility),
+        );
         set_color(&self.chinese_color, &native_color(bar.chinese_color));
         set_color(&self.english_color, &native_color(bar.english_color));
         set_checked(&self.notice, bar.notice);

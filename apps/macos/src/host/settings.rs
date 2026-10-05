@@ -3,7 +3,7 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::{Anchor, Color, SHIFT_TAP_WINDOW_CHOICES, Shape, ShiftLetter};
+use qingjian_platform::{Anchor, Color, SHIFT_TAP_WINDOW_CHOICES, Shape, ShiftLetter, Visibility};
 
 /// 「指示器」页大小下拉里那几档，与页面上的列表一致。
 const STATUS_BAR_SIZES: [i32; 8] = [8, 10, 12, 14, 16, 20, 24, 30];
@@ -385,6 +385,14 @@ impl Host {
                 if let Some((word, _)) = self.sort_preference_list.get(index).cloned() {
                     self.engine.restore_sort_preference(&word);
                     // 重新装配一遍：列表、别的页与引擎状态一起刷新
+                    self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::StatusBarVisibility, SettingValue::Index(index)) => {
+                if let Some(visibility) = Visibility::ALL.get(index) {
+                    self.settings
+                        .set_value("status_bar", "visibility", visibility.key());
                     self.apply_config(false);
                 }
                 return;

@@ -19,6 +19,7 @@ pub use config::{
     DEFAULT_PAGE_KEYS, DictionariesConfig, GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF,
     LayoutMode, LocalModelConfig, LogLevel, MAX_PAGE_SIZE, Modifiers, PAGE_KEY_OPTIONS,
     PreeditMode, SHIFT_TAP_WINDOW_CHOICES, Scheme, Shape, ShiftLetter, ShortcutConfig,
-    StatusBarConfig, SwitchKey, SwitchKeys, ThemeMode, UpdateChannel, UpdateConfig, scheme_label,
+    StatusBarConfig, SwitchKey, SwitchKeys, ThemeMode, UpdateChannel, UpdateConfig, Visibility,
+    scheme_label,
 };
 pub use error::ConfigError;

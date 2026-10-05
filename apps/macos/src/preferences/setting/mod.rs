@@ -167,6 +167,9 @@ pub enum Setting {
     /// `[general] english_mode_min_letters`，弹出菜单：英文模式下从几个字母起补全。
     EnglishModeMinLetters,
 
+    /// `[status_bar] visibility`，弹出菜单：指示器的显示时机。
+    StatusBarVisibility,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -328,6 +331,7 @@ impl Setting {
             Self::ShiftTapToggle => 75,
             Self::ShiftTapWindow => 76,
             Self::EnglishModeMinLetters => 77,
+            Self::StatusBarVisibility => 78,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -420,6 +424,7 @@ impl Setting {
             75 => Self::ShiftTapToggle,
             76 => Self::ShiftTapWindow,
             77 => Self::EnglishModeMinLetters,
+            78 => Self::StatusBarVisibility,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -499,6 +504,7 @@ mod tests {
             Setting::ShiftTapToggle,
             Setting::ShiftTapWindow,
             Setting::EnglishModeMinLetters,
+            Setting::StatusBarVisibility,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

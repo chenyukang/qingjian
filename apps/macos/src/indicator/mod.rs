@@ -169,8 +169,11 @@ pub struct Indicator {
     panel: Option<Retained<NSPanel>>,
     view: Option<Retained<DotView>>,
 
-    /// 当前是否显示（输入法激活中且开关开着）。
+    /// 当前是否显示。
     visible: bool,
+
+    /// 上一次「系统输入源是青简」的时刻，用来实现「离开后延迟收起」。
+    last_ours: Option<std::time::Instant>,
     mtm: MainThreadMarker,
 }
 
@@ -180,6 +183,7 @@ impl Indicator {
             panel: None,
             view: None,
             visible: false,
+            last_ours: None,
             mtm,
         }
     }
@@ -209,7 +213,15 @@ impl Indicator {
         // 显示与否只看「系统当前输入源是不是青简」：是就露出来（含焦点在输入框之间挪动），
         // 不是就立刻收（切到别的输入法 / 别的输入源）。状态变化时记一条，排查「指示器不见了」用
         let ours = crate::app::input_source::current_source_is_ours();
-        let want = config.enabled && ours;
+        if ours {
+            self.last_ours = Some(std::time::Instant::now());
+        }
+        // 显示时机按配置分三档（`[status_bar] visibility`）：
+        // 跟随 = 不是青简立刻收；延迟收起 = 离开一会儿再收（切应用不闪）；一直显示 = 不看输入源
+        let recently_ours = self
+            .last_ours
+            .is_some_and(|at| at.elapsed() <= config.visibility.hide_delay());
+        let want = config.enabled && (ours || recently_ours);
         if want != self.visible {
             // 只在「该显示 / 该收起」翻转时记一条：排查「指示器不见了」看它
             tracing::info!(

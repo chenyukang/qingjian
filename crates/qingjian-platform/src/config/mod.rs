@@ -46,7 +46,7 @@ pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
-pub use status_bar::{Anchor, Color, Shape, StatusBarConfig};
+pub use status_bar::{Anchor, Color, Shape, StatusBarConfig, Visibility};
 pub use switch_key::{SwitchKey, SwitchKeys};
 pub use theme_mode::ThemeMode;
 pub use update::{UpdateChannel, UpdateConfig};
@@ -371,6 +371,8 @@ offset_y = 24
 # 形状（circle 圆点 / square 方块 / rounded 圆角方块）与大小（点，6–48）
 shape = "circle"
 size = 12
+# 显示时机：follow 跟随输入源（不是青简就立刻收，缺省）/ sticky 跟随但延迟 1.5 秒收起 / always 一直显示
+visibility = "follow"
 # 中文 / 英文输入时的颜色：#RRGGBB，也可以写 red / green / blue / orange / white / black
 chinese_color = "#E5484D"
 english_color = "#46A758"

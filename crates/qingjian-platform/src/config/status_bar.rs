@@ -41,6 +41,10 @@ pub struct StatusBarConfig {
     /// 描一圈白色轮廓：桌面上背景颜色不定时（深色壁纸、浅色窗口）也看得清。缺省开。
     pub outline: bool,
 
+    /// 什么时候显示。缺省 `follow`：**系统输入源不是青简就立刻收起**。
+    /// 另外两档是可选项：`sticky`（离开后延迟 1.5 秒再收，切应用时不闪）、`always`（只看总开关）。
+    pub visibility: Visibility,
+
     /// 切换中 / 英时在光标处提示一句（「英文输入」「中文输入」）。缺省开；
     /// 觉得啰嗦就关掉 —— 指示器的颜色本身已经说明了模式。
     pub notice: bool,
@@ -60,7 +64,51 @@ impl Default for StatusBarConfig {
             chinese_color: Color::CHINESE,
             english_color: Color::ENGLISH,
             outline: true,
+            visibility: Visibility::Follow,
             notice: true,
+        }
+    }
+}
+
+/// 悬浮指示器什么时候显示。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Visibility {
+    /// 只跟着「系统当前输入源是不是青简」：不是就立刻收（最准，但切应用时会闪）。
+    Follow,
+
+    /// 跟随，但离开青简后**等一会儿**再收（可选）：切应用引起的瞬时跳动不再让圆点闪。
+    Sticky,
+
+    /// 只要指示器开着就一直显示（切到别的输入法也不收）：当装饰用，不再指示「能不能打中文」。
+    Always,
+}
+
+impl Visibility {
+    pub const ALL: [Self; 3] = [Self::Follow, Self::Sticky, Self::Always];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Follow => "跟随输入源",
+            Self::Sticky => "跟随，但延迟收起",
+            Self::Always => "一直显示",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Follow => "follow",
+            Self::Sticky => "sticky",
+            Self::Always => "always",
+        }
+    }
+
+    /// 离开青简之后等多久才收起（`Follow` 就是 0）。
+    pub fn hide_delay(self) -> std::time::Duration {
+        match self {
+            Self::Follow => std::time::Duration::ZERO,
+            Self::Sticky => std::time::Duration::from_millis(1500),
+            Self::Always => std::time::Duration::MAX,
         }
     }
 }
