@@ -99,12 +99,11 @@ impl Engine {
         if best.syllables.len() < 2 {
             return Vec::new();
         }
-        let wanted = if alternates && best.syllables.len() >= ALTERNATE_MIN_SYLLABLES {
-            SENTENCE_CANDIDATES
-        } else {
-            1
-        };
-        let mut paths = self.sentence_paths(&best.patterns(), typos, false, wanted);
+        let long = alternates && best.syllables.len() >= ALTERNATE_MIN_SYLLABLES;
+        let wanted = if long { SENTENCE_CANDIDATES } else { 1 };
+        // 短输入也取几条路径：不是放宽门槛，而是为了从里面挑出「末词用户自己打过」的那条，见 [`Self::personally_typed`]
+        let fetch = if alternates { SENTENCE_CANDIDATES } else { 1 };
+        let mut paths = self.sentence_paths(&best.patterns(), typos, false, fetch);
         if paths.is_empty() {
             return Vec::new();
         }
@@ -116,12 +115,16 @@ impl Engine {
                 .iter()
                 .any(|c| c.kind == CandidateKind::Chinese && c.syllables.concat() == letters);
             if spelled_exactly {
-                paths = self.sentence_paths(&best.patterns(), false, false, wanted);
+                paths = self.sentence_paths(&best.patterns(), false, false, fetch);
             }
         }
         let mut out: Vec<Candidate> = Vec::new();
         for (rank, conversion) in paths.into_iter().enumerate() {
-            if out.len() >= wanted {
+            // 够数了就停；短输入里「末词是用户自己打过的接续」的那条例外，它正是要捞的那条
+            if out.len() >= wanted && (long || !self.personally_typed(&conversion)) {
+                continue;
+            }
+            if out.len() >= SENTENCE_CANDIDATES {
                 break;
             }
             // 最优路径不合格就一条都不出：它不合格多半是「整段本来就是一个词」（`nihao` → 你好），
@@ -174,6 +177,22 @@ impl Engine {
             });
         }
         out
+    }
+
+    /// 这条路径的末词是不是用户自己打过的接续：路径至少两个词、末词不是占位音节，
+    /// 且个人二元计数够 [`ALTERNATE_PERSONAL_PAIR`]（`纽约` → `队`）。
+    fn personally_typed(&self, conversion: &Conversion) -> bool {
+        let words: Vec<&sentence::SentenceWord> = conversion
+            .words
+            .iter()
+            .filter(|word| !word.placeholder)
+            .collect();
+        let [.., previous, last] = words.as_slice() else {
+            return false;
+        };
+        self.learner.user_ngram().is_some_and(|ngram| {
+            ngram.pair(Some(&previous.text), &last.text) >= ALTERNATE_PERSONAL_PAIR
+        })
     }
 
     /// 跑一次整句转换：主词库 + 用户词（含模糊音与敲错写法，命中的按代价扣分），静态语言模型与个人 n-gram 插值，用户选择次数加分。

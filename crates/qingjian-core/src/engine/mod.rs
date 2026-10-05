@@ -398,9 +398,11 @@ const DEFAULT_EXACT_BONUS: f64 = 5.6;
 const SENTENCE_LEARN_PATHS: usize = 8;
 
 /// 短于这么多音节的不给备选整句：那时候选表里的词级候选比另一种读法有用。
-/// 三个音节起就给（`niuyuedui` → 纽约对 / 纽约队）：三音节输入词表里往往只有第一音节的单字，
-/// 另一种末字读法这时候比那些单字有用得多；两个音节仍不给，那是词级候选的主场。
-const ALTERNATE_MIN_SYLLABLES: usize = 3;
+const ALTERNATE_MIN_SYLLABLES: usize = 4;
+
+/// 短输入下还想留下的那条备选，末词得是**用户自己打过的接续**：个人二元计数到这个数（明确点选一次记两份）
+/// 才算「他真打过这个搭配」。用户打过的东西要能再出现（`纽约` + `队` 打过几次，`niuyuedui` 就该能选出 纽约队）。
+const ALTERNATE_PERSONAL_PAIR: u32 = 2;
 
 /// 短于这么多字母的不让模型直接生成整句：那么短的输入词级候选够用，生成的几十毫秒不值。
 const MIN_GENERATED_LETTERS: usize = 6;
