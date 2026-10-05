@@ -206,7 +206,20 @@ impl Indicator {
         self.place(config);
         // 显示与否只看「系统当前输入源是不是青简」：是就露出来（含焦点在输入框之间挪动），
         // 不是就立刻收（切到别的输入法 / 别的输入源）
-        if crate::app::input_source::current_source_is_ours() {
+        // 显示与否只看「系统当前输入源是不是青简」：是就露出来（含焦点在输入框之间挪动），
+        // 不是就立刻收（切到别的输入法 / 别的输入源）。状态变化时记一条，排查「指示器不见了」用
+        let ours = crate::app::input_source::current_source_is_ours();
+        let want = config.enabled && ours;
+        if want != self.visible {
+            // 只在「该显示 / 该收起」翻转时记一条：排查「指示器不见了」看它
+            tracing::info!(
+                enabled = config.enabled,
+                ours,
+                was = self.visible,
+                "悬浮指示器同步"
+            );
+        }
+        if want {
             self.show();
         } else {
             self.hide_now();
