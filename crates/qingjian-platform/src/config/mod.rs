@@ -194,6 +194,8 @@ translate_selection = "ctrl+alt+t"
 toggle_english = "ctrl+shift+e"
 # 中 / 英切换：切到英文就是纯英文模式；与 Caps Lock 并存
 toggle_english_mode = "ctrl+shift+r"
+# 打开偏好设置（缺省 ⌃⇧S）：在输入法激活时按一下
+open_settings = "ctrl+shift+s"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 # 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）

@@ -39,6 +39,7 @@ impl Host {
         self.hide_keys = config.shortcut.hide_keys();
         self.toggle_english_keys = config.shortcut.toggle_english;
         self.toggle_english_mode_keys = config.shortcut.toggle_english_mode;
+        self.open_settings_keys = config.shortcut.open_settings;
         self.status_bar = config.status_bar.clone();
         self.shift_tap_toggle = config.general.shift_tap_toggle;
         self.per_app_mode = config.apps.per_app_mode;

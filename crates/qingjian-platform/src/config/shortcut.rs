@@ -35,6 +35,9 @@ pub struct ShortcutConfig {
     /// 与 Caps Lock 并存 —— 两个任一开着就是英文。
     pub toggle_english_mode: KeyCombo,
 
+    /// 打开偏好设置（缺省 `⌃⇧S`）。
+    pub open_settings: KeyCombo,
+
     /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
     pub toggle_english: KeyCombo,
 
@@ -61,6 +64,7 @@ impl Default for ShortcutConfig {
             hide_candidate: Modifiers::CONTROL,
             toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
             toggle_english_mode: KeyCombo::TOGGLE_ENGLISH_MODE_DEFAULT,
+            open_settings: KeyCombo::OPEN_SETTINGS_DEFAULT,
         }
     }
 }

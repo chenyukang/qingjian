@@ -276,6 +276,17 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
                 }
             }
+            (Setting::OpenSettingsKeys, SettingValue::Text(text)) => {
+                match text.parse::<KeyCombo>() {
+                    Ok(combo) => {
+                        self.settings
+                            .set_value("shortcut", "open_settings", combo.key_string());
+                    }
+                    Err(error) => self.preferences.set_status(&error.to_string()),
+                }
+                self.apply_config(false);
+                return;
+            }
             (Setting::ToggleEnglishModeKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
                     Ok(combo) => {

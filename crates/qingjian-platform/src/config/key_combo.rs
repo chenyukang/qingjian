@@ -51,6 +51,17 @@ impl KeyCombo {
         key: 'e',
     };
 
+    /// 打开偏好设置（缺省 `⌃⇧S`）：不用去菜单栏找，随手按一下。
+    pub const OPEN_SETTINGS_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: true,
+            command: false,
+        },
+        key: 's',
+    };
+
     pub const CORRECT_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

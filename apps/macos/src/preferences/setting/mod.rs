@@ -134,6 +134,9 @@ pub enum Setting {
     /// `[shortcut] toggle_english_mode`，快捷键录制按钮：中 / 英切换。
     ToggleEnglishModeKeys,
 
+    /// `[shortcut] open_settings`，快捷键录制按钮：打开偏好设置。
+    OpenSettingsKeys,
+
     /// `[status_bar] enabled`，勾选框：桌面悬浮指示器开关。
     StatusBarEnabled,
 
@@ -334,6 +337,7 @@ impl Setting {
             Self::HideCandidateKeys => 62,
             Self::EnglishInPinyin => 63,
             Self::ToggleEnglishModeKeys => 64,
+            Self::OpenSettingsKeys => 81,
             Self::StatusBarEnabled => 65,
             Self::StatusBarOutline => 66,
             Self::StatusBarAnchor => 67,
@@ -433,6 +437,7 @@ impl Setting {
             62 => Self::HideCandidateKeys,
             63 => Self::EnglishInPinyin,
             64 => Self::ToggleEnglishModeKeys,
+            81 => Self::OpenSettingsKeys,
             65 => Self::StatusBarEnabled,
             66 => Self::StatusBarOutline,
             67 => Self::StatusBarAnchor,
@@ -515,6 +520,7 @@ mod tests {
             Setting::EnglishCandidates,
             Setting::EnglishInPinyin,
             Setting::ToggleEnglishModeKeys,
+            Setting::OpenSettingsKeys,
             Setting::StatusBarEnabled,
             Setting::StatusBarOutline,
             Setting::StatusBarAnchor,

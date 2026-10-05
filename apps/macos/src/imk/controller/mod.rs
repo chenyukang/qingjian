@@ -256,6 +256,15 @@ impl QingjianInputController {
         {
             return self.toggle_english_mode(client);
         }
+        // 打开偏好设置（缺省 ⌃⇧S）：不在组句中才认，免得打到一半把窗口叫出来
+        let settings_key = host::with(|h| h.open_settings_keys).unwrap_or_default();
+        if pressed == settings_key.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(settings_key.key)
+            && !host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
+        {
+            host::with(|h| h.perform(crate::menubar::MenuAction::OpenPreferences));
+            return true;
+        }
         // 英文候选开关（缺省 ⌃⇧E）：中文模式下拼音时的英文词候选，按一次关、再按一次开。
         // 组句中也认：用状态条提示，不动手上那串拼音
         let toggle = host::with(|h| h.toggle_english_keys).unwrap_or_default();

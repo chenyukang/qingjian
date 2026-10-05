@@ -54,6 +54,9 @@ pub struct ShortcutsPage {
 
     /// 纠错选中文字的组合键。
     correct_selection: Retained<KeyRecorder>,
+
+    /// 打开偏好设置。
+    open_settings: Retained<KeyRecorder>,
 }
 
 impl ShortcutsPage {
@@ -229,6 +232,20 @@ impl ShortcutsPage {
             mtm,
             "改快捷键：点一下右边的按钮，再按下新的组合键（要带修饰键 ⌃ ⌥ ⇧ ⌘），Esc 取消。避开 ⌃+数字（切换桌面）和 ⌘+数字 / ⌘T（应用常用键）。",
         );
+        layout.space(GROUP_GAP);
+        let open_settings = row_recorder(
+            layout,
+            mtm,
+            "打开偏好设置",
+            Setting::OpenSettingsKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "输入法激活时按一下把偏好设置叫出来；不在组句中才认，免得打到一半弹窗。",
+        );
         let reset = button(mtm, "恢复默认快捷键", Setting::ResetShortcuts, target);
         layout.place(&reset, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
         layout.next_row(ROW_HEIGHT + 4.0);
@@ -254,6 +271,7 @@ impl ShortcutsPage {
             shift_tap_window,
             translate_selection,
             correct_selection,
+            open_settings,
         }
     }
 
@@ -303,5 +321,7 @@ impl ShortcutsPage {
         let translate = config.shortcut.translate_selection;
         self.translate_selection
             .show(&translate.key_string(), &translate.label());
+        let open = config.shortcut.open_settings;
+        self.open_settings.show(&open.key_string(), &open.label());
     }
 }

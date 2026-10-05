@@ -135,6 +135,9 @@ pub struct Host {
     /// 中 / 英切换的快捷键（缺省 `⌃⇧R`）。
     pub toggle_english_mode_keys: KeyCombo,
 
+    /// `[shortcut] open_settings`：打开偏好设置。
+    pub open_settings_keys: KeyCombo,
+
     /// 轻拍 Shift 切换中 / 英（`[general] shift_tap_toggle`）。
     pub shift_tap_toggle: bool,
 
