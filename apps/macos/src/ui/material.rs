@@ -7,8 +7,8 @@
 //! —— 这版系统上材质会压在内容上方，候选文字会被盖住）。
 
 use objc2::rc::Retained;
-use objc2::runtime::AnyClass;
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::runtime::{AnyClass, AnyObject};
+use objc2::{MainThreadMarker, MainThreadOnly, msg_send};
 use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSGlassEffectView, NSGlassEffectViewStyle, NSView,
     NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
@@ -18,6 +18,24 @@ use objc2_foundation::NSRect;
 /// 系统有没有 Liquid Glass API（macOS 26 起）。老系统上不能用 `NSGlassEffectView` 这个名字。
 pub fn glass_available() -> bool {
     AnyClass::get(c"NSGlassEffectView").is_some()
+}
+
+/// 把视图裁成圆角：`wantsLayer` + `CALayer.cornerRadius` + `masksToBounds`。
+///
+/// 不引 `objc2-quartz-core` 的 feature，直接 `msg_send` 设——这两个属性名很稳定。
+fn round_corners(view: &NSView, corner_radius: f64) {
+    if corner_radius <= 0.0 {
+        return;
+    }
+    view.setWantsLayer(true);
+    unsafe {
+        let layer: *mut AnyObject = msg_send![view, layer];
+        if layer.is_null() {
+            return;
+        }
+        let _: () = msg_send![layer, setCornerRadius: corner_radius];
+        let _: () = msg_send![layer, setMasksToBounds: true];
+    }
 }
 
 /// 面板圆角缺省值（偏好设置用；候选窗用主题里的 `corner_radius`）。
@@ -52,8 +70,7 @@ impl PanelBackdrop {
             blur.setState(NSVisualEffectState::Active);
             blur.setAutoresizingMask(resize);
             blur.setWantsLayer(true);
-            // 圆角只有 Glass 那一路有 API；老系统的毛玻璃退路保持直角（能用就行）
-            let _ = corner_radius;
+            round_corners(&blur, corner_radius);
             Material::Frosted(blur)
         };
         Self { material }
@@ -71,7 +88,7 @@ impl PanelBackdrop {
         blur.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
         blur.setState(NSVisualEffectState::Active);
         blur.setAutoresizingMask(resize);
-        let _ = corner_radius;
+        round_corners(&blur, corner_radius);
         Self {
             material: Material::Frosted(blur),
         }
