@@ -10,10 +10,12 @@ use crate::sentence;
 mod forgotten;
 mod learner;
 mod muted;
+mod preference;
 
 pub use forgotten::Forgotten;
 pub use learner::{Learner, NoLearner};
 pub(super) use muted::MutedLearner;
+pub use preference::SortPreference;
 
 impl Engine {
     /// 取回释义兜底写好的释义，记进译者（个人释义表）；返回学了几条。壳定时调，不阻塞。
@@ -157,6 +159,13 @@ impl Engine {
             candidate_owned.text = simp.clone();
         }
         let candidate = &candidate_owned;
+        let cycleable = matches!(
+            candidate.kind,
+            CandidateKind::Chinese
+                | CandidateKind::Code
+                | CandidateKind::Cloud
+                | CandidateKind::English
+        );
         let forgotten = match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Code | CandidateKind::Cloud => {
                 self.learner.forget(&candidate.text)
@@ -164,12 +173,23 @@ impl Engine {
             CandidateKind::English => Forgotten {
                 user_word: self.learner.forget_english(&candidate.text),
                 learning: false,
+                preference: None,
             },
             CandidateKind::Sentence
             | CandidateKind::Shortcut
             | CandidateKind::Custom(_)
             | CandidateKind::Emoji
             | CandidateKind::Generated => Forgotten::default(),
+        };
+        // 词库里的词删不掉（没有用户词、也没有学习记录），但用户按这个键的本意是「别再让它排前面」：
+        // 改记排序偏好，一次一档循环（后置 ↔ 正常）。整句 / 快捷 / emoji 没什么可后置的，保持原来的提示
+        let forgotten = if forgotten.is_nothing() && cycleable {
+            Forgotten {
+                preference: Some(self.learner.cycle_sort_preference(&candidate.text)),
+                ..forgotten
+            }
+        } else {
+            forgotten
         };
         if !forgotten.is_nothing() {
             self.forget_span_cache();
@@ -181,6 +201,25 @@ impl Engine {
             tracing::debug!(text = %candidate.text, ?forgotten, "删除候选");
         }
         forgotten
+    }
+
+    /// 把所有标过「后置」的词恢复成正常排序（设置页那个按钮）。返回恢复了几条。
+    /// 后置的词沉在候选列表最末，翻页很难够到，所以需要一个不依赖候选窗的入口。
+    pub fn restore_sort_preferences(&mut self) -> usize {
+        let words: Vec<String> = self
+            .learner
+            .sort_preferences()
+            .into_iter()
+            .map(|(word, _)| word)
+            .collect();
+        for word in &words {
+            self.learner.cycle_sort_preference(word);
+        }
+        if !words.is_empty() {
+            self.forget_span_cache();
+            *self.correction_cache.borrow_mut() = None;
+        }
+        words.len()
     }
 
     /// 把学习数据与输入日志落盘。壳在停用输入法时调，激活期间也可以定时调（进程被杀时少丢）：

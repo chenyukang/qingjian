@@ -296,3 +296,35 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
     let saved = std::fs::read_to_string(FrequencyLearner::english_path(&path)).unwrap();
     assert!(saved.contains("Gist\t2"), "{saved}");
 }
+
+#[test]
+fn sort_preferences_round_trip_and_forget_normal_entries() {
+    let dir = std::env::temp_dir().join("qingjian-user-sort-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(learner.sort_preference("Hahn"), SortPreference::Normal);
+    assert_eq!(learner.cycle_sort_preference("Hahn"), SortPreference::Down);
+    assert_eq!(learner.sort_preference("Hahn"), SortPreference::Down);
+    assert!(learner.has_sort_preferences());
+    learner.flush();
+
+    let mut restored = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(restored.sort_preference("Hahn"), SortPreference::Down);
+    assert_eq!(
+        restored.sort_preferences(),
+        vec![("Hahn".to_owned(), SortPreference::Down)]
+    );
+
+    // 再按一次回到正常，文件里不留 `normal` 这种没用的一行
+    assert_eq!(
+        restored.cycle_sort_preference("Hahn"),
+        SortPreference::Normal
+    );
+    assert!(!restored.has_sort_preferences());
+    restored.flush();
+    let text = std::fs::read_to_string(dir.join("user-sort.tsv")).unwrap();
+    assert!(!text.contains("Hahn"), "{text}");
+    std::fs::remove_dir_all(dir).unwrap();
+}

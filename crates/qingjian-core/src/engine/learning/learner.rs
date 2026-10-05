@@ -1,6 +1,7 @@
 use qingjian_dictionary::{Dictionary, WordList};
 
 use super::Forgotten;
+use super::SortPreference;
 use crate::candidate::Candidate;
 use crate::sentence::{Context, UserNgram};
 
@@ -79,6 +80,27 @@ pub trait Learner: Send {
     /// `typed` 被当成 `intended` 接受过几次。
     fn typo_count(&self, _typed: &str, _intended: &str) -> u32 {
         0
+    }
+
+    /// 用户要求把某个候选「后置 / 恢复」（`Shift+数字`）：词库里的词删不掉，改记排序偏好。
+    /// 一次一档循环（正常 → 后置 → 正常），返回这次之后的状态。见 [`SortPreference`]。
+    fn cycle_sort_preference(&mut self, _text: &str) -> SortPreference {
+        SortPreference::Normal
+    }
+
+    /// 这个词的排序偏好，见 [`Self::cycle_sort_preference`]。
+    fn sort_preference(&self, _text: &str) -> SortPreference {
+        SortPreference::Normal
+    }
+
+    /// 记过排序偏好的词（设置页列表用）。
+    fn sort_preferences(&self) -> Vec<(String, SortPreference)> {
+        Vec::new()
+    }
+
+    /// 有没有记过排序偏好：查询里用它跳过整个过滤。
+    fn has_sort_preferences(&self) -> bool {
+        false
     }
 
     /// 用户要求删掉这个词：它是用户词就删掉，同时清掉选择次数、各输入串下的选择、个人 n-gram 里与它有关的转移。

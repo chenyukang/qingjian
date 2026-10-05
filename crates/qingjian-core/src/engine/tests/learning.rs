@@ -722,3 +722,65 @@ fn input_log_records_the_session_and_page_turns() {
     };
     assert_eq!(commit.pages, 2);
 }
+
+/// 词库里的词删不掉（没有用户词、也没有学习记录），按「删候选」的键就把它的排序偏好压一档：
+/// 后置之后沉到最后，再按一次恢复 —— 按错了永远能撤回。
+#[test]
+fn a_dictionary_word_can_be_demoted_and_restored() {
+    let dictionary = Dictionary::parse("是\tshi\t9000\n时\tshi\t8000\n市\tshi\t7000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_learner(Box::new(WordLearner::default()));
+
+    engine.set_input("shi");
+    let before: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    let victim = before[1].clone();
+
+    engine.set_input("shi");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == victim)
+        .unwrap();
+    let forgotten = engine.forget(&candidate);
+    assert_eq!(forgotten.preference, Some(SortPreference::Down));
+    assert!(
+        !forgotten.user_word && !forgotten.learning,
+        "词库里的词没什么可删"
+    );
+
+    // 后置之后它排在最后，但还在候选里（不是删掉）
+    engine.set_input("shi");
+    let after: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert_eq!(after.last().map(String::as_str), Some(victim.as_str()));
+    assert!(after.contains(&victim), "后置不是删除：{after:?}");
+
+    // 再按一次恢复原样
+    let restored = engine.forget(&candidate);
+    assert_eq!(restored.preference, Some(SortPreference::Normal));
+    engine.set_input("shi");
+    let back: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert_eq!(back, before);
+}

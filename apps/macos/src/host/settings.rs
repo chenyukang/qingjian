@@ -345,6 +345,11 @@ impl Host {
                 }
                 return;
             }
+            (Setting::RestoreSortPreferences, _) => {
+                let restored = self.engine.restore_sort_preferences();
+                tracing::info!(restored, "恢复后置的候选");
+                return;
+            }
             (Setting::Fuzzy(index), SettingValue::Bool(on)) => {
                 self.settings
                     .set_bool("fuzzy", FuzzyRules::NAMES[index], on);

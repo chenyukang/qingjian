@@ -1,6 +1,6 @@
 use qingjian_dictionary::{Dictionary, WordList};
 
-use super::{Forgotten, Learner};
+use super::{Forgotten, Learner, SortPreference};
 use crate::candidate::Candidate;
 use crate::sentence::{Context, UserNgram};
 
@@ -155,6 +155,23 @@ impl Learner for MutedLearner {
 
     fn forget_english(&mut self, word: &str) -> bool {
         self.inner.forget_english(word)
+    }
+
+    // 排序偏好与删词同类：候选窗口里的管理操作，私密中照做（读也照常转发）
+    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
+        self.inner.cycle_sort_preference(text)
+    }
+
+    fn sort_preference(&self, text: &str) -> SortPreference {
+        self.inner.sort_preference(text)
+    }
+
+    fn sort_preferences(&self) -> Vec<(String, SortPreference)> {
+        self.inner.sort_preferences()
+    }
+
+    fn has_sort_preferences(&self) -> bool {
+        self.inner.has_sort_preferences()
     }
 
     fn flush(&mut self) {

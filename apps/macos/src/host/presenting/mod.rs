@@ -8,9 +8,11 @@ pub use translation_job::TranslationJob;
 
 use super::cloud::cloud_candidate;
 use super::*;
+use qingjian_core::SortPreference;
 
 impl Host {
-    /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习。返回给用户看的一句话；那格没有候选返回 `None`。
+    /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习；词库里的词删不掉（也没学习记录），
+    /// 改记排序偏好（后置 ↔ 恢复，一次一档）。返回给用户看的一句话；那格没有候选返回 `None`。
     pub fn forget_candidate(&mut self, offset: usize) -> Option<String> {
         let index = self.session.index_on_page(offset)?;
         let candidate = self.session.candidate(index)?;
@@ -20,6 +22,13 @@ impl Host {
             format!("已删除用户词「{text}」")
         } else if forgotten.learning {
             format!("已忘掉对「{text}」的学习记录")
+        } else if let Some(preference) = forgotten.preference {
+            match preference {
+                SortPreference::Down => {
+                    format!("「{text}」已后置：以后排在候选最后（再按一次恢复）")
+                }
+                SortPreference::Normal => format!("「{text}」已恢复正常排序"),
+            }
         } else {
             format!("「{text}」是词库里的词，也没有学习记录，没什么可删")
         })

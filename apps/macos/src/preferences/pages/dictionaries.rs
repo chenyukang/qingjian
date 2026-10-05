@@ -54,6 +54,19 @@ impl DictionariesPage {
             mtm,
             "接受青简 TSV（词、拼音、词频三列）、Rime 的 .dict.yaml 和 .qj 文件，导入后立即可用；勾选框控制开关，「移除」把文件挪到词库目录的 removed 里，不会真删。",
         );
+        let restore = button(
+            mtm,
+            "恢复所有后置的词",
+            Setting::RestoreSortPreferences,
+            target,
+        );
+        layout.place(&restore, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        note_full(
+            layout,
+            mtm,
+            "候选窗里按 Shift+数字 可以把这个候选「后置」（词库里的词删不掉，但能不再排在前面），再按一次恢复；这个按钮把标过后置的词一次性恢复。",
+        );
         layout.space(GROUP_GAP);
         let list = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
         // 列表放在滚动视图里：随包 11 本加导入的可能超过一屏，全部列出、可以滚，不再只显示前几本

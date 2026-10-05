@@ -225,7 +225,8 @@ impl Engine {
                 hit.text,
                 sentence::fallback_log_prob(hit.frequency, log_total),
             );
-            (choice, log_prob)
+            // 用户标过「后置」的词（`Shift+数字`）无论得分多高都排到后面，见 `ranking::SortKey`
+            (choice, log_prob, self.learner.sort_preference(hit.text))
         });
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。

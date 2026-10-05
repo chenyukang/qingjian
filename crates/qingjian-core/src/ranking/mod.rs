@@ -1,6 +1,8 @@
 //! 候选排序。
 //!
 //! 词级排序规则：
+//! 0. 用户设的排序偏好（[`crate::engine::SortPreference`]）：标了「后置」的词沉到最后，
+//!    无论字频多高、命中多精确。词库里的词删不掉（也多半不该删），能给的只有这一档
 //! 1. **可信来源**里音节数与输入完全一致的词优先（`kaifa` → 开发 排在 开发者 前；
 //!    导入词库的精确命中只拿加分，见文末）
 //! 2. 覆盖输入字母多者优先（`kaif` → 开发者 排在 开 前）
@@ -50,6 +52,8 @@ mod scored;
 
 use std::collections::HashSet;
 
+use crate::engine::SortPreference;
+
 pub use scored::{PreselectKey, Scored, SortKey};
 
 /// 用户选择次数的加分系数：加分 = 系数 × ln(1 + min(次数, [`WEIGHT_CAP`]))。
@@ -69,15 +73,16 @@ pub fn weight_bonus(count: u32) -> f64 {
     WEIGHT_BONUS * (1.0 + f64::from(count.min(WEIGHT_CAP))).ln()
 }
 
-/// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条。
-/// `context` 给每条命中算（同输入串下的选择次数, 上下文 log 概率），只对预选后剩下的那些调用。
+/// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条**正常**候选；
+/// 用户标了「后置」的词不受 `limit` 限制，一律留在最后（见 [`SortPreference`]）。
+/// `context` 给每条命中算（同输入串下的选择次数, 上下文 log 概率, 排序偏好），只对预选后剩下的那些调用。
 ///
 /// 排序键先算好再排：单字母简拼能命中两万条，比较器里每次数字符数会让排序占掉几十毫秒；去重也只做到够数为止。
 pub fn rank(
     items: &mut Vec<Scored<'_>>,
     limit: usize,
     exact_bonus: f64,
-    context: impl Fn(&Scored<'_>) -> (u32, f64),
+    context: impl Fn(&Scored<'_>) -> (u32, f64, SortPreference),
 ) {
     // 远超上限时先按结构键 + 词频线性选出前面一段：同一个词会被多种切分命中，多选一倍留给去重（结果仍可能略少于上限，无妨）
     let preselect = limit.saturating_mul(2);
@@ -93,7 +98,7 @@ pub fn rank(
     let mut keyed: Vec<(SortKey<'_>, Scored<'_>)> = items
         .drain(..)
         .map(|item| {
-            let (choice, log_prob) = context(&item);
+            let (choice, log_prob, preference) = context(&item);
             // 导入词库（CEDICT / 雾凇那类）的精确命中：不给硬键，只给一个封顶的加分，
             // 让真正高频的常驻词能翻过去（`qilai` → 齐来/骑来 不该压住 起来了）
             let exact = if item.hit.exact && !item.hard_exact {
@@ -102,18 +107,26 @@ pub fn rank(
                 0.0
             };
             let score = log_prob + weight_bonus(item.weight) + exact - item.penalty;
-            (item.key(choice, score), item)
+            (item.key(choice, score, preference), item)
         })
         .collect();
     keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    // `limit` 只数**正常**候选：被用户后置的词一律留在列表里（排在最后）。
+    // 不这么做的话，后置把它推到 `limit` 之外就再也翻不到，也就没法按回来恢复了
     let mut seen: HashSet<&str> = HashSet::with_capacity(limit.min(keyed.len()));
-    items.extend(
-        keyed
-            .into_iter()
-            .map(|(_, item)| item)
-            .filter(|item| seen.insert(item.hit.text))
-            .take(limit),
-    );
+    let mut kept = 0usize;
+    for (key, item) in keyed {
+        let demoted = key.0 > 0;
+        if !demoted && kept >= limit {
+            continue;
+        }
+        if seen.insert(item.hit.text) {
+            if !demoted {
+                kept += 1;
+            }
+            items.push(item);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -161,7 +174,9 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| {
+            (0, 0.0, SortPreference::Normal)
+        });
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["开发", "开放", "开发者"]);
     }
@@ -189,7 +204,13 @@ mod tests {
             },
         ];
         // 上下文说 吧 更像：词频高的 把 让位
-        let by_context = |s: &Scored<'_>| (0, if s.hit.text == "吧" { -1.0 } else { -6.0 });
+        let by_context = |s: &Scored<'_>| {
+            (
+                0,
+                if s.hit.text == "吧" { -1.0 } else { -6.0 },
+                SortPreference::Normal,
+            )
+        };
         rank(&mut items, usize::MAX, 0.0, by_context);
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["吧", "把"]);
@@ -198,6 +219,7 @@ mod tests {
             (
                 u32::from(s.hit.text == "把"),
                 if s.hit.text == "吧" { -1.0 } else { -6.0 },
+                SortPreference::Normal,
             )
         });
         assert_eq!(items[0].hit.text, "把");
@@ -205,7 +227,9 @@ mod tests {
         for item in &mut items {
             item.weight = u32::from(item.hit.text == "把") * 3;
         }
-        rank(&mut items, usize::MAX, 0.0, |_| (0, -2.0));
+        rank(&mut items, usize::MAX, 0.0, |_| {
+            (0, -2.0, SortPreference::Normal)
+        });
         assert_eq!(items[0].hit.text, "把");
         for item in &mut items {
             item.weight = 3;
@@ -215,8 +239,55 @@ mod tests {
                 0.0
             };
         }
-        rank(&mut items, usize::MAX, 0.0, |_| (0, -2.0));
+        rank(&mut items, usize::MAX, 0.0, |_| {
+            (0, -2.0, SortPreference::Normal)
+        });
         assert_eq!(items[0].hit.text, "吧");
+    }
+
+    /// 后置的词排在最后，但**不会被 limit 截掉** —— 否则就再也翻不到，也没法按回来了。
+    #[test]
+    fn a_demoted_word_stays_in_the_list_even_past_the_limit() {
+        let mut items = vec![
+            Scored {
+                hit: hit("是", "shi", 9000, true),
+                full_last: true,
+                coverage: 3,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("时", "shi", 8000, true),
+                full_last: true,
+                coverage: 3,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("市", "shi", 7000, true),
+                full_last: true,
+                coverage: 3,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+        ];
+        rank(&mut items, 2, 0.0, |s| {
+            let preference = if s.hit.text == "是" {
+                SortPreference::Down
+            } else {
+                SortPreference::Normal
+            };
+            (0, 0.0, preference)
+        });
+        let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
+        assert_eq!(texts.len(), 3, "后置的词不被 limit 截掉：{texts:?}");
+        assert_eq!(texts.last(), Some(&"是"), "后置的词排最后：{texts:?}");
     }
 
     #[test]
@@ -241,7 +312,9 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| {
+            (0, 0.0, SortPreference::Normal)
+        });
         assert_eq!(items[0].hit.text, "开放");
     }
 
@@ -275,7 +348,9 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, 0.0, |_| (0, 0.0));
+        rank(&mut items, usize::MAX, 0.0, |_| {
+            (0, 0.0, SortPreference::Normal)
+        });
         assert_eq!(items.len(), 1);
         assert!(items[0].hit.exact);
     }

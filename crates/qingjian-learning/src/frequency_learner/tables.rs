@@ -64,6 +64,49 @@ impl FrequencyLearner {
         Ok(())
     }
 
+    /// 排序偏好文件与词频文件同目录。
+    pub(super) fn sort_path(frequency_path: &Path) -> PathBuf {
+        frequency_path.with_file_name(USER_SORT_FILE)
+    }
+
+    /// 从 `词\t偏好` 读排序偏好，返回跳过的坏行数。
+    pub(super) fn load_sort(&mut self, source: &str) -> usize {
+        let mut skipped = 0;
+        for line in data_lines(source) {
+            let Some((word, value)) = line.split_once('\t') else {
+                skipped += 1;
+                continue;
+            };
+            match SortPreference::parse(value) {
+                // `normal` 是「没设过」，不留在表里
+                Some(SortPreference::Normal) => {
+                    self.sort.remove(word.trim());
+                }
+                Some(preference) => {
+                    self.sort.insert(word.trim().to_owned(), preference);
+                }
+                None => skipped += 1,
+            }
+        }
+        skipped
+    }
+
+    /// 写排序偏好。表很小，按词排序写，方便人看。
+    pub(super) fn save_sort_to(&mut self, path: &Path) -> Result<(), LearningError> {
+        write_atomic(path, |file| {
+            writeln!(
+                file,
+                "# 青简候选排序偏好：词\t偏好（down = 后置；按 Shift+数字 循环）"
+            )?;
+            for (word, preference) in &self.sort {
+                writeln!(file, "{word}\t{}", preference.as_str())?;
+            }
+            Ok(())
+        })?;
+        self.sort_dirty = false;
+        Ok(())
+    }
+
     /// 按输入串记的选择文件与词频文件同目录。
     pub(super) fn choices_path(frequency_path: &Path) -> PathBuf {
         frequency_path.with_file_name(USER_CHOICES_FILE)

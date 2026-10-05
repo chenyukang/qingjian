@@ -158,6 +158,9 @@ pub enum Setting {
     /// 第 N 本附加词库的「移除」按钮。
     DictionaryRemove(usize),
 
+    /// 「恢复所有后置的词」按钮：把 `Shift+数字` 标过「后置」的词全部恢复正常排序。
+    RestoreSortPreferences,
+
     /// `[general] scheme`，弹出菜单：全拼 + 五套双拼 + 大千注音 + 关。
     Scheme,
 
@@ -240,6 +243,7 @@ impl Setting {
             Self::CorrectSelectionKeys => 60,
             Self::ResetShortcuts => 18,
             Self::ImportDictionary => 19,
+            Self::RestoreSortPreferences => 61,
             Self::Scheme => 20,
             Self::Traditional => 47,
             Self::ShuangpinRawPreedit => 52,
@@ -310,6 +314,7 @@ impl Setting {
             60 => Self::CorrectSelectionKeys,
             18 => Self::ResetShortcuts,
             19 => Self::ImportDictionary,
+            61 => Self::RestoreSortPreferences,
             20 => Self::Scheme,
             49 => Self::Wubi,
             47 => Self::Traditional,
@@ -394,6 +399,7 @@ mod tests {
             Setting::CorrectSelectionKeys,
             Setting::ResetShortcuts,
             Setting::ImportDictionary,
+            Setting::RestoreSortPreferences,
             Setting::Scheme,
             Setting::Wubi,
             Setting::ShuangpinRawPreedit,

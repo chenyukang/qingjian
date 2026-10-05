@@ -2,6 +2,8 @@ use std::cmp::Reverse;
 
 use qingjian_dictionary::Match;
 
+use crate::engine::SortPreference;
+
 /// 一条待排序的词库命中。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Scored<'a> {
@@ -38,10 +40,13 @@ pub struct Scored<'a> {
 /// 与 [`SortKey`] 的前几项同序，只是不拿文本做最后的平手项（预选边界上的平手谁留下无所谓）。
 pub type PreselectKey = u128;
 
-/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；第一项是**可信来源**的
+/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；**头一项是用户设的排序偏好**
+/// （0 正常 / 1 后置，见 [`crate::engine::SortPreference`]）：后置的词无论字频多高、命中多精确，
+/// 都排在没后置的候选之后 —— 但仍在候选里，翻页能找到。第二项是**可信来源**的
 /// 「音节数与输入完全一致」，第三项是同输入串下的选择次数，第四项是原样命中，
 /// 第五项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
 pub type SortKey<'a> = (
+    u8,
     Reverse<bool>,
     Reverse<usize>,
     usize,
@@ -79,8 +84,9 @@ impl<'a> Scored<'a> {
     }
 
     /// `choice` 是同输入串下的选择次数，`score` 是上下文得分（log 概率，已含用户加分与模糊音 / 敲错扣分）。
-    pub(super) fn key(&self, choice: u32, score: f64) -> SortKey<'a> {
+    pub(super) fn key(&self, choice: u32, score: f64, preference: SortPreference) -> SortKey<'a> {
         (
+            preference.rank(),
             Reverse(self.hard_exact),
             Reverse(self.coverage),
             self.abbreviated,

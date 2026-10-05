@@ -1,3 +1,5 @@
+use super::SortPreference;
+
 /// 用户要求删掉一个候选（[`super::Engine::forget`]）之后，实际清掉了什么。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Forgotten {
@@ -6,11 +8,14 @@ pub struct Forgotten {
 
     /// 清掉了对它的学习：选择次数、按输入串记的选择、个人 n-gram 里与它有关的转移。
     pub learning: bool,
+
+    /// 记下了新的排序偏好（词库里的词删不掉，改为「后置 / 恢复」）。
+    pub preference: Option<SortPreference>,
 }
 
 impl Forgotten {
     /// 什么都没清（词库里的词，也没学过）。
     pub fn is_nothing(&self) -> bool {
-        !self.user_word && !self.learning
+        !self.user_word && !self.learning && self.preference.is_none()
     }
 }

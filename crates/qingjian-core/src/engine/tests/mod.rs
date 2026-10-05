@@ -290,6 +290,7 @@ struct WordLearner {
     ngram: sentence::UserNgram,
     shared: Arc<Mutex<(Vec<String>, sentence::UserNgram)>>,
     choices: HashMap<String, u32>,
+    sort: HashMap<String, SortPreference>,
 }
 
 impl Learner for WordLearner {
@@ -347,6 +348,23 @@ impl Learner for WordLearner {
 
     fn user_ngram(&self) -> Option<&sentence::UserNgram> {
         Some(&self.ngram)
+    }
+
+    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
+        let next = self.sort.get(text).copied().unwrap_or_default().cycled();
+        match next {
+            SortPreference::Normal => {
+                self.sort.remove(text);
+            }
+            preference => {
+                self.sort.insert(text.to_owned(), preference);
+            }
+        }
+        next
+    }
+
+    fn sort_preference(&self, text: &str) -> SortPreference {
+        self.sort.get(text).copied().unwrap_or_default()
     }
 }
 

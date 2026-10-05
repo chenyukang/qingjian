@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use qingjian_core::sentence::{Context, UserNgram};
 use qingjian_core::storage::{read_text_lossy, write_atomic};
-use qingjian_core::{Candidate, Forgotten, Learner};
+use qingjian_core::{Candidate, Forgotten, Learner, SortPreference};
 use qingjian_dictionary::{Dictionary, WordList};
 
 use crate::error::LearningError;
@@ -28,6 +28,10 @@ const USER_CHOICES_FILE: &str = "user-choices.tsv";
 
 /// 个人英文词表文件名，与词频文件同目录：`词\t次数`（词按第一次敲的写法存）。
 const USER_ENGLISH_FILE: &str = "user-english.tsv";
+
+/// 排序偏好文件名，与词频文件同目录：`词\t偏好`（`down` / `normal`）。
+/// 词库里的词删不掉，用户能要求的是「后置」，记在这里（`Shift+数字`）。
+const USER_SORT_FILE: &str = "user-sort.tsv";
 
 /// 个人敲错表文件名，与词频文件同目录：`敲的\t要的\t次数`（音节级，接受过的纠正）。
 const USER_TYPOS_FILE: &str = "user-typos.tsv";
@@ -64,6 +68,12 @@ pub struct FrequencyLearner {
 
     /// 个人 n-gram 自上次保存后是否有变化。
     ngram_dirty: bool,
+
+    /// 用户设的候选排序偏好：词 → 偏好（`Shift+数字` 一次一档循环）。
+    sort: BTreeMap<String, SortPreference>,
+
+    /// 排序偏好自上次保存后是否有变化。
+    sort_dirty: bool,
 
     /// 输入串 → (词 → 在这个输入串下被选的次数)。
     choices: HashMap<String, HashMap<String, u32>>,
@@ -146,6 +156,11 @@ impl FrequencyLearner {
             let skipped = learner.load_english(&source);
             note_skipped(&english_path, skipped);
         }
+        let sort_path = Self::sort_path(&path);
+        if let Some(source) = read_text_lossy(&sort_path)? {
+            let skipped = learner.load_sort(&source);
+            note_skipped(&sort_path, skipped);
+        }
         let typos_path = Self::typos_path(&path);
         if let Some(source) = read_text_lossy(&typos_path)? {
             let skipped = learner.load_typos(&source);
@@ -185,6 +200,7 @@ impl FrequencyLearner {
     pub fn has_unsaved(&self) -> bool {
         self.dirty
             || self.words_dirty
+            || self.sort_dirty
             || self.english_dirty
             || self.ngram_dirty
             || self.choices_dirty

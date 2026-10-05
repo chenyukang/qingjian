@@ -173,6 +173,35 @@ impl Learner for FrequencyLearner {
             .unwrap_or(0)
     }
 
+    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
+        let next = self.sort.get(text).copied().unwrap_or_default().cycled();
+        match next {
+            SortPreference::Normal => {
+                self.sort.remove(text);
+            }
+            preference => {
+                self.sort.insert(text.to_owned(), preference);
+            }
+        }
+        self.sort_dirty = true;
+        next
+    }
+
+    fn sort_preference(&self, text: &str) -> SortPreference {
+        self.sort.get(text).copied().unwrap_or_default()
+    }
+
+    fn sort_preferences(&self) -> Vec<(String, SortPreference)> {
+        self.sort
+            .iter()
+            .map(|(word, preference)| (word.clone(), *preference))
+            .collect()
+    }
+
+    fn has_sort_preferences(&self) -> bool {
+        !self.sort.is_empty()
+    }
+
     fn forget(&mut self, text: &str) -> Forgotten {
         let mut forgotten = Forgotten::default();
         if self.words.remove(text).is_some() {
@@ -234,6 +263,17 @@ impl Learner for FrequencyLearner {
                 }
                 Err(error) => {
                     tracing::warn!(path = %words_path.display(), %error, "用户词保存失败")
+                }
+            }
+        }
+        if self.sort_dirty {
+            let sort_path = Self::sort_path(&path);
+            match self.save_sort_to(&sort_path) {
+                Ok(()) => {
+                    tracing::info!(path = %sort_path.display(), entries = self.sort.len(), "排序偏好已保存")
+                }
+                Err(error) => {
+                    tracing::warn!(path = %sort_path.display(), %error, "排序偏好保存失败")
                 }
             }
         }
