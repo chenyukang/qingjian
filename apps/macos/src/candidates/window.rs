@@ -73,10 +73,14 @@ impl CandidateWindow {
         }
         // 先按当前方向量出尺寸（两个方向的尺寸一样），据此决定贴上方还是下方；方向变了再画一次
         let size = self.view.set_frame(&frame, self.order);
+        // 视图自己也要设 frame：它是容器里的 subview 了（以前它本身就是 contentView，
+        // 由窗口带着走），不设的话它还停在初始的 200×100，内容缩在左上角一小块。
+        self.view.setFrame(NSRect::new(NSPoint::ZERO, size));
         let (origin, order) = self.place(size, anchor);
         if order != self.order {
             self.order = order;
             self.view.set_frame(&frame, order);
+            self.view.setFrame(NSRect::new(NSPoint::ZERO, size));
             tracing::debug!(?order, "候选窗口换向：内容跟着倒过来");
         }
         self.panel.setFrame_display(NSRect::new(origin, size), true);
@@ -230,9 +234,7 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     );
     let backdrop = crate::ui::material::PanelBackdrop::new(bounds, view.theme().corner_radius, mtm);
     container.addSubview(backdrop.view());
-    view.setAutoresizingMask(
-        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
-    );
+    // 不给候选视图挂 autoresizing：它的 frame 每次由 `show()` 精确设定
     container.addSubview(view);
     panel.setContentView(Some(&container));
     panel
