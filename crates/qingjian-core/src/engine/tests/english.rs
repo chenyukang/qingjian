@@ -891,3 +891,63 @@ fn english_candidates_disappear_when_the_pinyin_toggle_is_off() {
         .collect();
     assert_eq!(back, before);
 }
+
+/// 关掉「拼音时的英文候选」只关**词库**那份；自己打过的英文词照旧给 ——
+/// 那是用户自己的词，打中文时也可能用（`winlane` 这种）。
+#[test]
+fn the_pinyin_toggle_only_hides_dictionary_english_words() {
+    struct PersonalEnglish(WordList);
+    impl Learner for PersonalEnglish {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn user_english(&self) -> Option<&WordList> {
+            Some(&self.0)
+        }
+    }
+
+    let bundled = WordList::parse("tam\ttam\t3000\nTampa\ttampa\t2000\n").unwrap();
+    let personal = WordList::parse("winlane\twinlane\t900\n").unwrap();
+    let mut engine = engine()
+        .with_learner(Box::new(PersonalEnglish(personal)))
+        .with_english(bundled);
+
+    // 开着：个人词与词库词都在
+    engine.set_input("winlane");
+    let all: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(all.contains(&"winlane".to_owned()), "{all:?}");
+
+    engine.set_english_in_pinyin(false);
+    engine.set_input("winlane");
+    let all: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        all.contains(&"winlane".to_owned()),
+        "个人英文词不该被这个开关关掉：{all:?}"
+    );
+
+    engine.set_input("tam");
+    let all: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(!all.contains(&"tam".to_owned()), "词库那份该关掉：{all:?}");
+}

@@ -457,10 +457,17 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             learned.1.pair(Some("开发"), "先"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(learned.0.len(), usize::from(round == 2), "round {round}");
+        // 这一段之前那句「想开发」本身就是整段答案（3 字 ≤ 4），已经按「选一次就记」成词了，
+        // 所以这里从 1 起算：round 2 再添上分两次选完的 开发先
+        assert_eq!(
+            learned.0.len(),
+            1 + usize::from(round == 2),
+            "round {round} 造出来的词: {:?}",
+            learned.0
+        );
         engine.note_passthrough('\n');
     }
-    assert_eq!(shared.lock().unwrap().0, ["开发先"]);
+    assert_eq!(shared.lock().unwrap().0, ["想开发", "开发先"]);
 
     // 分两段打的要三次：咖啡 + 开 记两次不造词，第三次造
     for round in 1..=3 {
@@ -472,10 +479,16 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             shared.lock().unwrap().1.pair(Some("咖啡"), "开"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(shared.lock().unwrap().0.len(), 1 + usize::from(round == 3));
+        // 到这儿已经有「想开发」「开发先」两个（整句选一次就记），round 3 再添 咖啡开
+        assert_eq!(
+            shared.lock().unwrap().0.len(),
+            2 + usize::from(round == 3),
+            "round {round}: {:?}",
+            shared.lock().unwrap().0
+        );
         engine.punctuate('。');
     }
-    assert_eq!(shared.lock().unwrap().0, ["开发先", "咖啡开"]);
+    assert_eq!(shared.lock().unwrap().0, ["想开发", "开发先", "咖啡开"]);
 }
 
 #[test]
