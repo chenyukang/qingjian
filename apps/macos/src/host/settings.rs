@@ -407,6 +407,9 @@ impl Host {
             (Setting::EnglishCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "english_candidates", on);
             }
+            (Setting::EnglishInPinyin, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_in_pinyin", on);
+            }
             (Setting::EmojiCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "emoji_candidates", on);
             }

@@ -309,6 +309,10 @@ pub struct Engine {
 
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`，缺省 1 = 都给）。
     english_min_letters: usize,
+
+    /// 中文模式下拼音时给不给英文词候选（`[general] english_in_pinyin`，缺省给）。
+    /// 关了只影响拼音过程中的英文词；英文模式（Caps Lock）与云端联想不受影响。
+    english_in_pinyin: bool,
 }
 
 /// 形码编码最长几位（五笔四码）：混输下超过它的输入只可能是拼音。
@@ -493,6 +497,7 @@ impl Engine {
             bulk_dictionaries: Vec::new(),
             exact_bonus: DEFAULT_EXACT_BONUS,
             english_min_letters: 1,
+            english_in_pinyin: true,
         }
     }
 }

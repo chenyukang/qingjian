@@ -74,6 +74,10 @@ impl Engine {
     /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
     /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
+        // `[general] english_in_pinyin`：中文模式下不想要英文词（`ta'm` 全是 tam/Tampa/Tamil）时整段关掉
+        if !self.english_in_pinyin {
+            return;
+        }
         let lists = self.english_lists();
         if lists.is_empty() {
             return;

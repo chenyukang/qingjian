@@ -31,6 +31,9 @@ pub struct ShortcutConfig {
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 
+    /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
+    pub toggle_english: KeyCombo,
+
     /// 数字键配这些修饰键：把这个候选「隐藏」，以后不再出现在候选里（词库里的词删不掉，这是它的去处）。
     /// 与 [`Self::delete_candidate`] 分工：那个是「后置」（还看得见，只排到最后），这个是「不要了」。
     pub hide_candidate: Modifiers,
@@ -52,6 +55,7 @@ impl Default for ShortcutConfig {
             correct_selection: KeyCombo::CORRECT_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
             hide_candidate: Modifiers::CONTROL,
+            toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
         }
     }
 }

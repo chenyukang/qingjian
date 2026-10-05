@@ -187,6 +187,8 @@ translation = "ctrl"
 translation_second = "shift+ctrl"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 translate_selection = "ctrl+alt+t"
+# 切换中文模式下拼音时的英文词候选：按一次关、再按一次开
+toggle_english = "ctrl+shift+e"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 # 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）

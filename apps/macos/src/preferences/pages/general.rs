@@ -34,6 +34,9 @@ pub struct GeneralPage {
     /// 英文模式也给候选。
     english: Retained<NSButton>,
 
+    /// 拼音时给不给英文词候选。
+    english_in_pinyin: Retained<NSButton>,
+
     /// 终端 / 编辑器里不给英文候选。
     english_off_in_apps: Retained<NSButton>,
 
@@ -155,6 +158,18 @@ impl GeneralPage {
             mtm,
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
         );
+        let english_in_pinyin = checkbox(
+            mtm,
+            "拼音时也给英文词候选（⌃⇧E 随时开关）",
+            Setting::EnglishInPinyin,
+            target,
+        );
+        row_checkbox(layout, &english_in_pinyin);
+        note(
+            layout,
+            mtm,
+            "关掉之后拼音只出中文（`ta'm` 不再夹着 tam / Tampa / Tamil），中英混输里要打英文词时用快捷键临时打开。",
+        );
         let english_off_in_apps = checkbox(
             mtm,
             "但在终端和代码编辑器里不给",
@@ -231,6 +246,7 @@ impl GeneralPage {
             shuangpin_raw_preedit,
             traditional,
             english,
+            english_in_pinyin,
             english_off_in_apps,
             emoji,
             mixed_space,
@@ -274,6 +290,7 @@ impl GeneralPage {
             .setEnabled(general.scheme().is_shuangpin());
         set_checked(&self.traditional, general.traditional);
         set_checked(&self.english, general.english_candidates);
+        set_checked(&self.english_in_pinyin, general.english_in_pinyin);
         set_checked(
             &self.english_off_in_apps,
             config.apps.has_english_candidates_off(),

@@ -28,6 +28,20 @@ impl Host {
         Some(candidate_message(&candidate.text, forgotten))
     }
 
+    /// 切换中文模式下拼音时的英文词候选（快捷键），写回配置（下次启动照旧）。
+    /// 返回新状态与给用户看的一句话。
+    pub fn toggle_english_in_pinyin(&mut self) -> (bool, String) {
+        let on = !self.engine.english_in_pinyin();
+        self.engine.set_english_in_pinyin(on);
+        self.settings.set_bool("general", "english_in_pinyin", on);
+        let message = if on {
+            "英文候选：已开".to_owned()
+        } else {
+            "英文候选：已关（拼音只出中文，再按一次开启）".to_owned()
+        };
+        (on, message)
+    }
+
     /// 这个应用里英文模式给不给候选：全局开关开着，且应用不在 `[apps] english_candidates_off` 里。
     pub fn english_candidates_in(&self, bundle: Option<&str>) -> bool {
         self.english_candidates && !bundle.is_some_and(|b| self.apps.english_candidates_off(b))

@@ -237,6 +237,14 @@ impl QingjianInputController {
         {
             return self.correct_selection(client);
         }
+        // 英文候选开关（缺省 ⌃⇧E）：中文模式下拼音时的英文词候选，按一次关、再按一次开。
+        // 组句中也认：用状态条提示，不动手上那串拼音
+        let toggle = host::with(|h| h.toggle_english_keys).unwrap_or_default();
+        if pressed == toggle.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(toggle.key)
+        {
+            return self.toggle_english_candidates(client);
+        }
         // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
         // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
         // 以前在这里被截走后原样还给应用，全角转换就没机会做了。

@@ -844,3 +844,50 @@ fn short_input_can_skip_english_candidates() {
     engine.set_input("key");
     assert!(has_english(&mut engine), "三个字母起照给");
 }
+
+/// `[general] english_in_pinyin`：关掉之后拼音过程中不再出英文词候选（`ta'm` 不再夹着 tam / Tampa）；
+/// 用户自己的个人英文词一起关掉，但英文模式（CapsLock）那条路不受影响。
+#[test]
+fn english_candidates_disappear_when_the_pinyin_toggle_is_off() {
+    let words = WordList::parse("tam	tam	3000\nTampa\ttampa\t2000\n").unwrap();
+    let mut engine = engine().with_english(words);
+
+    engine.set_input("tam");
+    let before: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(before.contains(&"tam".to_owned()), "{before:?}");
+
+    engine.set_english_in_pinyin(false);
+    engine.set_input("tam");
+    let after: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        after.iter().all(|t| !t.is_ascii()),
+        "关掉之后拼音只出中文：{after:?}"
+    );
+
+    // 再打开就回来
+    engine.set_english_in_pinyin(true);
+    engine.set_input("tam");
+    let back: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(back, before);
+}

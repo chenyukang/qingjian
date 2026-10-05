@@ -512,6 +512,16 @@ impl Engine {
 
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`）：短输入（`o`、`en`）几乎都在打中文，
     /// 这个门槛把那些字母候选挡掉。只影响中文模式下的英文词，英文模式（Caps Lock）与英文尾段不受影响。
+    /// 中文模式下拼音时给不给英文词候选（`[general] english_in_pinyin`）。关了只影响拼音过程中的英文词。
+    pub fn set_english_in_pinyin(&mut self, on: bool) {
+        self.english_in_pinyin = on;
+    }
+
+    /// 见 [`Self::set_english_in_pinyin`]。
+    pub fn english_in_pinyin(&self) -> bool {
+        self.english_in_pinyin
+    }
+
     pub fn set_english_min_letters(&mut self, letters: usize) {
         self.english_min_letters = letters.max(1);
     }

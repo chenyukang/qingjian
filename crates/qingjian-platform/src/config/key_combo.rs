@@ -27,6 +27,17 @@ impl KeyCombo {
         key: 't',
     };
 
+    /// 中文模式下拼音时英文候选的开关（缺省 `⌃⇧E`）。
+    pub const TOGGLE_ENGLISH_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: true,
+            command: false,
+        },
+        key: 'e',
+    };
+
     pub const CORRECT_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

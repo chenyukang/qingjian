@@ -175,6 +175,23 @@ impl QingjianInputController {
         true
     }
 
+    /// 切换中文模式下拼音时的英文词候选：组句中用状态条提示（不动拼音），没组句时弹一下提示。
+    pub(super) fn toggle_english_candidates(&self, client: TextClient<'_>) -> bool {
+        let (on, message) = host::with(|h| h.toggle_english_in_pinyin())
+            .unwrap_or((true, "英文候选：已切换".to_owned()));
+        tracing::info!(on, %message);
+        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        if composing {
+            self.refresh(client);
+            host::with(|h| h.status = Some(message));
+            self.render(client);
+        } else {
+            let anchor = mouse_anchor();
+            host::with(|h| h.show_notice(&message, anchor));
+        }
+        true
+    }
+
     /// 隐藏候选（另一组修饰键 + 数字）：词库里的词以后不再出现；自己学过的词与删候选一样删掉。
     pub(super) fn handle_hide_key(&self, digit: usize, client: TextClient<'_>) -> bool {
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);

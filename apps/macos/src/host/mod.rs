@@ -122,6 +122,9 @@ pub struct Host {
     /// 隐藏候选（`⌃+数字`）的修饰键。
     pub hide_keys: Modifiers,
 
+    /// 切换拼音时英文词候选的快捷键（缺省 `⌃⇧E`）。
+    pub toggle_english_keys: KeyCombo,
+
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,
 

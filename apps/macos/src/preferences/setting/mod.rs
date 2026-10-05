@@ -122,6 +122,9 @@ pub enum Setting {
     /// `[general] english_candidates`，勾选框。
     EnglishCandidates,
 
+    /// `[general] english_in_pinyin`，勾选框：中文模式下拼音时给不给英文词候选。
+    EnglishInPinyin,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -268,6 +271,7 @@ impl Setting {
             Self::EnglishCandidatesOffInApps => 25,
             Self::DeleteCandidateKeys => 26,
             Self::HideCandidateKeys => 62,
+            Self::EnglishInPinyin => 63,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -345,6 +349,7 @@ impl Setting {
             25 => Self::EnglishCandidatesOffInApps,
             26 => Self::DeleteCandidateKeys,
             62 => Self::HideCandidateKeys,
+            63 => Self::EnglishInPinyin,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -409,6 +414,7 @@ mod tests {
             Setting::Layout,
             Setting::Preedit,
             Setting::EnglishCandidates,
+            Setting::EnglishInPinyin,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

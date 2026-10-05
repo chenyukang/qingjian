@@ -56,6 +56,11 @@ pub struct GeneralConfig {
     /// 调大就能把那些字母候选挡掉。只影响中文模式下的英文词；英文模式与「拼音头 + 英文尾」不受影响。
     pub english_min_letters: usize,
 
+    /// 中文模式下拼音时给不给英文词候选（缺省给）。关了拼音只出中文 —— 中英混输里那些
+    /// `ta'm` → tam / Tampa / Tamil 大多没用；少数要打英文词的时候用快捷键（`[shortcut] toggle_english`）临时打开。
+    /// 只影响拼音过程中的英文词，英文模式（Caps Lock）与云端联想不受影响。
+    pub english_in_pinyin: bool,
+
     /// 候选里是否给 emoji（`笑` → 😄，紧跟在那个词后面）。
     pub emoji_candidates: bool,
 
@@ -145,6 +150,7 @@ impl Default for GeneralConfig {
             preedit: PreeditMode::default(),
             english_candidates: true,
             english_min_letters: 1,
+            english_in_pinyin: true,
             emoji_candidates: true,
             traditional: false,
             chinese_first: false,
