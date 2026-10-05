@@ -4,7 +4,6 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
     NSClipView, NSColor, NSScreen, NSScrollView, NSTabView, NSTabViewItem, NSTextField, NSView,
-    NSWindowTitleVisibility,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
@@ -199,11 +198,11 @@ impl PreferencesWindow {
         ));
         content.addSubview(&status);
         let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
-        // 让玻璃能透到桌面：窗口自己不能画背景，标题栏也要透明
+        // 让玻璃能透到桌面：窗口自己不能画背景。**不动标题栏**（上一版设了
+        // titlebarAppearsTransparent + titleVisibility=Hidden，这版系统上把关闭/最小化那排
+        // 按钮弄坏了，窗口也关不掉）
         panel.setOpaque(false);
         panel.setBackgroundColor(Some(&NSColor::clearColor()));
-        panel.setTitlebarAppearsTransparent(true);
-        panel.setTitleVisibility(NSWindowTitleVisibility::Hidden);
         panel.setTitle(&NSString::from_str("青简偏好设置"));
         panel.setContentView(Some(&content));
         panel.center();

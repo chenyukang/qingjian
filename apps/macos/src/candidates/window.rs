@@ -17,7 +17,7 @@ use super::theme::Theme;
 use super::view::CandidateView;
 
 /// 玻璃底时候选窗自己的背景不透明度：再低就压不住后面的文字，再高就看不出玻璃。
-const GLASS_BACKGROUND_ALPHA: f64 = 0.55;
+const GLASS_BACKGROUND_ALPHA: f64 = 0.3;
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
 const POPUP_MENU_LEVEL: NSWindowLevel = 101;
@@ -49,7 +49,9 @@ impl CandidateWindow {
     pub fn new(mtm: MainThreadMarker) -> Self {
         let mut theme = Theme::system_default();
         // 玻璃底：候选自己的背景要半透明，系统材质才透得出来（没有 Glass API 的老系统保持原样）
-        if crate::ui::material::glass_available() {
+        let glass = crate::ui::material::glass_available();
+        tracing::info!(glass, "候选窗材质");
+        if glass {
             theme.background = theme
                 .background
                 .colorWithAlphaComponent(GLASS_BACKGROUND_ALPHA);
