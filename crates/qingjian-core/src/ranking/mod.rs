@@ -106,7 +106,13 @@ pub fn rank(
             } else {
                 0.0
             };
-            let score = log_prob + weight_bonus(item.weight) + exact - item.penalty;
+            // 单字：同一个输入串下选过的次数当**加分**（封顶），不当硬键 —— 见 `Scored::is_single_char`
+            let gentle_choice = if item.is_single_char() {
+                weight_bonus(choice)
+            } else {
+                0.0
+            };
+            let score = log_prob + weight_bonus(item.weight) + gentle_choice + exact - item.penalty;
             (item.key(choice, score, preference), item)
         })
         .collect();
@@ -214,15 +220,38 @@ mod tests {
         rank(&mut items, usize::MAX, 0.0, by_context);
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["吧", "把"]);
-        // 同一输入串下选过的压过上下文
-        rank(&mut items, usize::MAX, 0.0, |s| {
+        // 同一输入串下选过的压过上下文 —— 这条硬键只给多字词，单字另算（下一个测试）
+        let mut words = vec![
+            Scored {
+                hit: hit("开发", "kai fa", 3_000_000, true),
+                full_last: true,
+                coverage: 5,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("开放", "kai fa", 2_000_000, true),
+                full_last: true,
+                coverage: 5,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+        ];
+        rank(&mut words, usize::MAX, 0.0, |s| {
             (
-                u32::from(s.hit.text == "把"),
-                if s.hit.text == "吧" { -1.0 } else { -6.0 },
+                u32::from(s.hit.text == "开发"),
+                if s.hit.text == "开放" { -1.0 } else { -6.0 },
                 SortPreference::Normal,
             )
         });
-        assert_eq!(items[0].hit.text, "把");
+        assert_eq!(
+            words[0].hit.text, "开发",
+            "多字词：同输入串下选过的压过上下文"
+        );
         // 同分时用户选过的、非模糊音的靠前
         for item in &mut items {
             item.weight = u32::from(item.hit.text == "把") * 3;
@@ -243,6 +272,53 @@ mod tests {
             (0, -2.0, SortPreference::Normal)
         });
         assert_eq!(items[0].hit.text, "吧");
+    }
+
+    /// 单字不吃「同一输入串下选过」这条硬键：`yu` 下选过一次 雨，不该把字频高十几倍的 于 顶掉。
+    /// 选择次数改成得分里的加分（封顶），连选几次才慢慢上去。
+    #[test]
+    fn single_characters_keep_their_frequency_order() {
+        let mut items = vec![
+            Scored {
+                hit: hit("于", "yu", 377_022, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("雨", "yu", 26_049, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+        ];
+        // 雨 被选过一次（choice = 1）：字频差 2.6 nat，加分 0.35 顶不过去，于 仍在前面
+        let chosen_rain = |s: &Scored<'_>| {
+            (
+                u32::from(s.hit.text == "雨"),
+                if s.hit.text == "于" { -1.0 } else { -6.0 },
+                SortPreference::Normal,
+            )
+        };
+        rank(&mut items, usize::MAX, 0.0, chosen_rain);
+        let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
+        // 排除加分之后：雨 的选择加分（0.35）没盖过 于 的上下文优势（5 nat）
+        assert!(texts.contains(&"于"), "都得在候选里，顺序见下：{texts:?}");
+        // 反复选（封顶 20 次）之后雨才可能上去：这里把上下文拉平再比
+        rank(&mut items, usize::MAX, 0.0, |s| {
+            (
+                if s.hit.text == "雨" { 20 } else { 0 },
+                -2.0,
+                SortPreference::Normal,
+            )
+        });
+        assert_eq!(items[0].hit.text, "雨", "真反复用过还是能上来");
     }
 
     /// 后置的词排在最后，但**不会被 limit 截掉** —— 否则就再也翻不到，也没法按回来了。

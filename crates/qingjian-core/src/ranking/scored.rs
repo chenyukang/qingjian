@@ -83,8 +83,16 @@ impl<'a> Scored<'a> {
             | (0xFF - chars)
     }
 
+    /// 单字候选：`yu` 下 于/雨/语/与 一串同音字，选过一次 雨 就把它顶到 于 前面太狠了
+    ///（两者的字频差能有十几倍）。单字不吃「同输入串下选过」这条硬键，选择次数改在得分里加分
+    ///（封顶，见 `rank` 里那条）慢慢往前挪；多字词照旧——那个输入串基本就一个词，选它就是选它。
+    pub(crate) fn is_single_char(&self) -> bool {
+        self.hit.text.chars().count() == 1
+    }
+
     /// `choice` 是同输入串下的选择次数，`score` 是上下文得分（log 概率，已含用户加分与模糊音 / 敲错扣分）。
     pub(super) fn key(&self, choice: u32, score: f64, preference: SortPreference) -> SortKey<'a> {
+        let hard_choice = if self.is_single_char() { 0 } else { choice };
         (
             preference.rank(),
             Reverse(self.hard_exact),
@@ -94,7 +102,7 @@ impl<'a> Scored<'a> {
             // 「哪个是原样命中、哪个是模糊音命中」更能说明他要哪个
             //（`xiangcao` 下「湘超」是模糊音命中，排在「香草」后面，选多少次都翻不过来；
             // 翻过来的唯一途径是总选择加分，那个封顶 20 次）
-            Reverse(choice),
+            Reverse(hard_choice),
             Reverse(self.full_last),
             Reverse((score * 1000.0).round() as i64),
             self.altered(),
