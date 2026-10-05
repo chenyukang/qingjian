@@ -13,13 +13,33 @@
 use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::runtime::AnyObject;
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSBackingStoreType, NSBezierPath, NSColor, NSPanel, NSScreen, NSStatusWindowLevel, NSView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSTimer};
 use qingjian_platform::{Color, Shape, StatusBarConfig};
+
+/// `deactivateServer` 到真正收起之间等这么久：焦点只是在输入框 / 应用之间挪动时，IMK 会连着来一轮
+/// deactivate + activate，立刻收就会闪。与菜单栏「中 / 英」状态项同一套做法。
+const HIDE_DELAY: f64 = 0.5;
+
+define_class!(
+    // SAFETY: NSObject 没有子类化要求；没有实现 Drop。
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = ()]
+    struct HideTimer;
+
+    impl HideTimer {
+        #[unsafe(method(fire:))]
+        fn fire(&self, _timer: Option<&AnyObject>) {
+            crate::host::with(|h| h.dot.hide_now());
+        }
+    }
+);
 
 /// 画形状用的视图状态。ivars 本身拿不到 `&mut`（objc2 只在 alloc 时能塞），
 /// 可变部分放 `RefCell` / `Cell` 里 —— 与候选窗视图那边一个写法。
@@ -119,9 +139,18 @@ fn native_color(color: Color) -> Retained<NSColor> {
 pub struct Indicator {
     panel: Option<Retained<NSPanel>>,
     view: Option<Retained<DotView>>,
+    /// 延迟收起的一次性定时器；再次激活时取消。
+    hide_timer: Option<Retained<NSTimer>>,
     /// 当前是否显示（输入法激活中且开关开着）。
     visible: bool,
     mtm: MainThreadMarker,
+}
+
+impl HideTimer {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(());
+        unsafe { msg_send![super(this), init] }
+    }
 }
 
 impl Indicator {
@@ -129,6 +158,7 @@ impl Indicator {
         Self {
             panel: None,
             view: None,
+            hide_timer: None,
             visible: false,
             mtm,
         }
@@ -138,9 +168,10 @@ impl Indicator {
     /// `english` 是**生效**的英文模式（Caps Lock 或 `⌃⇧R` 切过）。
     pub fn sync(&mut self, config: &StatusBarConfig, english: bool) {
         if !config.enabled {
-            self.hide();
+            self.hide_now();
             return;
         }
+        self.cancel_hide();
         let view = match self.view.take() {
             Some(view) => view,
             None => DotView::new(self.mtm, config, english),
@@ -216,6 +247,7 @@ impl Indicator {
 
     /// 输入法激活时露出来。
     pub fn show(&mut self) {
+        self.cancel_hide();
         let Some(panel) = &self.panel else {
             return;
         };
@@ -226,14 +258,40 @@ impl Indicator {
         panel.orderFrontRegardless();
     }
 
-    /// 输入法被切走（或开关关了）就收起来 —— 「当前不是青简就不显示」。
-    pub fn hide(&mut self) {
+    /// 输入法被切走：**延迟**收起。焦点只是在输入框 / 应用之间挪动时 IMK 会连着来一轮
+    /// deactivate + activate，立刻收就会闪（与菜单栏状态项同一套）。
+    pub fn hide_soon(&mut self) {
+        if self.hide_timer.is_some() {
+            return;
+        }
+        let target = HideTimer::new(self.mtm);
+        let timer = unsafe {
+            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+                HIDE_DELAY,
+                &target,
+                sel!(fire:),
+                None,
+                false,
+            )
+        };
+        self.hide_timer = Some(timer);
+    }
+
+    /// 真正收起（定时器到点、或开关被关掉）。
+    pub fn hide_now(&mut self) {
+        self.cancel_hide();
         if !self.visible {
             return;
         }
         self.visible = false;
         if let Some(panel) = &self.panel {
             panel.orderOut(None);
+        }
+    }
+
+    fn cancel_hide(&mut self) {
+        if let Some(timer) = self.hide_timer.take() {
+            timer.invalidate();
         }
     }
 }

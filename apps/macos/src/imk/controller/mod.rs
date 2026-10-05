@@ -79,7 +79,7 @@ define_class!(
                 host::with(|h| {
                     h.cancel_prediction();
                     // 用户切到别的输入法了：桌面上的指示器收起来（「当前不是青简就不显示」）
-                    h.dot.hide();
+                    h.dot.hide_soon();
                     h.window.hide();
                 });
             });
