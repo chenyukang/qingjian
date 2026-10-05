@@ -14,16 +14,12 @@ use crate::preferences::controls::{
 use crate::preferences::layout::{Layout, PAGE_PADDING, PAGE_WIDTH, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
-use qingjian_core::SortPreference;
 
 /// 列表里一行的高度。
 const ROW: f64 = ROW_HEIGHT + 6.0;
 
 /// 列表区的最小高度（约放得下 8 本）；窗口更高时撑到页底，装不下的滚。
 const LIST_HEIGHT: f64 = 10.0 * ROW;
-
-/// 「后置 / 隐藏的词」那个列表的高度（约 4 行，超了滚）。
-const SORT_LIST_HEIGHT: f64 = 4.0 * ROW;
 
 pub struct DictionariesPage {
     /// 列表的文档视图，行都加在它上面。
@@ -34,18 +30,6 @@ pub struct DictionariesPage {
 
     /// 当前的行控件，重建时先移除。
     rows: RefCell<Vec<Retained<NSView>>>,
-
-    /// 「后置 / 隐藏的词」那个列表的文档视图。
-    sort_list: Retained<NSView>,
-
-    /// 装后置列表的滚动视图。
-    sort_scroll: Retained<NSScrollView>,
-
-    /// 后置列表当前的行控件。
-    sort_rows: RefCell<Vec<Retained<NSView>>>,
-
-    /// 一个都没标过时的提示。
-    sort_empty: Retained<NSTextField>,
 
     /// 一本都没有时的提示。
     empty: Retained<NSTextField>,
@@ -70,18 +54,10 @@ impl DictionariesPage {
             mtm,
             "接受青简 TSV（词、拼音、词频三列）、Rime 的 .dict.yaml 和 .qj 文件，导入后立即可用；勾选框控制开关，「移除」把文件挪到词库目录的 removed 里，不会真删。",
         );
-        let restore = button(
-            mtm,
-            "恢复全部后置 / 隐藏的词",
-            Setting::RestoreSortPreferences,
-            target,
-        );
-        layout.place(&restore, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
         note_full(
             layout,
             mtm,
-            "候选窗里按 Shift+数字 把候选「后置」（还看得见，只沉到最后）、按 ⌃+数字 把它「隐藏」（不再出现）。这个按钮把两种情况一次性全部恢复。",
+            "候选的「后置 / 隐藏」在「屏蔽词」页里管理（那里能逐条恢复）。",
         );
         layout.space(GROUP_GAP);
         let list = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
@@ -98,33 +74,10 @@ impl DictionariesPage {
             NSPoint::new(0.0, LIST_HEIGHT - NOTE_HEIGHT),
             NSSize::new(PAGE_WIDTH - 2.0 * PAGE_PADDING, NOTE_HEIGHT),
         ));
-        layout.space(GROUP_GAP);
-        let sort_list = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
-        let sort_scroll = NSScrollView::initWithFrame(mtm.alloc(), NSRect::ZERO);
-        sort_scroll.setHasVerticalScroller(true);
-        sort_scroll.setDrawsBackground(false);
-        sort_scroll.setDocumentView(Some(&sort_list));
-        layout.place_fill(
-            &sort_scroll,
-            PAGE_PADDING,
-            layout.inner_width(),
-            SORT_LIST_HEIGHT,
-        );
-        layout.next_row(SORT_LIST_HEIGHT);
-        let sort_empty = small_label(mtm, "没有被后置或隐藏的词。");
-        sort_list.addSubview(&sort_empty);
-        sort_empty.setFrame(NSRect::new(
-            NSPoint::new(0.0, SORT_LIST_HEIGHT - NOTE_HEIGHT),
-            NSSize::new(PAGE_WIDTH - 2.0 * PAGE_PADDING, NOTE_HEIGHT),
-        ));
         Self {
             list,
             scroll,
             rows: RefCell::new(Vec::new()),
-            sort_list,
-            sort_scroll,
-            sort_rows: RefCell::new(Vec::new()),
-            sort_empty,
             empty,
             target: target.clone(),
             mtm,
@@ -193,60 +146,5 @@ impl DictionariesPage {
             document_height - clip.bounds().size.height,
         ));
         self.scroll.reflectScrolledClipView(&clip);
-    }
-
-    /// 重建「后置 / 隐藏的词」列表：一行一个词 + 状态 + 「恢复」按钮。
-    pub fn rebuild_sort_preferences(&self, words: &[(String, SortPreference)]) {
-        let mtm = self.mtm;
-        for view in self.sort_rows.borrow_mut().drain(..) {
-            view.removeFromSuperview();
-        }
-        self.sort_empty.setHidden(!words.is_empty());
-        let width = PAGE_WIDTH - 2.0 * PAGE_PADDING;
-        let visible_height = self.sort_scroll.contentSize().height.max(SORT_LIST_HEIGHT);
-        let document_height = (ROW * words.len() as f64).max(visible_height);
-        let content_width = self.sort_scroll.contentSize().width.min(width);
-        self.sort_list.setFrame(NSRect::new(
-            NSPoint::ZERO,
-            NSSize::new(content_width, document_height),
-        ));
-        self.sort_empty.setFrame(NSRect::new(
-            NSPoint::new(0.0, document_height - NOTE_HEIGHT),
-            NSSize::new(content_width, NOTE_HEIGHT),
-        ));
-        let mut rows = self.sort_rows.borrow_mut();
-        for (index, (word, preference)) in words.iter().enumerate() {
-            let y = document_height - ROW * (index as f64 + 1.0);
-            let state = match preference {
-                SortPreference::Down => "后置",
-                SortPreference::Hidden => "隐藏",
-                SortPreference::Normal => "正常",
-            };
-            let label = small_label(mtm, &format!("{word} · {state}"));
-            label.setFrame(NSRect::new(
-                NSPoint::new(0.0, y + 2.0),
-                NSSize::new(content_width - 72.0, ROW - 4.0),
-            ));
-            self.sort_list.addSubview(&label);
-            rows.push(Retained::into_super(Retained::into_super(label)));
-            let restore = button(
-                mtm,
-                "恢复",
-                Setting::RestoreSortPreference(index),
-                &self.target,
-            );
-            restore.setFrame(NSRect::new(
-                NSPoint::new(content_width - 72.0, y + 1.0),
-                NSSize::new(72.0, ROW - 2.0),
-            ));
-            self.sort_list.addSubview(&restore);
-            rows.push(Retained::into_super(Retained::into_super(restore)));
-        }
-        let clip = self.sort_scroll.contentView();
-        clip.scrollToPoint(NSPoint::new(
-            0.0,
-            document_height - clip.bounds().size.height,
-        ));
-        self.sort_scroll.reflectScrolledClipView(&clip);
     }
 }

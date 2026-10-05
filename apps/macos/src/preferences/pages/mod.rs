@@ -10,6 +10,7 @@ mod fuzzy;
 mod general;
 mod phrases;
 mod shortcuts;
+mod sort_preferences;
 mod usage;
 
 pub(super) use about::AboutPage;
@@ -23,4 +24,5 @@ pub(super) use fuzzy::FuzzyPage;
 pub(super) use general::GeneralPage;
 pub(super) use phrases::PhrasesPage;
 pub(super) use shortcuts::ShortcutsPage;
+pub(super) use sort_preferences::SortPreferencesPage;
 pub(super) use usage::UsagePage;

@@ -13,7 +13,7 @@ use super::controls::{language_label, small_label};
 use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
 use super::pages::{
     AboutPage, AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage,
-    PhrasesPage, ShortcutsPage, UpdateStatus, UsagePage, build_about,
+    PhrasesPage, ShortcutsPage, SortPreferencesPage, UpdateStatus, UsagePage, build_about,
 };
 use super::panel::PreferencesPanel;
 use super::target::PreferencesTarget;
@@ -52,6 +52,7 @@ pub struct PreferencesWindow {
 
     /// 「词库」页。
     dictionaries: DictionariesPage,
+    sort_preferences: SortPreferencesPage,
 
     /// 「云服务」页。
     cloud: CloudPage,
@@ -112,6 +113,10 @@ impl PreferencesWindow {
         let mut layout = new_layout();
         let dictionaries = DictionariesPage::build(&mut layout, mtm, &target);
         pages.push(page("词库", layout));
+
+        let mut layout = new_layout();
+        let sort_preferences = SortPreferencesPage::build(&mut layout, mtm, &target);
+        pages.push(page("屏蔽词", layout));
 
         let mut layout = new_layout();
         let cloud = CloudPage::build(&mut layout, mtm, &target);
@@ -192,6 +197,7 @@ impl PreferencesWindow {
             phrases,
             fuzzy,
             dictionaries,
+            sort_preferences,
             cloud,
             advanced,
             usage,
@@ -239,7 +245,7 @@ impl PreferencesWindow {
         update: &UpdateStatus,
     ) {
         self.dictionaries.rebuild(dictionaries);
-        self.dictionaries.rebuild_sort_preferences(sort_preferences);
+        self.sort_preferences.rebuild(sort_preferences);
         self.about.sync(config, update);
         self.general.sync(config);
         self.candidates.sync(config);
