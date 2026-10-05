@@ -19,7 +19,10 @@ use objc2_app_kit::{
     NSBackingStoreType, NSBezierPath, NSColor, NSPanel, NSScreen, NSStatusWindowLevel, NSView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_foundation::{NSDistributedNotificationCenter, NSObject, NSPoint, NSRect, NSSize};
+use objc2_foundation::{
+    NSDistributedNotificationCenter, NSObject, NSPoint, NSRect, NSRunLoop, NSRunLoopCommonModes,
+    NSSize, NSTimer,
+};
 use qingjian_platform::{Color, Shape, StatusBarConfig};
 
 // 「选中的输入源变了」的观察者：切输入法时瞬时收到，立刻同步一次指示器。
@@ -38,11 +41,29 @@ define_class!(
         fn source_changed(&self, _note: Option<&AnyObject>) {
             crate::host::with(|h| h.sync_indicator_dot(crate::imk::modifiers::caps_lock_on()));
         }
+
+        /// 常驻轮询的心跳（见 [`watch_input_source_changes`]）。
+        #[unsafe(method(poll:))]
+        fn poll(&self, _timer: Option<&AnyObject>) {
+            crate::host::with(|h| h.sync_indicator_dot(crate::imk::modifiers::caps_lock_on()));
+        }
     }
 );
 
-/// 挂上「输入源变了」的观察者（进程生命周期内一直有效）。挂一次就够，重复调用无害。
+/// 常驻轮询的间隔（秒）。系统那条输入源通知会延迟、也会丢 —— 尤其"切到 ABC"那一刻输入法
+/// 恰好被停用，当时的轮询也停了，没人再去重算，圆点就卡在"可见"。winlane 同样有常驻它的做法
+/// （那边是 1 秒的 `poll:`）；两次 TIS 查询各约 1.8 µs，一秒 5 次约 0.009 ms，可以忽略。
+const POLL_INTERVAL: f64 = 0.2;
+
+/// 挂上「输入源变了」的观察者 + 一个常驻轮询（进程生命周期内一直有效）。挂一次就够，重复调用无害。
 pub fn watch_input_source_changes(mtm: MainThreadMarker) {
+    // 只挂一次：定时器会一直跑，重复挂会多出几个心跳
+    thread_local! {
+        static WATCHED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if WATCHED.with(|w| w.replace(true)) {
+        return;
+    }
     let target = mtm.alloc::<SourceWatcher>().set_ivars(());
     let target: Retained<SourceWatcher> = unsafe { msg_send![super(target), init] };
     let name = crate::app::input_source::selection_changed_notification();
@@ -53,6 +74,15 @@ pub fn watch_input_source_changes(mtm: MainThreadMarker) {
             Some(&name),
             None,
         );
+        // 常驻心跳：不依赖通知，保证 0.2 秒内一定重算一次（显示 / 收起都不再卡住）
+        let timer = NSTimer::timerWithTimeInterval_target_selector_userInfo_repeats(
+            POLL_INTERVAL,
+            &target,
+            sel!(poll:),
+            None,
+            true,
+        );
+        NSRunLoop::mainRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes);
     }
 }
 
@@ -279,6 +309,8 @@ impl Indicator {
         unsafe { panel.setReleasedWhenClosed(false) };
         panel.setBackgroundColor(Some(&NSColor::clearColor()));
         panel.setOpaque(false);
+        // 一开始就透明：首次 sync 之前不闪
+        panel.setAlphaValue(0.0);
         panel.setHasShadow(false);
         // 点击穿透：鼠标事件直接落到下面的应用，指示器不挡事
         panel.setIgnoresMouseEvents(true);
@@ -305,6 +337,7 @@ impl Indicator {
         // 返回会让它**再也不出现**（Warp / WeChat / Obsidian 都踩过）。orderFrontRegardless
         // 幂等，成本可以忽略，换来切应用时自愈。
         self.visible = true;
+        panel.setAlphaValue(1.0);
         panel.orderFrontRegardless();
     }
 
@@ -315,7 +348,11 @@ impl Indicator {
         }
         self.visible = false;
         if let Some(panel) = &self.panel {
-            panel.orderOut(None);
+            // **不 orderOut，只透明**：orderOut 会让窗口离开它加入的 Space 集合，之后再
+            // orderFrontRegardless 会回到"创建时那个 Space"——Warp 那种铺满屏幕的场景下
+            // 就永远露不出来。窗口一直"在场"⇒ 永远属于当前 Space（winlane 是销毁重建，
+            // 效果一样；我们连销毁都省了）。点击穿透、不抢焦点已经由窗口参数保证。
+            panel.setAlphaValue(0.0);
         }
     }
 }
