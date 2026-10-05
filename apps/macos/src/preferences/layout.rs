@@ -4,13 +4,13 @@ use objc2_app_kit::NSView;
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 /// 行高。
-pub const ROW_HEIGHT: f64 = 24.0;
+pub const ROW_HEIGHT: f64 = 30.0;
 
 /// 行距。
-pub const ROW_GAP: f64 = 8.0;
+pub const ROW_GAP: f64 = 12.0;
 
 /// 页内左右留白。
-pub const PAGE_PADDING: f64 = 20.0;
+pub const PAGE_PADDING: f64 = 24.0;
 
 /// 标题列的宽度（标题右对齐贴着控件）。
 pub const LABEL_WIDTH: f64 = 110.0;
@@ -19,7 +19,7 @@ pub const LABEL_WIDTH: f64 = 110.0;
 pub const CONTROL_X: f64 = PAGE_PADDING + LABEL_WIDTH + 10.0;
 
 /// 每个标签页的内容宽度。
-pub const PAGE_WIDTH: f64 = 600.0;
+pub const PAGE_WIDTH: f64 = 640.0;
 
 /// 在一页里自上而下摆控件的简易布局：AppKit 坐标原点在左下，先按「离顶部多远」记下来，
 /// 最后知道页高了再一次性换算成 frame。

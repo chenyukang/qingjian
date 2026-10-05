@@ -83,6 +83,9 @@ pub(super) fn note_full(layout: &mut Layout, mtm: MainThreadMarker, text: &str) 
     note_at(layout, mtm, text, PAGE_PADDING, layout.inner_width());
 }
 
+/// 说明小字与下一组之间的空隙。
+const NOTE_GAP: f64 = 10.0;
+
 fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width: f64) {
     let label = small_label(mtm, text);
     label.setUsesSingleLineMode(false);
@@ -94,6 +97,8 @@ fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width
     let height = NOTE_HEIGHT * lines;
     layout.place(&label, x, width, height);
     layout.next_row(height);
+    // 说明小字 = 一组设置的收尾，后面多留一点：整页都是平铺的行，太挤就分不出组
+    layout.space(NOTE_GAP);
 }
 
 /// 勾选框独占一行，从标题列起始处摆（勾选框自带标题，不用左列标题）。
