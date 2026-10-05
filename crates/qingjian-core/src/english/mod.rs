@@ -25,8 +25,8 @@ pub fn suggest(
         return Vec::new();
     }
     let mut result: Vec<String> = Vec::with_capacity(limit);
-    if let Some(word) = lists.iter().find_map(|words| words.get(&code)) {
-        result.push(adapt_case(word, typed));
+    if let Some(word) = exact_word(lists, &code, typed) {
+        result.push(word);
     }
     let ranked = |mut hits: Vec<(&str, u32)>, result: &mut Vec<String>| {
         hits.sort_by(|a, b| {
@@ -67,6 +67,25 @@ pub fn suggest(
     result
 }
 
+/// 精确命中的写法。个人词表在前（用户的写法优先），但**用户全小写敲的时候，任何一本词表里
+/// 只要有全小写写法就用它**：`this` 不该因为个人词表里存过 `This` 就回 `This`（他自己也只在候选里
+/// 点过那个大写写法）；而 `london` 没有全小写写法，仍然回 `London`。
+fn exact_word(lists: &[&WordList], code: &str, typed: &str) -> Option<String> {
+    if typed.chars().all(|c| !c.is_ascii_uppercase()) {
+        for words in lists {
+            if let Some(word) = words.get(code)
+                && word == code
+            {
+                return Some(word.to_owned());
+            }
+        }
+    }
+    lists
+        .iter()
+        .find_map(|words| words.get(code))
+        .map(|word| adapt_case(word, typed))
+}
+
 /// 词表里的写法按敲的大小写调整：全大写就全大写，首字母大写就首字母大写，其余照词表（iPhone 仍是 iPhone）。
 fn adapt_case(word: &str, typed: &str) -> String {
     let mut chars = typed.chars();
@@ -97,6 +116,25 @@ mod tests {
              iPhone\tiphone\t800\nhello\thello\t1000\nhollow\thollow\t200\nhelp\thelp\t700\n",
         )
         .unwrap()
+    }
+
+    /// 全小写敲的时候别回一个首字母大写的写法（`This`），只要有全小写写法就用它；
+    /// 专名（没有全小写写法）仍按词表写法回。
+    #[test]
+    fn lowercase_typing_prefers_a_lowercase_spelling() {
+        let personal = WordList::parse("This\tthis\t900\n").unwrap();
+        let bundled = WordList::parse("this\tthis\t6820\nLondon\tlondon\t500\n").unwrap();
+        assert_eq!(suggest(&[&personal, &bundled], "this", |_| 0, 5), ["this"]);
+        assert_eq!(
+            suggest(&[&personal, &bundled], "london", |_| 0, 5),
+            ["London"]
+        );
+        // 敲成首字母大写就随敲的写法
+        assert_eq!(suggest(&[&personal, &bundled], "This", |_| 0, 5), ["This"]);
+        // 反过来（个人表小写、随包表大写）也一样
+        let personal = WordList::parse("this\tthis\t900\n").unwrap();
+        let bundled = WordList::parse("This\tthis\t6820\n").unwrap();
+        assert_eq!(suggest(&[&personal, &bundled], "this", |_| 0, 5), ["this"]);
     }
 
     #[test]
