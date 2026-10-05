@@ -144,7 +144,8 @@ impl CandidateWindow {
         self.view.theme().max_rows
     }
 
-    /// 窗口左下角坐标与内容方向：贴在光标行下方（`TopDown`）；下方放不下放上方（`BottomUp`）；不出光标所在的那块屏幕。
+    /// 窗口左下角坐标与内容方向：光标上方余地更大就贴下面（`TopDown`），否则翻到上面（`BottomUp`）。
+    /// 贴哪边只跟光标在屏幕上的位置有关，**与窗口当前多高无关** —— 否则同一个光标位置会随着候选多寡来回跳。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
     fn place(&self, size: NSSize, anchor: NSRect) -> (NSPoint, VerticalOrder) {
         let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
@@ -164,16 +165,22 @@ impl CandidateWindow {
         let min_x = screen.origin.x;
         let max_x = (screen.origin.x + screen.size.width - size.width).max(min_x);
         let x = anchor.origin.x.clamp(min_x, max_x);
-        let below = anchor.origin.y - CARET_GAP - size.height;
-        let above = anchor.origin.y + anchor.size.height + CARET_GAP;
         let top = screen.origin.y + screen.size.height;
-        let (y, order) = if below >= screen.origin.y {
-            (below, VerticalOrder::TopDown)
-        } else if above + size.height <= top {
-            (above, VerticalOrder::BottomUp)
+        // 贴哪一边**只看光标在屏幕上的位置**（上下各有多少余地），不看窗口当前多高：
+        // 用窗口高度判断的话，同一个光标位置会「只有拼音行时（矮）在下面、候选一多（高）就翻到上面」来回跳。
+        // 光标靠上就贴在下面（绝大多数情况），靠近屏幕底边才翻到上面。
+        let room_below = anchor.origin.y - CARET_GAP - screen.origin.y;
+        let room_above = top - (anchor.origin.y + anchor.size.height) - CARET_GAP;
+        let (y, order) = if room_below >= room_above {
+            (
+                anchor.origin.y - CARET_GAP - size.height,
+                VerticalOrder::TopDown,
+            )
         } else {
-            // 上下都放不下（屏幕很矮或窗口很高）：贴屏幕底边，宁可盖住光标也别出屏
-            (screen.origin.y, VerticalOrder::TopDown)
+            (
+                anchor.origin.y + anchor.size.height + CARET_GAP,
+                VerticalOrder::BottomUp,
+            )
         };
         // 无论怎么算，最后都要落在这块屏幕里：出屏等于不显示
         let max_y = (top - size.height).max(screen.origin.y);
