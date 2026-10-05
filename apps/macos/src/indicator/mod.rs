@@ -13,13 +13,48 @@
 use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::runtime::AnyObject;
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSBackingStoreType, NSBezierPath, NSColor, NSPanel, NSScreen, NSStatusWindowLevel, NSView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2_foundation::{NSDistributedNotificationCenter, NSObject, NSPoint, NSRect, NSSize};
 use qingjian_platform::{Color, Shape, StatusBarConfig};
+
+// 「选中的输入源变了」的观察者：切输入法时瞬时收到，立刻同步一次指示器。
+//
+// 为什么不只看 IMK 的 `deactivateServer`：切换输入法时那条回调**先**到，那一刻系统选中的
+// 输入源还是青简，判不出"已经切走了"，之后就再没有回调 —— 圆点会一直挂着。
+define_class!(
+    // SAFETY: NSObject 没有子类化要求；没有实现 Drop。
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = ()]
+    struct SourceWatcher;
+
+    impl SourceWatcher {
+        #[unsafe(method(sourceChanged:))]
+        fn source_changed(&self, _note: Option<&AnyObject>) {
+            crate::host::with(|h| h.sync_indicator_dot(crate::imk::modifiers::caps_lock_on()));
+        }
+    }
+);
+
+/// 挂上「输入源变了」的观察者（进程生命周期内一直有效）。挂一次就够，重复调用无害。
+pub fn watch_input_source_changes(mtm: MainThreadMarker) {
+    let target = mtm.alloc::<SourceWatcher>().set_ivars(());
+    let target: Retained<SourceWatcher> = unsafe { msg_send![super(target), init] };
+    let name = crate::app::input_source::selection_changed_notification();
+    unsafe {
+        NSDistributedNotificationCenter::defaultCenter().addObserver_selector_name_object(
+            &target,
+            sel!(sourceChanged:),
+            Some(&name),
+            None,
+        );
+    }
+}
 
 /// 画形状用的视图状态。ivars 本身拿不到 `&mut`（objc2 只在 alloc 时能塞），
 /// 可变部分放 `RefCell` / `Cell` 里 —— 与候选窗视图那边一个写法。

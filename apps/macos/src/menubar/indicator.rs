@@ -86,11 +86,10 @@ impl ModeIndicator {
         }
     }
 
-    /// 输入法停用：停止轮询，半秒后没再激活就收起。
+    /// 输入法停用：半秒后没再激活就收起。
+    ///
+    /// 轮询**不停**：它每轮顺带同步一次桌面指示器（输入源通知万一漏了，这里 0.25 秒内兜住）。
     pub fn deactivate(&mut self) {
-        if let Some(timer) = self.timer.take() {
-            timer.invalidate();
-        }
         if self.collapse_timer.is_some() {
             return;
         }

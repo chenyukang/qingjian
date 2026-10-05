@@ -5,6 +5,7 @@ use std::ffi::c_void;
 use std::path::Path;
 use std::ptr::NonNull;
 
+use objc2::rc::Retained;
 use objc2_core_foundation::{CFArray, CFBoolean, CFDictionary, CFRetained, CFString, CFURL};
 use objc2_foundation::{NSArray, NSBundle, NSDictionary, NSString};
 
@@ -44,8 +45,18 @@ unsafe extern "C" {
     /// 属性键：是否已启用（CFBoolean）。
     static kTISPropertyInputSourceIsEnabled: NonNull<CFString>;
 
+    /// 通知名：系统选中的输入源变了（TIS 通过 distributed notification 广播）。
+    static kTISNotifySelectedKeyboardInputSourceChanged: NonNull<CFString>;
+
     /// 当前选中的输入源。返回值归调用方，用完 `CFRelease`。
     fn TISCopyCurrentKeyboardInputSource() -> *mut TISInputSource;
+}
+
+/// 「选中的输入源变了」这条通知的名字 —— 挂到 `NSDistributedNotificationCenter` 上，
+/// 切换输入法时能瞬时收到（比自己去轮询 / 猜 IMK 的 activate-deactivate 都准）。
+pub fn selection_changed_notification() -> Retained<NSString> {
+    let name = unsafe { &*kTISNotifySelectedKeyboardInputSourceChanged.as_ptr() };
+    NSString::from_str(&format!("{name}"))
 }
 
 /// 系统当前选中的输入源是不是青简（输入源 id 以 `app.qingjian` 开头）。

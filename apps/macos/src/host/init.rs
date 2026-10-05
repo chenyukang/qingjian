@@ -125,6 +125,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let monitor = PredictMonitor::new(mtm);
     let watch = ConfigWatch::new(mtm);
     HOST.with(|host| {
+        // 切输入法时瞬时收到「选中的输入源变了」，指示器据此立刻收 / 放
+        crate::indicator::watch_input_source_changes(mtm);
         *host.borrow_mut() = Some(Host {
             engine,
             window,
