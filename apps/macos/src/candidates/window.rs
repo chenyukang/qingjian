@@ -1,11 +1,12 @@
 //! 候选窗口：非激活的浮动 NSPanel，跟随光标，内容由 [`CandidateView`] 绘制。
 
 use objc2::MainThreadMarker;
+use objc2::MainThreadOnly;
 use objc2::rc::Retained;
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSWindowCollectionBehavior,
-    NSWindowLevel, NSWindowStyleMask,
+    NSAutoresizingMaskOptions, NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSView,
+    NSWindowCollectionBehavior, NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
@@ -218,15 +219,22 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     // 不要 setFloatingPanel(true)：它会把层级改回 NSFloatingWindowLevel（3），全屏应用的 Space 里就看不见了；
     // 层级最后设，别被前面任何一项覆盖
     panel.setLevel(POPUP_MENU_LEVEL);
-    // 玻璃底：候选视图浮在材质之上。圆角用主题里的（与高亮条同一个值），玻璃的圆角
-    // 与气泡的圆角对齐，才不会在四角露出方块。
-    let backdrop = crate::ui::material::PanelBackdrop::new(
-        NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0)),
-        view.theme().corner_radius,
-        mtm,
+    // 玻璃底：**用一个普通容器装**，玻璃只是最底下的 subview，候选视图在它上面 ——
+    // 不能把候选视图塞进 `NSGlassEffectView.setContentView`：这版系统上材质会压在内容
+    // 上方，候选文字全被盖住（踩过）。subview 的顺序就是层级，靠它就够了。
+    // 圆角取主题里的（与高亮条同一个值），玻璃的圆角与气泡对齐，四角才不会露方块。
+    let bounds = NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0));
+    let container = NSView::initWithFrame(NSView::alloc(mtm), bounds);
+    container.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
-    backdrop.content.addSubview(view);
-    panel.setContentView(Some(backdrop.view()));
+    let backdrop = crate::ui::material::PanelBackdrop::new(bounds, view.theme().corner_radius, mtm);
+    container.addSubview(backdrop.view());
+    view.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
+    );
+    container.addSubview(view);
+    panel.setContentView(Some(&container));
     panel
 }
 
