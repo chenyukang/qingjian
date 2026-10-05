@@ -366,6 +366,10 @@ const AUTO_WORD_THRESHOLD: u32 = 3;
 /// 退格撤销最多回看几次上屏：删掉「沃德 书」两个词再重打时，要能找到两个词之前的那一次。
 const RECENT_COMMITS: usize = 4;
 
+/// 短整句被选中几次就记成用户词（`蔡市` 这种词库里没有的地名）。缺省选一次就记：
+/// 用户是**明确点选**了那句，跟选词一样算数；误选出来的词用 ⇧+数字 删掉即可。
+const SENTENCE_WORD_THRESHOLD: u32 = 1;
+
 /// 自动造出的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
 

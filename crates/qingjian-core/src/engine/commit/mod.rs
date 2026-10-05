@@ -7,7 +7,8 @@ use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
     AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
-    EXPLICIT_TRANSITION_WEIGHT, Engine, SENTENCE_LEARN_PATHS, choice_key, segment_longest_prefix,
+    EXPLICIT_TRANSITION_WEIGHT, Engine, SENTENCE_LEARN_PATHS, SENTENCE_WORD_THRESHOLD, choice_key,
+    segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::typo;
@@ -247,6 +248,18 @@ impl Engine {
                             buffer_left || index < last,
                         );
                     }
+                    // 同一个**短**整句被反复选中，就当用户词记下来：`蔡市` 这类地名在任何词库里都不是词
+                    //（词库只收到「镇 / 市」这种通名），只能以整句形态出现；而整句候选原先不记选择、也不造词，
+                    // 于是打十几次也攒不下任何东西，敌不过一个早就固化成用户词的 `蔡氏`。
+                    // 门槛卡住两类噪声：长句（>4 字）与只选过一次的（可能是误按空格）
+                    // 只有「这一段拼音的答案就是这句」才记：接在别的词后面的整句（先选 想、再选 开发先）
+                    // 是半截，该由 `finish_buffer` 按整段拼音去造词，不在这里记成「开发先」这种词
+                    self.maybe_learn_sentence_word(
+                        &input,
+                        &candidate.text,
+                        &candidate.syllables,
+                        !junction && !buffer_left,
+                    );
                 }
                 None => self.chain.reset(),
             },
@@ -282,9 +295,14 @@ impl Engine {
                 text: committed.clone(),
                 chars: committed.chars().count(),
                 input,
+                // 整句也算「选过」：短整句可能被记成用户词（见 `maybe_learn_sentence_word`），
+                // 删除那次上屏时这条选择得跟着退回去
                 chosen: matches!(
                     candidate.kind,
-                    CandidateKind::Chinese | CandidateKind::Code | CandidateKind::Cloud
+                    CandidateKind::Chinese
+                        | CandidateKind::Code
+                        | CandidateKind::Cloud
+                        | CandidateKind::Sentence
                 )
                 .then(|| candidate.text.clone()),
                 transitions: std::mem::take(&mut self.recording),
@@ -692,6 +710,47 @@ impl Engine {
             return;
         }
         tracing::debug!(text = %candidate.text, "自动造词");
+        self.learner
+            .learn_word(&candidate.text, &candidate.syllables);
+    }
+
+    /// 同一个**短**整句被反复选中，就把它记成用户词。
+    ///
+    /// `蔡市` 这类地名在任何词库里都不是词（词库只收到「市 / 镇」这种通名），只能以整句形态出现；
+    /// 整句候选原先既不记「选择」也不造词，于是打十几次也攒不下东西，敌不过一个早就固化成用户词的 `蔡氏`。
+    /// 门槛只挡长句（超过 [`AUTO_WORD_MAX_CHARS`] 字）；选一次就记 —— 用户是明确点选的，
+    /// 误选出来的词按 ⇧+数字 删掉就是。
+    /// 记下来之后它就是普通用户词：下次以词候选出现，和其它词一起排，能靠选择次数往前挪。
+    fn maybe_learn_sentence_word(
+        &mut self,
+        input: &str,
+        text: &str,
+        syllables: &[String],
+        whole: bool,
+    ) {
+        if !whole
+            || input.is_empty()
+            || text.chars().count() > AUTO_WORD_MAX_CHARS
+            || syllables.is_empty()
+        {
+            return;
+        }
+        self.learner.record_choice(input, text);
+        if self.learner.choice_weight(input, text) < SENTENCE_WORD_THRESHOLD {
+            return;
+        }
+        let candidate = Candidate {
+            text: text.to_owned(),
+            kind: CandidateKind::Chinese,
+            syllables: syllables.to_vec(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+        };
+        if self.knows_word(&candidate) {
+            return;
+        }
+        tracing::debug!(text, "短整句反复选中，记成用户词");
         self.learner
             .learn_word(&candidate.text, &candidate.syllables);
     }

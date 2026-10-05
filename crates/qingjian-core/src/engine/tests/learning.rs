@@ -828,3 +828,50 @@ fn hiding_a_dictionary_word_removes_it_from_candidates() {
         .collect();
     assert!(back.contains(&"市".to_owned()), "{back:?}");
 }
+
+/// 短整句被选中就记成用户词：`蔡市` 这类词库里没有的地名只能以整句出现，
+/// 原先整句既不记选择也不造词，打十几次也攒不下东西，敌不过早就固化的用户词。
+#[test]
+fn a_short_sentence_becomes_a_user_word_on_the_first_pick() {
+    // 词库里只有单字 蔡 / 市（真实场景里就是「蔡市」这种地名不存在于词库）：
+    // 整段只能靠两个词拼出来，于是它以整句候选出现
+    let dictionary = Dictionary::parse("蔡\tcai\t8000\n市\tshi\t9000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_learner(Box::new(WordLearner::default()));
+
+    let pick = |engine: &mut Engine| {
+        engine.set_input("caishi");
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == "蔡市")
+            .expect("蔡市 应该以整句候选出现");
+        engine.commit(&candidate);
+    };
+    engine.set_input("caishi");
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.text == "蔡市" && c.kind == CandidateKind::Sentence),
+        "一开始只能是整句"
+    );
+    // 选一次就记成用户词（明确点选就算数；误选可以按 ⇧+数字 删）
+    pick(&mut engine);
+    assert_eq!(engine.learner().choice_weight("caishi", "蔡市"), 1);
+    assert!(
+        engine.learner().user_words().is_some_and(|words| words
+            .lookup(&["cai", "shi"], false)
+            .iter()
+            .any(|hit| hit.text == "蔡市")),
+        "选一次就应该变成用户词"
+    );
+    // 再选一次依旧是个词，不会重复添加
+    pick(&mut engine);
+    assert_eq!(engine.learner().choice_weight("caishi", "蔡市"), 2);
+}
