@@ -105,6 +105,10 @@ impl QingjianInputController {
             {
                 host::with(|h| h.engine.push(letter));
                 self.refresh(client);
+                // 常驻「英」标记：英文模式与中文模式的候选窗长得不一样，按 ⌃⇧R 之后一眼能看出在哪边
+                //（`refresh` 里的 `reset_session` 会把状态行清掉，所以要在这里重新挂上）
+                host::with(|h| h.status = Some("英".to_owned()));
+                self.render(client);
                 return true;
             }
             if composing && c == page_previous {
