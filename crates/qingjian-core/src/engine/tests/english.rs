@@ -998,3 +998,58 @@ fn english_mode_typing_is_not_personal_vocabulary() {
         "中文模式下要记"
     );
 }
+
+/// 英文模式下的补全门槛：缺省 2 个字母起（敲一个字母就弹一串候选太吵）。
+/// 只影响英文模式，中文模式那份看 `english_min_letters`。
+#[test]
+fn english_mode_completion_starts_at_two_letters_by_default() {
+    let words = WordList::parse("hello\thello\t4720\nhelloWorld\thello world\t900\n").unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_english_mode(true);
+
+    // 一个字母：不补全
+    engine.set_input("h");
+    let one: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        one.is_empty(),
+        "缺省 2 个字母起，一个字母不该出候选：{one:?}"
+    );
+
+    // 两个字母：开始补全
+    engine.set_input("he");
+    let two: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        two.contains(&"hello".to_owned()),
+        "两个字母该出候选：{two:?}"
+    );
+
+    // 配成 1 就恢复旧行为
+    engine.set_english_mode_min_letters(1);
+    engine.set_input("h");
+    let one: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        one.contains(&"hello".to_owned()),
+        "配成 1 之后一个字母也补全：{one:?}"
+    );
+}

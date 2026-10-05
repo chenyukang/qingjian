@@ -541,6 +541,12 @@ impl Host {
             (Setting::MixedSpace, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "mixed_space", on);
             }
+            (Setting::EnglishModeMinLetters, SettingValue::Index(index)) => {
+                self.settings
+                    .set_value("general", "english_mode_min_letters", index as i64 + 1);
+                self.apply_config(false);
+                return;
+            }
             (Setting::EnglishMinLetters, SettingValue::Index(index)) => {
                 self.settings
                     .set_value("general", "english_min_letters", index as i64 + 1);

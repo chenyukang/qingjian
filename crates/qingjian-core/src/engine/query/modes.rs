@@ -80,22 +80,28 @@ impl Engine {
         rest: String,
         start: Instant,
     ) -> Query {
-        let mut items: Vec<Candidate> = english::suggest(
-            &self.english_lists(),
-            scope,
-            |text| self.learner.weight(text),
-            ENGLISH_MODE_CANDIDATES,
-        )
-        .into_iter()
-        .map(|text| Candidate {
-            text,
-            kind: CandidateKind::English,
-            syllables: Vec::new(),
-            reading: None,
-            translation: None,
-            aux_code: None,
-        })
-        .collect();
+        // `[general] english_mode_min_letters`：敲一两个字母先别弹一串补全（缺省 2 个字母起）
+        let letters = scope.bytes().filter(u8::is_ascii_alphabetic).count();
+        let mut items: Vec<Candidate> = if letters < self.english_mode_min_letters {
+            Vec::new()
+        } else {
+            english::suggest(
+                &self.english_lists(),
+                scope,
+                |text| self.learner.weight(text),
+                ENGLISH_MODE_CANDIDATES,
+            )
+            .into_iter()
+            .map(|text| Candidate {
+                text,
+                kind: CandidateKind::English,
+                syllables: Vec::new(),
+                reading: None,
+                translation: None,
+                aux_code: None,
+            })
+            .collect()
+        };
         self.insert_emoji(&mut items);
         items.sort_by_key(|c| c.kind == CandidateKind::Emoji);
         Query {

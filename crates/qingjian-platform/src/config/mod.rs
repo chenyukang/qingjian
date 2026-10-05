@@ -232,6 +232,8 @@ english_min_letters = 1
 # 候选里是否给 emoji（笑 → 😄）：紧跟在对应候选词后面；false 就不出 emoji
 emoji_candidates = true
 
+# 英文模式（Caps Lock / ⌃⇧R）下从第几个字母起补全：缺省 2（敲一个字母就弹一串太吵）
+english_mode_min_letters = 2
 # 轻拍 Shift（按下这么毫秒内松开、期间没打别的键）切换中 / 英。缺省开；按住 Shift 打大写不受影响
 shift_tap_toggle = true
 # 轻拍的判定窗口（毫秒，80–800）

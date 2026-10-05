@@ -522,6 +522,11 @@ impl Engine {
         self.english_in_pinyin
     }
 
+    /// 英文模式下从第几个字母起补全（`[general] english_mode_min_letters`）。1 就是原来的行为。
+    pub fn set_english_mode_min_letters(&mut self, letters: usize) {
+        self.english_mode_min_letters = letters.max(1);
+    }
+
     pub fn set_english_min_letters(&mut self, letters: usize) {
         self.english_min_letters = letters.max(1);
     }

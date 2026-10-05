@@ -164,6 +164,9 @@ pub enum Setting {
     /// `[general] shift_tap_window_ms`，弹出菜单：轻拍的判定窗口。
     ShiftTapWindow,
 
+    /// `[general] english_mode_min_letters`，弹出菜单：英文模式下从几个字母起补全。
+    EnglishModeMinLetters,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -324,6 +327,7 @@ impl Setting {
             Self::StatusBarOffsetY => 74,
             Self::ShiftTapToggle => 75,
             Self::ShiftTapWindow => 76,
+            Self::EnglishModeMinLetters => 77,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -415,6 +419,7 @@ impl Setting {
             74 => Self::StatusBarOffsetY,
             75 => Self::ShiftTapToggle,
             76 => Self::ShiftTapWindow,
+            77 => Self::EnglishModeMinLetters,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -493,6 +498,7 @@ mod tests {
             Setting::StatusBarOffsetY,
             Setting::ShiftTapToggle,
             Setting::ShiftTapWindow,
+            Setting::EnglishModeMinLetters,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

@@ -310,6 +310,10 @@ pub struct Engine {
     /// 输入字母少于这个数时不给英文候选（`[general] english_min_letters`，缺省 1 = 都给）。
     english_min_letters: usize,
 
+    /// 英文模式下输入字母少于这个数就不补全（`[general] english_mode_min_letters`，缺省 2）：
+    /// 敲一个字母就把一串候选弹出来太吵，敲到第二个字母再开始更像「在打一个词」。
+    english_mode_min_letters: usize,
+
     /// 中文模式下拼音时给不给英文词候选（`[general] english_in_pinyin`，缺省给）。
     /// 关了只影响拼音过程中的英文词；英文模式（Caps Lock）与云端联想不受影响。
     english_in_pinyin: bool,
@@ -320,6 +324,9 @@ const MAX_CODE_LENGTH: usize = 4;
 
 /// 英文补全最多几条（`compa` → company / compare / …）。
 const ENGLISH_COMPLETIONS: usize = 3;
+
+/// 英文模式下的补全从第几个字母起（`[general] english_mode_min_letters` 的缺省值）。
+pub const DEFAULT_ENGLISH_MODE_MIN_LETTERS: usize = 2;
 
 /// 原样上屏的字母串至少几个字母才当英文词学：单字母（`a`、`I`）不值得记。
 const MIN_ENGLISH_WORD_LETTERS: usize = 2;
@@ -502,6 +509,7 @@ impl Engine {
             exact_bonus: DEFAULT_EXACT_BONUS,
             english_min_letters: 1,
             english_in_pinyin: true,
+            english_mode_min_letters: DEFAULT_ENGLISH_MODE_MIN_LETTERS,
         }
     }
 }
