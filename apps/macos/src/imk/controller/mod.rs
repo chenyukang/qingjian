@@ -78,8 +78,8 @@ define_class!(
                 }
                 host::with(|h| {
                     h.cancel_prediction();
-                    // 用户切到别的输入法了：桌面上的指示器收起来（「当前不是青简就不显示」）
-                    h.dot.hide_soon();
+                    // 桌面指示器跟着走：输入源还是青简（只是焦点挪了）不收，真切走了立刻收
+                    h.sync_indicator_dot(modifiers::caps_lock_on());
                     h.window.hide();
                 });
             });

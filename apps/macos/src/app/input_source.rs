@@ -43,6 +43,38 @@ unsafe extern "C" {
 
     /// 属性键：是否已启用（CFBoolean）。
     static kTISPropertyInputSourceIsEnabled: NonNull<CFString>;
+
+    /// 当前选中的输入源。返回值归调用方，用完 `CFRelease`。
+    fn TISCopyCurrentKeyboardInputSource() -> *mut TISInputSource;
+}
+
+/// 系统当前选中的输入源是不是青简（输入源 id 以 `app.qingjian` 开头）。
+///
+/// 判据用**系统输入源**而不是「IMK 是否激活」：焦点在输入框 / 应用之间挪动时 IMK 也会连着来一轮
+/// `deactivateServer` + `activateServer`，那时输入源根本没变、指示器不该收；单看 deactivate
+/// 就收（菜单栏状态项那套配 0.5 秒延迟）会显得滞后。winlane 用的也是这个判据。
+pub fn current_source_is_ours() -> bool {
+    unsafe {
+        let source = TISCopyCurrentKeyboardInputSource();
+        if source.is_null() {
+            return false;
+        }
+        let id = TISGetInputSourceProperty(source, kTISPropertyInputSourceID);
+        let ours = if id.is_null() {
+            false
+        } else {
+            let id = &*(id as *const CFString);
+            id.has_prefix(Some(&CFString::from_str("app.qingjian")))
+        };
+        CFRelease(source.cast());
+        ours
+    }
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    /// 释放一个 `TISCopy…` 拿到的输入源（CoreFoundation 由 objc2-core-foundation 链接，这里只要符号）。
+    fn CFRelease(cf: *const c_void);
 }
 
 /// 注册当前进程所在的 `.app`、启用并切成当前输入源。启用成功返回 `Ok(是否也切成了当前)`，失败带一句能打到安装日志里的说明。
