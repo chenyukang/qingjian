@@ -3,7 +3,10 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::ShiftLetter;
+use qingjian_platform::{Anchor, Color, Shape, ShiftLetter};
+
+/// 「指示器」页大小下拉里那几档，与页面上的列表一致。
+const STATUS_BAR_SIZES: [i32; 8] = [8, 10, 12, 14, 16, 20, 24, 30];
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -383,6 +386,59 @@ impl Host {
                     self.engine.restore_sort_preference(&word);
                     // 重新装配一遍：列表、别的页与引擎状态一起刷新
                     self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::StatusBarEnabled, SettingValue::Bool(on)) => {
+                self.settings.set_bool("status_bar", "enabled", on);
+                self.apply_config(false);
+                return;
+            }
+            (Setting::StatusBarOutline, SettingValue::Bool(on)) => {
+                self.settings.set_bool("status_bar", "outline", on);
+                self.apply_config(false);
+                return;
+            }
+            (Setting::StatusBarAnchor, SettingValue::Index(index)) => {
+                if let Some(anchor) = Anchor::ALL.get(index) {
+                    self.settings
+                        .set_value("status_bar", "anchor", anchor.key());
+                    self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::StatusBarShape, SettingValue::Index(index)) => {
+                if let Some(shape) = Shape::ALL.get(index) {
+                    self.settings.set_value("status_bar", "shape", shape.key());
+                    self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::StatusBarSize, SettingValue::Index(index)) => {
+                if let Some(size) = STATUS_BAR_SIZES.get(index) {
+                    self.settings
+                        .set_value("status_bar", "size", i64::from(*size));
+                    self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::StatusBarChineseColor, SettingValue::Text(text))
+            | (Setting::StatusBarEnglishColor, SettingValue::Text(text)) => {
+                let english = matches!(setting, Setting::StatusBarEnglishColor);
+                match text.parse::<Color>() {
+                    Ok(color) => {
+                        self.settings.set_value(
+                            "status_bar",
+                            if english {
+                                "english_color"
+                            } else {
+                                "chinese_color"
+                            },
+                            color.hex(),
+                        );
+                        self.apply_config(false);
+                    }
+                    Err(error) => tracing::warn!(%error, "颜色没解析出来，未改"),
                 }
                 return;
             }

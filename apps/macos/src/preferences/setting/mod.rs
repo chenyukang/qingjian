@@ -128,6 +128,27 @@ pub enum Setting {
     /// `[shortcut] toggle_english_mode`，快捷键录制按钮：中 / 英切换。
     ToggleEnglishModeKeys,
 
+    /// `[status_bar] enabled`，勾选框：桌面悬浮指示器开关。
+    StatusBarEnabled,
+
+    /// `[status_bar] outline`，勾选框：描白边。
+    StatusBarOutline,
+
+    /// `[status_bar] anchor`，弹出菜单：贴屏幕哪一角。
+    StatusBarAnchor,
+
+    /// `[status_bar] shape`，弹出菜单：圆点 / 方块 / 圆角方块。
+    StatusBarShape,
+
+    /// `[status_bar] size`，弹出菜单：大小。
+    StatusBarSize,
+
+    /// `[status_bar] chinese_color`，文本框：中文时的颜色。
+    StatusBarChineseColor,
+
+    /// `[status_bar] english_color`，文本框：英文时的颜色。
+    StatusBarEnglishColor,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -276,6 +297,13 @@ impl Setting {
             Self::HideCandidateKeys => 62,
             Self::EnglishInPinyin => 63,
             Self::ToggleEnglishModeKeys => 64,
+            Self::StatusBarEnabled => 65,
+            Self::StatusBarOutline => 66,
+            Self::StatusBarAnchor => 67,
+            Self::StatusBarShape => 68,
+            Self::StatusBarSize => 69,
+            Self::StatusBarChineseColor => 70,
+            Self::StatusBarEnglishColor => 71,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -355,6 +383,13 @@ impl Setting {
             62 => Self::HideCandidateKeys,
             63 => Self::EnglishInPinyin,
             64 => Self::ToggleEnglishModeKeys,
+            65 => Self::StatusBarEnabled,
+            66 => Self::StatusBarOutline,
+            67 => Self::StatusBarAnchor,
+            68 => Self::StatusBarShape,
+            69 => Self::StatusBarSize,
+            70 => Self::StatusBarChineseColor,
+            71 => Self::StatusBarEnglishColor,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -421,6 +456,13 @@ mod tests {
             Setting::EnglishCandidates,
             Setting::EnglishInPinyin,
             Setting::ToggleEnglishModeKeys,
+            Setting::StatusBarEnabled,
+            Setting::StatusBarOutline,
+            Setting::StatusBarAnchor,
+            Setting::StatusBarShape,
+            Setting::StatusBarSize,
+            Setting::StatusBarChineseColor,
+            Setting::StatusBarEnglishColor,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,
