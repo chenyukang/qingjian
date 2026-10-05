@@ -305,7 +305,10 @@ fn sort_preferences_round_trip_and_forget_normal_entries() {
 
     let mut learner = FrequencyLearner::from_path(&path).unwrap();
     assert_eq!(learner.sort_preference("Hahn"), SortPreference::Normal);
-    assert_eq!(learner.cycle_sort_preference("Hahn"), SortPreference::Down);
+    assert_eq!(
+        learner.toggle_sort_preference("Hahn", SortPreference::Down),
+        SortPreference::Down
+    );
     assert_eq!(learner.sort_preference("Hahn"), SortPreference::Down);
     assert!(learner.has_sort_preferences());
     learner.flush();
@@ -319,12 +322,26 @@ fn sort_preferences_round_trip_and_forget_normal_entries() {
 
     // 再按一次回到正常，文件里不留 `normal` 这种没用的一行
     assert_eq!(
-        restored.cycle_sort_preference("Hahn"),
+        restored.toggle_sort_preference("Hahn", SortPreference::Down),
         SortPreference::Normal
     );
     assert!(!restored.has_sort_preferences());
     restored.flush();
     let text = std::fs::read_to_string(dir.join("user-sort.tsv")).unwrap();
     assert!(!text.contains("Hahn"), "{text}");
+
+    // 隐藏是另一档：按另一个键切过去，再按回来
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(
+        learner.toggle_sort_preference("wodge", SortPreference::Hidden),
+        SortPreference::Hidden
+    );
+    learner.flush();
+    assert_eq!(
+        FrequencyLearner::from_path(&path)
+            .unwrap()
+            .sort_preference("wodge"),
+        SortPreference::Hidden
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }

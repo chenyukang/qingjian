@@ -152,6 +152,17 @@ impl Engine {
     /// 用户要求删掉一个候选（修饰键 + 数字）：中文词与云端词交给 Learner 删用户词、清学习；英文词删个人英文词；
     /// 整句、快捷候选、emoji 没什么可删。删完缓存作废，它也不再当下一个词的上文。
     pub fn forget(&mut self, candidate: &Candidate) -> Forgotten {
+        self.sort_candidate(candidate, SortPreference::Down)
+    }
+
+    /// 用户要求这个候选以后别再出现（`⌃+数字`）：词库里的词记成「隐藏」，候选组装完就滤掉；
+    /// 自己学过的词与 [`Self::forget`] 一样真的删掉。
+    pub fn hide(&mut self, candidate: &Candidate) -> Forgotten {
+        self.sort_candidate(candidate, SortPreference::Hidden)
+    }
+
+    /// 删候选 / 后置 / 隐藏：删得掉就删，删不掉（词库里的词）就切排序偏好。
+    fn sort_candidate(&mut self, candidate: &Candidate, target: SortPreference) -> Forgotten {
         let mut candidate_owned = candidate.clone();
         if self.traditional
             && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)
@@ -181,11 +192,11 @@ impl Engine {
             | CandidateKind::Emoji
             | CandidateKind::Generated => Forgotten::default(),
         };
-        // 词库里的词删不掉（没有用户词、也没有学习记录），但用户按这个键的本意是「别再让它排前面」：
-        // 改记排序偏好，一次一档循环（后置 ↔ 正常）。整句 / 快捷 / emoji 没什么可后置的，保持原来的提示
+        // 词库里的词删不掉（没有用户词、也没有学习记录），但用户按这个键的本意是「别再让它挡在前面」/
+        // 「以后别出现」：改记排序偏好，再按一次恢复。整句 / 快捷 / emoji 没什么可记的，保持原来的提示
         let forgotten = if forgotten.is_nothing() && cycleable {
             Forgotten {
-                preference: Some(self.learner.cycle_sort_preference(&candidate.text)),
+                preference: Some(self.learner.toggle_sort_preference(&candidate.text, target)),
                 ..forgotten
             }
         } else {
@@ -203,7 +214,18 @@ impl Engine {
         forgotten
     }
 
-    /// 把所有标过「后置」的词恢复成正常排序（设置页那个按钮）。返回恢复了几条。
+    /// 把某个词恢复成正常排序（设置页列表里那一行的按钮）。它不知道当前是哪一档，直接清掉。
+    pub fn restore_sort_preference(&mut self, text: &str) -> SortPreference {
+        let current = self.learner.sort_preference(text);
+        if current != SortPreference::Normal {
+            self.learner.toggle_sort_preference(text, current);
+            self.forget_span_cache();
+            *self.correction_cache.borrow_mut() = None;
+        }
+        self.learner.sort_preference(text)
+    }
+
+    /// 把所有标过「后置 / 隐藏」的词恢复成正常排序（设置页那个按钮）。返回恢复了几条。
     /// 后置的词沉在候选列表最末，翻页很难够到，所以需要一个不依赖候选窗的入口。
     pub fn restore_sort_preferences(&mut self) -> usize {
         let words: Vec<String> = self
@@ -213,11 +235,7 @@ impl Engine {
             .map(|(word, _)| word)
             .collect();
         for word in &words {
-            self.learner.cycle_sort_preference(word);
-        }
-        if !words.is_empty() {
-            self.forget_span_cache();
-            *self.correction_cache.borrow_mut() = None;
+            self.restore_sort_preference(word);
         }
         words.len()
     }

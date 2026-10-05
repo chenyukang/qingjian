@@ -258,6 +258,9 @@ impl QingjianInputController {
             if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
                 return self.handle_delete_key(digit, client);
             }
+            if pressed == host::with(|h| h.hide_keys).unwrap_or_default() {
+                return self.handle_hide_key(digit, client);
+            }
         }
         let selector = match key {
             36 | 76 => Some(sel!(insertNewline:)),

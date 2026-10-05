@@ -350,8 +350,13 @@ impl Learner for WordLearner {
         Some(&self.ngram)
     }
 
-    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
-        let next = self.sort.get(text).copied().unwrap_or_default().cycled();
+    fn toggle_sort_preference(&mut self, text: &str, target: SortPreference) -> SortPreference {
+        let next = self
+            .sort
+            .get(text)
+            .copied()
+            .unwrap_or_default()
+            .toggled(target);
         match next {
             SortPreference::Normal => {
                 self.sort.remove(text);
@@ -365,6 +370,17 @@ impl Learner for WordLearner {
 
     fn sort_preference(&self, text: &str) -> SortPreference {
         self.sort.get(text).copied().unwrap_or_default()
+    }
+
+    fn sort_preferences(&self) -> Vec<(String, SortPreference)> {
+        self.sort
+            .iter()
+            .map(|(word, preference)| (word.clone(), *preference))
+            .collect()
+    }
+
+    fn has_sort_preferences(&self) -> bool {
+        !self.sort.is_empty()
     }
 }
 

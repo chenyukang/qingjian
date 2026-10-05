@@ -82,9 +82,9 @@ pub trait Learner: Send {
         0
     }
 
-    /// 用户要求把某个候选「后置 / 恢复」（`Shift+数字`）：词库里的词删不掉，改记排序偏好。
-    /// 一次一档循环（正常 → 后置 → 正常），返回这次之后的状态。见 [`SortPreference`]。
-    fn cycle_sort_preference(&mut self, _text: &str) -> SortPreference {
+    /// 用户要求把某个候选切到 `target` 那一档（`Shift+数字` 后置、`⌃+数字` 隐藏）：词库里的词删不掉，
+    /// 改记排序偏好。已经是那一档就恢复成正常，返回这次之后的状态。见 [`SortPreference`]。
+    fn toggle_sort_preference(&mut self, _text: &str, _target: SortPreference) -> SortPreference {
         SortPreference::Normal
     }
 

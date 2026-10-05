@@ -235,9 +235,11 @@ impl PreferencesWindow {
         key_present: bool,
         error: Option<&str>,
         dictionaries: &[DictionaryInfo],
+        sort_preferences: &[(String, qingjian_core::SortPreference)],
         update: &UpdateStatus,
     ) {
         self.dictionaries.rebuild(dictionaries);
+        self.dictionaries.rebuild_sort_preferences(sort_preferences);
         self.about.sync(config, update);
         self.general.sync(config);
         self.candidates.sync(config);

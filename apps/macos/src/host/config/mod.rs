@@ -36,6 +36,7 @@ impl Host {
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
         self.delete_keys = config.shortcut.delete_keys();
+        self.hide_keys = config.shortcut.hide_keys();
         self.translate_keys = config.shortcut.translate_selection;
         self.correct_keys = config.shortcut.correct_selection;
         self.page_size = config.general.page_size();
@@ -108,11 +109,13 @@ impl Host {
             .is_some_and(|key| !key.trim().is_empty())
             || std::env::var(&config.predict.api_key_env).is_ok_and(|key| !key.trim().is_empty());
         self.dictionary_list = self.dictionary_infos();
+        self.sort_preference_list = self.sort_preference_infos();
         self.preferences.sync(
             &config,
             key_present,
             self.settings.error(),
             &self.dictionary_list,
+            &self.sort_preference_list,
             &self.update_status,
         );
         self.sync_update();

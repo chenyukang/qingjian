@@ -173,8 +173,13 @@ impl Learner for FrequencyLearner {
             .unwrap_or(0)
     }
 
-    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
-        let next = self.sort.get(text).copied().unwrap_or_default().cycled();
+    fn toggle_sort_preference(&mut self, text: &str, target: SortPreference) -> SortPreference {
+        let next = self
+            .sort
+            .get(text)
+            .copied()
+            .unwrap_or_default()
+            .toggled(target);
         match next {
             SortPreference::Normal => {
                 self.sort.remove(text);

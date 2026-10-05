@@ -23,7 +23,7 @@ use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSProcessInfo, NSRect, NSString};
 use qingjian_core::{
     Candidate, CandidateKind, Cell, CloudWord, EmojiTable, Engine, FuzzyRules, Language, ModeKeys,
-    NoGlossFiller, NoInputLogger, NoPredictor, NoTranslator, Prediction,
+    NoGlossFiller, NoInputLogger, NoPredictor, NoTranslator, Prediction, SortPreference,
 };
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
@@ -89,6 +89,9 @@ pub struct Host {
     /// 偏好设置「词库」页显示的列表，勾选框 / 移除按钮的下标对着它。
     dictionary_list: Vec<DictionaryInfo>,
 
+    /// 标过「后置 / 隐藏」的词（设置页「词库」页那个列表，「恢复」按钮的下标对着它）。
+    sort_preference_list: Vec<(String, SortPreference)>,
+
     /// 当前学习语言；`None` 为关（不显示译文）。
     learning_language: Option<Language>,
 
@@ -115,6 +118,9 @@ pub struct Host {
 
     /// 配数字键删候选的修饰键（配置 `[shortcut] delete_candidate`）。
     pub delete_keys: Modifiers,
+
+    /// 隐藏候选（`⌃+数字`）的修饰键。
+    pub hide_keys: Modifiers,
 
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,

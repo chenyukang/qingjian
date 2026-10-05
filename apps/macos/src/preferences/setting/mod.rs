@@ -17,6 +17,12 @@ const DICTIONARY_REMOVE_TAG_BASE: NSInteger = 300;
 /// 一页最多列多少本附加词库（tag 段的宽度）。
 pub const MAX_DICTIONARIES: usize = 100;
 
+/// 「恢复」按钮的 tag 起点（避开词库段 200–400），后面加词在后置列表里的下标。
+const SORT_PREFERENCE_TAG_BASE: NSInteger = 500;
+
+/// 一页最多列多少个后置 / 隐藏的词（tag 段的宽度）。
+pub const MAX_SORT_PREFERENCES: usize = 100;
+
 /// 设置窗口里的每个控件对应的配置项。编码进控件的 tag，`changed:` 里再解出来。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Setting {
@@ -158,8 +164,11 @@ pub enum Setting {
     /// 第 N 本附加词库的「移除」按钮。
     DictionaryRemove(usize),
 
-    /// 「恢复所有后置的词」按钮：把 `Shift+数字` 标过「后置」的词全部恢复正常排序。
+    /// 「恢复全部后置 / 隐藏的词」按钮：把标过「后置」「隐藏」的词全部恢复正常排序。
     RestoreSortPreferences,
+
+    /// 第 N 个标过「后置 / 隐藏」的词那一行的「恢复」按钮（下标是列表里的位置）。
+    RestoreSortPreference(usize),
 
     /// `[general] scheme`，弹出菜单：全拼 + 五套双拼 + 大千注音 + 关。
     Scheme,
@@ -193,6 +202,9 @@ pub enum Setting {
 
     /// `[shortcut] delete_candidate`，快捷键录制按钮（只记修饰键）。
     DeleteCandidateKeys,
+
+    /// `[shortcut] hide_candidate`，快捷键录制按钮（只记修饰键）。
+    HideCandidateKeys,
 
     /// `[general] input_log`，勾选框。
     InputLog,
@@ -244,6 +256,7 @@ impl Setting {
             Self::ResetShortcuts => 18,
             Self::ImportDictionary => 19,
             Self::RestoreSortPreferences => 61,
+            Self::RestoreSortPreference(index) => SORT_PREFERENCE_TAG_BASE + index as NSInteger,
             Self::Scheme => 20,
             Self::Traditional => 47,
             Self::ShuangpinRawPreedit => 52,
@@ -254,6 +267,7 @@ impl Setting {
             Self::CloudSlots => 24,
             Self::EnglishCandidatesOffInApps => 25,
             Self::DeleteCandidateKeys => 26,
+            Self::HideCandidateKeys => 62,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -315,6 +329,10 @@ impl Setting {
             18 => Self::ResetShortcuts,
             19 => Self::ImportDictionary,
             61 => Self::RestoreSortPreferences,
+            _ if tag >= SORT_PREFERENCE_TAG_BASE => {
+                let index = usize::try_from(tag - SORT_PREFERENCE_TAG_BASE).ok()?;
+                (index < MAX_SORT_PREFERENCES).then_some(Self::RestoreSortPreference(index))?
+            }
             20 => Self::Scheme,
             49 => Self::Wubi,
             47 => Self::Traditional,
@@ -326,6 +344,7 @@ impl Setting {
             24 => Self::CloudSlots,
             25 => Self::EnglishCandidatesOffInApps,
             26 => Self::DeleteCandidateKeys,
+            62 => Self::HideCandidateKeys,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -411,6 +430,7 @@ mod tests {
             Setting::CloudSlots,
             Setting::EnglishCandidatesOffInApps,
             Setting::DeleteCandidateKeys,
+            Setting::HideCandidateKeys,
             Setting::InputLog,
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,

@@ -158,8 +158,8 @@ impl Learner for MutedLearner {
     }
 
     // 排序偏好与删词同类：候选窗口里的管理操作，私密中照做（读也照常转发）
-    fn cycle_sort_preference(&mut self, text: &str) -> SortPreference {
-        self.inner.cycle_sort_preference(text)
+    fn toggle_sort_preference(&mut self, text: &str, target: SortPreference) -> SortPreference {
+        self.inner.toggle_sort_preference(text, target)
     }
 
     fn sort_preference(&self, text: &str) -> SortPreference {

@@ -784,3 +784,47 @@ fn a_dictionary_word_can_be_demoted_and_restored() {
         .collect();
     assert_eq!(back, before);
 }
+
+/// 隐藏（另一个修饰键）：词库里的词从候选里彻底消失；隐藏的词按不回来，恢复入口是设置里的
+/// [`Engine::restore_sort_preferences`]。
+#[test]
+fn hiding_a_dictionary_word_removes_it_from_candidates() {
+    let dictionary = Dictionary::parse("是\tshi\t9000\n时\tshi\t8000\n市\tshi\t7000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_learner(Box::new(WordLearner::default()));
+
+    engine.set_input("shi");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "市")
+        .unwrap();
+    let forgotten = engine.hide(&candidate);
+    assert_eq!(forgotten.preference, Some(SortPreference::Hidden));
+
+    engine.set_input("shi");
+    let hidden: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(!hidden.contains(&"市".to_owned()), "{hidden:?}");
+
+    // 设置页那个「全部恢复」：隐藏的词在候选里已经够不到了
+    assert_eq!(engine.restore_sort_preferences(), 1);
+    engine.set_input("shi");
+    let back: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(back.contains(&"市".to_owned()), "{back:?}");
+}

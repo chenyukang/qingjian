@@ -68,6 +68,8 @@ impl Host {
                 }
             }
             MenuAction::OpenPreferences => {
+                // 后置 / 隐藏的列表可能刚在候选窗里改过，重新装配一次再显示
+                self.apply_config(false);
                 self.preferences.sync_usage(
                     &self.engine.usage_summary(),
                     &self.engine.vocabulary_summary(),
@@ -326,6 +328,25 @@ impl Host {
                     defaults.delete_candidate.key(),
                 );
             }
+            (Setting::HideCandidateKeys, SettingValue::Text(text)) => {
+                match text.parse::<Modifiers>() {
+                    Ok(chosen) => {
+                        let (first, second) = config.shortcut.translation_keys();
+                        if chosen == first
+                            || chosen == second
+                            || chosen == config.shortcut.delete_keys()
+                            || chosen == config.shortcut.hide_keys()
+                        {
+                            // 与译词 / 删候选撞了就退回缺省：hide_keys() 自己会兜底
+                            tracing::warn!("隐藏候选的快捷键与别的键冲突，退回缺省");
+                        }
+                        self.settings
+                            .set_value("shortcut", "hide_candidate", chosen.key());
+                    }
+                    Err(error) => tracing::warn!(%error, "隐藏候选的快捷键解析失败，未改"),
+                }
+                return;
+            }
             (Setting::DictionaryEnabled(index), SettingValue::Bool(on)) => {
                 if let Some(info) = self.dictionary_list.get(index).cloned() {
                     if info.builtin {
@@ -345,9 +366,18 @@ impl Host {
                 }
                 return;
             }
+            (Setting::RestoreSortPreference(index), _) => {
+                if let Some((word, _)) = self.sort_preference_list.get(index).cloned() {
+                    self.engine.restore_sort_preference(&word);
+                    // 重新装配一遍：列表、别的页与引擎状态一起刷新
+                    self.apply_config(false);
+                }
+                return;
+            }
             (Setting::RestoreSortPreferences, _) => {
                 let restored = self.engine.restore_sort_preferences();
-                tracing::info!(restored, "恢复后置的候选");
+                tracing::info!(restored, "恢复后置 / 隐藏的候选");
+                self.apply_config(false);
                 return;
             }
             (Setting::Fuzzy(index), SettingValue::Bool(on)) => {

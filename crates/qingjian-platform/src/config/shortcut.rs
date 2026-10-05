@@ -30,6 +30,10 @@ pub struct ShortcutConfig {
 
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
+
+    /// 数字键配这些修饰键：把这个候选「隐藏」，以后不再出现在候选里（词库里的词删不掉，这是它的去处）。
+    /// 与 [`Self::delete_candidate`] 分工：那个是「后置」（还看得见，只排到最后），这个是「不要了」。
+    pub hide_candidate: Modifiers,
 }
 
 impl Default for ShortcutConfig {
@@ -47,6 +51,7 @@ impl Default for ShortcutConfig {
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
             correct_selection: KeyCombo::CORRECT_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
+            hide_candidate: Modifiers::CONTROL,
         }
     }
 }
@@ -62,6 +67,20 @@ impl ShortcutConfig {
             Self::default().delete_candidate
         } else {
             self.delete_candidate
+        }
+    }
+
+    /// 隐藏候选的修饰键；为空、与删候选相同、或与任一组译词键撞了就退回缺省。
+    pub fn hide_keys(&self) -> Modifiers {
+        let (first, second) = self.translation_keys();
+        if self.hide_candidate.is_empty()
+            || self.hide_candidate == self.delete_keys()
+            || self.hide_candidate == first
+            || self.hide_candidate == second
+        {
+            Self::default().hide_candidate
+        } else {
+            self.hide_candidate
         }
     }
 
@@ -104,6 +123,26 @@ mod tests {
             toml::from_str("translation = \"control+option\"\ntranslation_second = \"option\"\n")
                 .unwrap();
         assert_eq!(swapped.translation_keys().1, Modifiers::OPTION);
+    }
+
+    #[test]
+    fn hide_keys_fall_back_when_clashing() {
+        let default = ShortcutConfig::default();
+        let parsed: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(parsed.hide_keys(), default.hide_candidate);
+        // 与平台缺省的译词键撞上
+        let clash: ShortcutConfig = toml::from_str(&format!(
+            "hide_candidate = \"{}\"\n",
+            default.translation.key()
+        ))
+        .unwrap();
+        assert_eq!(clash.hide_keys(), default.hide_candidate);
+        // 与删候选撞上
+        let same: ShortcutConfig = toml::from_str("hide_candidate = \"shift\"\n").unwrap();
+        assert_eq!(same.hide_keys(), default.hide_candidate);
+        // 自己设的照常生效（command 不与任何缺省键相撞）
+        let own: ShortcutConfig = toml::from_str("hide_candidate = \"command\"\n").unwrap();
+        assert!(own.hide_keys().command, "{:?}", own.hide_keys());
     }
 
     #[test]

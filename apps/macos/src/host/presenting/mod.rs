@@ -12,26 +12,20 @@ use qingjian_core::SortPreference;
 
 impl Host {
     /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习；词库里的词删不掉（也没学习记录），
-    /// 改记排序偏好（后置 ↔ 恢复，一次一档）。返回给用户看的一句话；那格没有候选返回 `None`。
+    /// 改记「后置」。返回给用户看的一句话；那格没有候选返回 `None`。
     pub fn forget_candidate(&mut self, offset: usize) -> Option<String> {
         let index = self.session.index_on_page(offset)?;
         let candidate = self.session.candidate(index)?;
         let forgotten = self.engine.forget(&candidate);
-        let text = &candidate.text;
-        Some(if forgotten.user_word {
-            format!("已删除用户词「{text}」")
-        } else if forgotten.learning {
-            format!("已忘掉对「{text}」的学习记录")
-        } else if let Some(preference) = forgotten.preference {
-            match preference {
-                SortPreference::Down => {
-                    format!("「{text}」已后置：以后排在候选最后（再按一次恢复）")
-                }
-                SortPreference::Normal => format!("「{text}」已恢复正常排序"),
-            }
-        } else {
-            format!("「{text}」是词库里的词，也没有学习记录，没什么可删")
-        })
+        Some(candidate_message(&candidate.text, forgotten))
+    }
+
+    /// 隐藏当前页第 `offset` 格的候选：词库里的词以后不再出现；自己学过的词与删候选一样删掉。
+    pub fn hide_candidate(&mut self, offset: usize) -> Option<String> {
+        let index = self.session.index_on_page(offset)?;
+        let candidate = self.session.candidate(index)?;
+        let forgotten = self.engine.hide(&candidate);
+        Some(candidate_message(&candidate.text, forgotten))
     }
 
     /// 这个应用里英文模式给不给候选：全局开关开着，且应用不在 `[apps] english_candidates_off` 里。
@@ -165,5 +159,25 @@ impl Host {
             status: self.status.clone(),
         };
         self.window.show(frame, self.anchor);
+    }
+}
+
+/// 删候选 / 后置 / 隐藏之后给用户看的那句话。
+fn candidate_message(text: &str, forgotten: qingjian_core::Forgotten) -> String {
+    if forgotten.user_word {
+        format!("已删除用户词「{text}」")
+    } else if forgotten.learning {
+        format!("已忘掉对「{text}」的学习记录")
+    } else {
+        match forgotten.preference {
+            Some(SortPreference::Down) => {
+                format!("「{text}」已后置：以后排在候选最后（再按一次恢复）")
+            }
+            Some(SortPreference::Hidden) => {
+                format!("「{text}」已隐藏：以后不再出现（偏好设置 → 词库 里可恢复）")
+            }
+            Some(SortPreference::Normal) => format!("「{text}」已恢复正常排序"),
+            None => format!("「{text}」是词库里的词，也没有学习记录，没什么可删"),
+        }
     }
 }

@@ -50,6 +50,12 @@ impl Engine {
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
+        // 用户标了「隐藏」的候选（`⌃+数字`）不再出现在候选里。放在写日志之前：日志记的就是用户看到的
+        if self.learner.has_sort_preferences() {
+            query.candidates.items.retain(|candidate| {
+                self.learner.sort_preference(&candidate.text) != SortPreference::Hidden
+            });
+        }
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),

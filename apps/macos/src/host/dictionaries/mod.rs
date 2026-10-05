@@ -27,6 +27,11 @@ impl Host {
         infos
     }
 
+    /// 标过「后置 / 隐藏」的词，设置页里逐条列出、逐条恢复。
+    pub(super) fn sort_preference_infos(&self) -> Vec<(String, SortPreference)> {
+        self.engine.learner().sort_preferences()
+    }
+
     /// 导入一本词库（TSV / Rime yaml / .qj）到 `dicts/`，然后重新装配。
     pub fn import_dictionary(&mut self, source: &std::path::Path) {
         let Some(dir) = paths::dicts_dir() else {

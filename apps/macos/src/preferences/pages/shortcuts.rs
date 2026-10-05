@@ -37,6 +37,9 @@ pub struct ShortcutsPage {
     /// 删除候选的修饰键。
     delete_candidate: Retained<KeyRecorder>,
 
+    /// 隐藏候选的修饰键。
+    hide_candidate: Retained<KeyRecorder>,
+
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
 
@@ -133,6 +136,19 @@ impl ShortcutsPage {
             mtm,
             "按住修饰键再按候选序号：自己造的词、云端选过的词整个删掉；词库里的词清掉对它的学习记录，回到原来的排序。组句中要打感叹号先把词上屏。",
         );
+        let hide_candidate = row_recorder(
+            layout,
+            mtm,
+            "隐藏候选",
+            Setting::HideCandidateKeys,
+            true,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "另一组修饰键 + 候选序号：词库里的词从此不再出现在候选里（自己造的词、云端选过的词仍然整个删掉）。隐藏了的词在「词库」页的列表里恢复。",
+        );
         layout.space(GROUP_GAP);
         let translate_selection = row_recorder(
             layout,
@@ -186,6 +202,7 @@ impl ShortcutsPage {
             translation,
             translation_second,
             delete_candidate,
+            hide_candidate,
             translate_selection,
             correct_selection,
         }
@@ -217,6 +234,8 @@ impl ShortcutsPage {
         self.translation_second.show(&second.key(), &second.label());
         let delete = config.shortcut.delete_keys();
         self.delete_candidate.show(&delete.key(), &delete.label());
+        let hide = config.shortcut.hide_keys();
+        self.hide_candidate.show(&hide.key(), &hide.label());
         let correct = config.shortcut.correct_selection;
         self.correct_selection
             .show(&correct.key_string(), &correct.label());

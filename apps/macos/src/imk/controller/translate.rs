@@ -174,6 +174,23 @@ impl QingjianInputController {
         self.render(client);
         true
     }
+
+    /// 隐藏候选（另一组修饰键 + 数字）：词库里的词以后不再出现；自己学过的词与删候选一样删掉。
+    pub(super) fn handle_hide_key(&self, digit: usize, client: TextClient<'_>) -> bool {
+        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        if !composing {
+            return false;
+        }
+        let Some(message) = host::with(|h| h.hide_candidate(digit - 1)).flatten() else {
+            tracing::debug!(digit, "这一格没有候选，没什么可隐藏的");
+            return true;
+        };
+        tracing::info!(%message);
+        self.refresh(client);
+        host::with(|h| h.status = Some(message));
+        self.render(client);
+        true
+    }
 }
 
 /// 应用给不出位置时的弹框锚点：当前鼠标位置（零高度，候选窗口会贴着它摆）。

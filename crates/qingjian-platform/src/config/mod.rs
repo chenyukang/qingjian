@@ -167,6 +167,9 @@ translation_second = "shift+option"
 translate_selection = "control+option+t"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
+# 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）
+# 与 delete_candidate 分工：那个是「后置」（还看得见，只沉到最后）
+hide_candidate = "control"
 "#
     };
 }
@@ -186,6 +189,8 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
+# 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）
+hide_candidate = "control"
 "#
     };
 }
