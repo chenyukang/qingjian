@@ -268,6 +268,18 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
                 }
             }
+            (Setting::ToggleEnglishModeKeys, SettingValue::Text(text)) => {
+                match text.parse::<KeyCombo>() {
+                    Ok(combo) => {
+                        self.settings.set_value(
+                            "shortcut",
+                            "toggle_english_mode",
+                            combo.key_string(),
+                        );
+                    }
+                    Err(error) => tracing::warn!(%error, "中 / 英切换的键不合法，未改"),
+                }
+            }
             (Setting::CorrectSelectionKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
                     Ok(combo) => {

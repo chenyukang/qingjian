@@ -175,6 +175,26 @@ impl QingjianInputController {
         true
     }
 
+    /// 中 / 英切换（缺省 ⌃⇧R）：切到英文后候选只出英文单词、输入框显示键盘原样。
+    /// 组句中用状态条提示（不动手上那串键），没组句时弹一下提示；菜单栏的「中 / 英」跟着变。
+    pub(super) fn toggle_english_mode(&self, client: TextClient<'_>) -> bool {
+        let (on, message) =
+            host::with(|h| h.toggle_english_mode()).unwrap_or((false, "中 / 英已切换".to_owned()));
+        tracing::info!(on, %message);
+        // 词级学习不受影响：切之前手上那串键先按原样上屏的那套逻辑照旧走 handle_text
+        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        host::with(|h| h.indicator.update());
+        if composing {
+            self.refresh(client);
+            host::with(|h| h.status = Some(message));
+            self.render(client);
+        } else {
+            let anchor = mouse_anchor();
+            host::with(|h| h.show_notice(&message, anchor));
+        }
+        true
+    }
+
     /// 切换中文模式下拼音时的英文词候选：组句中用状态条提示（不动拼音），没组句时弹一下提示。
     pub(super) fn toggle_english_candidates(&self, client: TextClient<'_>) -> bool {
         let (on, message) = host::with(|h| h.toggle_english_in_pinyin())

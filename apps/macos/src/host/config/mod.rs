@@ -38,6 +38,7 @@ impl Host {
         self.delete_keys = config.shortcut.delete_keys();
         self.hide_keys = config.shortcut.hide_keys();
         self.toggle_english_keys = config.shortcut.toggle_english;
+        self.toggle_english_mode_keys = config.shortcut.toggle_english_mode;
         self.engine
             .set_english_in_pinyin(config.general.english_in_pinyin);
         self.translate_keys = config.shortcut.translate_selection;

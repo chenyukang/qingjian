@@ -14,7 +14,9 @@ impl QingjianInputController {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let english = modifiers::caps_lock_on();
+        // 英文模式 = Caps Lock 亮着，或者用户用快捷键切过去了（`⌃⇧R`）
+        let english =
+            modifiers::caps_lock_on() || host::with(|h| h.english_mode_manual).unwrap_or(false);
         // 终端、编辑器这类应用（`[apps] english_candidates_off`）里英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))

@@ -237,6 +237,13 @@ impl QingjianInputController {
         {
             return self.correct_selection(client);
         }
+        // 中 / 英切换（缺省 ⌃⇧R）：切到英文就是纯英文模式（候选只出英文单词、输入框键盘原样）
+        let mode = host::with(|h| h.toggle_english_mode_keys).unwrap_or_default();
+        if pressed == mode.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(mode.key)
+        {
+            return self.toggle_english_mode(client);
+        }
         // 英文候选开关（缺省 ⌃⇧E）：中文模式下拼音时的英文词候选，按一次关、再按一次开。
         // 组句中也认：用状态条提示，不动手上那串拼音
         let toggle = host::with(|h| h.toggle_english_keys).unwrap_or_default();

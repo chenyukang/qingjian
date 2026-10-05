@@ -136,7 +136,8 @@ impl ModeIndicator {
         if !self.shown {
             return;
         }
-        let english = modifiers::caps_lock_on();
+        let english = modifiers::caps_lock_on()
+            || crate::host::with(|h| h.english_mode_manual).unwrap_or(false);
         if self.english == Some(english) {
             return;
         }

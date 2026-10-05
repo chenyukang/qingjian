@@ -27,6 +27,17 @@ impl KeyCombo {
         key: 't',
     };
 
+    /// 中 / 英切换（缺省 `⌃⇧R`）：切到英文就是纯英文模式，候选只出英文单词、输入框显示键盘原样。
+    pub const TOGGLE_ENGLISH_MODE_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: true,
+            command: false,
+        },
+        key: 'r',
+    };
+
     /// 中文模式下拼音时英文候选的开关（缺省 `⌃⇧E`）。
     pub const TOGGLE_ENGLISH_DEFAULT: Self = Self {
         modifiers: Modifiers {

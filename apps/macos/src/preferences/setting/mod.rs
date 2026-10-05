@@ -125,6 +125,9 @@ pub enum Setting {
     /// `[general] english_in_pinyin`，勾选框：中文模式下拼音时给不给英文词候选。
     EnglishInPinyin,
 
+    /// `[shortcut] toggle_english_mode`，快捷键录制按钮：中 / 英切换。
+    ToggleEnglishModeKeys,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -272,6 +275,7 @@ impl Setting {
             Self::DeleteCandidateKeys => 26,
             Self::HideCandidateKeys => 62,
             Self::EnglishInPinyin => 63,
+            Self::ToggleEnglishModeKeys => 64,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -350,6 +354,7 @@ impl Setting {
             26 => Self::DeleteCandidateKeys,
             62 => Self::HideCandidateKeys,
             63 => Self::EnglishInPinyin,
+            64 => Self::ToggleEnglishModeKeys,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -415,6 +420,7 @@ mod tests {
             Setting::Preedit,
             Setting::EnglishCandidates,
             Setting::EnglishInPinyin,
+            Setting::ToggleEnglishModeKeys,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

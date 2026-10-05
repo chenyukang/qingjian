@@ -40,6 +40,9 @@ pub struct ShortcutsPage {
     /// 隐藏候选的修饰键。
     hide_candidate: Retained<KeyRecorder>,
 
+    /// 中 / 英切换。
+    toggle_english_mode: Retained<KeyRecorder>,
+
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
 
@@ -164,6 +167,20 @@ impl ShortcutsPage {
             "在应用里选中一段文字再按这个键，译文（学习语言）出现在候选窗口：回车替换选中的文字，Esc 保留原文。需要开着云服务。",
         );
         layout.space(GROUP_GAP);
+        let toggle_english_mode = row_recorder(
+            layout,
+            mtm,
+            "中 / 英切换（英文模式）",
+            Setting::ToggleEnglishModeKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "切到英文就是纯英文模式：候选只出英文单词（含补全与拼错纠正）、输入框显示键盘原样、回车或空格原样上屏；与 Caps Lock 并存。",
+        );
+        layout.space(GROUP_GAP);
         let correct_selection = row_recorder(
             layout,
             mtm,
@@ -203,6 +220,7 @@ impl ShortcutsPage {
             translation_second,
             delete_candidate,
             hide_candidate,
+            toggle_english_mode,
             translate_selection,
             correct_selection,
         }
@@ -236,6 +254,11 @@ impl ShortcutsPage {
         self.delete_candidate.show(&delete.key(), &delete.label());
         let hide = config.shortcut.hide_keys();
         self.hide_candidate.show(&hide.key(), &hide.label());
+        let toggle_english_mode = config.shortcut.toggle_english_mode;
+        self.toggle_english_mode.show(
+            &toggle_english_mode.key_string(),
+            &toggle_english_mode.label(),
+        );
         let correct = config.shortcut.correct_selection;
         self.correct_selection
             .show(&correct.key_string(), &correct.label());

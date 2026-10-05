@@ -125,6 +125,13 @@ pub struct Host {
     /// 切换拼音时英文词候选的快捷键（缺省 `⌃⇧E`）。
     pub toggle_english_keys: KeyCombo,
 
+    /// 中 / 英切换的快捷键（缺省 `⌃⇧R`）。
+    pub toggle_english_mode_keys: KeyCombo,
+
+    /// 用户用快捷键切到了英文模式（与 Caps Lock 并存：两个任一开着就是英文）。
+    /// 不落盘：重启回到中文，想一直英文就按 Caps Lock 或用 `[general]` 里的开关。
+    pub english_mode_manual: bool,
+
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,
 

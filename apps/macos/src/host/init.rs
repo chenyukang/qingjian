@@ -149,6 +149,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             delete_keys: ShortcutConfig::default().delete_keys(),
             hide_keys: ShortcutConfig::default().hide_keys(),
             toggle_english_keys: ShortcutConfig::default().toggle_english,
+            toggle_english_mode_keys: ShortcutConfig::default().toggle_english_mode,
+            english_mode_manual: false,
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,

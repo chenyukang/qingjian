@@ -28,6 +28,19 @@ impl Host {
         Some(candidate_message(&candidate.text, forgotten))
     }
 
+    /// 中 / 英切换（快捷键，缺省 `⌃⇧R`）：切到英文就是纯英文模式（候选只出英文单词，输入框键盘原样）。
+    /// 不写配置：这是一次会话里的临时切换，想一直英文就按 Caps Lock。返回新状态与给用户看的一句话。
+    pub fn toggle_english_mode(&mut self) -> (bool, String) {
+        self.english_mode_manual = !self.english_mode_manual;
+        let on = self.english_mode_manual;
+        let message = if on {
+            "英文输入：只出英文单词，回车原样上屏（再按一次回中文）".to_owned()
+        } else {
+            "中文输入".to_owned()
+        };
+        (on, message)
+    }
+
     /// 切换中文模式下拼音时的英文词候选（快捷键），写回配置（下次启动照旧）。
     /// 返回新状态与给用户看的一句话。
     pub fn toggle_english_in_pinyin(&mut self) -> (bool, String) {

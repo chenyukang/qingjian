@@ -31,6 +31,10 @@ pub struct ShortcutConfig {
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 
+    /// 中 / 英切换（缺省 `⌃⇧R`）：切到英文就是纯英文模式（候选只出英文单词、输入框键盘原样），
+    /// 与 Caps Lock 并存 —— 两个任一开着就是英文。
+    pub toggle_english_mode: KeyCombo,
+
     /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
     pub toggle_english: KeyCombo,
 
@@ -56,6 +60,7 @@ impl Default for ShortcutConfig {
             delete_candidate: Modifiers::SHIFT,
             hide_candidate: Modifiers::CONTROL,
             toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
+            toggle_english_mode: KeyCombo::TOGGLE_ENGLISH_MODE_DEFAULT,
         }
     }
 }
