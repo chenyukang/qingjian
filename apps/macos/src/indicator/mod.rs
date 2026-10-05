@@ -262,7 +262,13 @@ impl Indicator {
             );
         }
         if want {
-            self.show();
+            // `always` 下如果当前输入源不是青简就淡化：否则那颗「红点」会在 ABC 下说谎
+            let alpha = if ours {
+                1.0
+            } else {
+                config.visibility.inactive_alpha()
+            };
+            self.show(alpha);
         } else {
             self.hide_now();
         }
@@ -327,8 +333,8 @@ impl Indicator {
         panel
     }
 
-    /// 露出来。
-    pub fn show(&mut self) {
+    /// 露出来（`alpha` 一般 1.0；`always` 且当前不是青简时用淡化值）。
+    pub fn show(&mut self, alpha: f64) {
         let Some(panel) = &self.panel else {
             return;
         };
@@ -337,7 +343,7 @@ impl Indicator {
         // 返回会让它**再也不出现**（Warp / WeChat / Obsidian 都踩过）。orderFrontRegardless
         // 幂等，成本可以忽略，换来切应用时自愈。
         self.visible = true;
-        panel.setAlphaValue(1.0);
+        panel.setAlphaValue(alpha);
         panel.orderFrontRegardless();
     }
 

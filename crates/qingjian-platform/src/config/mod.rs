@@ -376,6 +376,7 @@ size = 12
 # 菜单栏那个「中 / 英 ☁︎」状态项显示不显示：关掉就把模式提示交给桌面圆点（位置会保留）
 menubar_item = true
 # 显示时机：follow 跟随输入源（不是青简就立刻收，缺省）/ sticky 跟随但延迟 1.5 秒收起 / always 一直显示
+#   always 时如果当前输入源不是青简，圆点会淡化到 35% 透明度（免得红点在 ABC 下说谎）
 visibility = "follow"
 # 中文 / 英文输入时的颜色：#RRGGBB，也可以写 red / green / blue / orange / white / black
 chinese_color = "#E5484D"

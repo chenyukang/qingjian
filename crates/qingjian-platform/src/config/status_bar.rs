@@ -111,6 +111,15 @@ impl Visibility {
     }
 
     /// 离开青简之后等多久才收起（`Follow` 就是 0）。
+    /// `always` 下「当前输入源不是青简」时的透明度：淡化表示它现在没在管事。
+    /// 其余两档不需要——那时不显示才是正确状态。
+    pub fn inactive_alpha(self) -> f64 {
+        match self {
+            Self::Always => 0.35,
+            _ => 1.0,
+        }
+    }
+
     pub fn hide_delay(self) -> std::time::Duration {
         match self {
             Self::Follow => std::time::Duration::ZERO,
@@ -380,6 +389,19 @@ impl<'de> Deserialize<'de> for Color {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let text = String::deserialize(deserializer)?;
         text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod inactive_alpha_tests {
+    use super::Visibility;
+
+    /// 只有 `always` 需要淡化：其余两档"不显示"才是正确状态。
+    #[test]
+    fn only_always_dims_when_not_ours() {
+        assert_eq!(Visibility::Always.inactive_alpha(), 0.35);
+        assert_eq!(Visibility::Follow.inactive_alpha(), 1.0);
+        assert_eq!(Visibility::Sticky.inactive_alpha(), 1.0);
     }
 }
 
