@@ -436,7 +436,7 @@ impl Host {
                 return;
             }
             (Setting::StatusBarCloudIcon, SettingValue::Bool(on)) => {
-                self.settings.set_bool("status_bar", "cloud_icon", on);
+                self.settings.set_bool("status_bar", "menubar_item", on);
                 self.apply_config(false);
                 return;
             }

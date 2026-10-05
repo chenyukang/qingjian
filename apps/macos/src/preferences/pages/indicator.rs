@@ -29,6 +29,7 @@ pub struct IndicatorPage {
     visibility: Retained<NSPopUpButton>,
     chinese_color: Retained<NSColorWell>,
     english_color: Retained<NSColorWell>,
+    /// 菜单栏状态项显示开关。
     cloud_icon: Retained<NSButton>,
     notice: Retained<NSButton>,
     offset_x: Retained<NSTextField>,
@@ -110,7 +111,7 @@ impl IndicatorPage {
         );
         let cloud_icon = checkbox(
             mtm,
-            "菜单栏「中 / 英」旁显示云朵（云联想开着时的隐私提示）",
+            "显示菜单栏的「中 / 英」状态项（云联想开着时旁边带一朵云）",
             Setting::StatusBarCloudIcon,
             target,
         );
@@ -167,7 +168,7 @@ impl IndicatorPage {
         );
         set_color(&self.chinese_color, &native_color(bar.chinese_color));
         set_color(&self.english_color, &native_color(bar.english_color));
-        set_checked(&self.cloud_icon, bar.cloud_icon);
+        set_checked(&self.cloud_icon, bar.menubar_item);
         set_checked(&self.notice, bar.notice);
         self.offset_x
             .setStringValue(&NSString::from_str(&bar.offset_x.to_string()));

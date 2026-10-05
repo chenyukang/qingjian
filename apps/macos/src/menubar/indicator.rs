@@ -42,6 +42,9 @@ pub struct ModeIndicator {
     /// 上次显示的是否英文模式，避免每次轮询都重设标题。
     english: Option<bool>,
 
+    /// `[status_bar] menubar_item`：关掉就整个收成零宽（位置保留），也不再展开。
+    enabled: bool,
+
     /// 云联想开着：标题带云朵，让用户一眼知道上下文会发出去。
     cloud: bool,
 
@@ -59,13 +62,33 @@ impl ModeIndicator {
             collapse_timer: None,
             shown: false,
             english: None,
+            enabled: true,
             cloud: false,
             mtm,
         }
     }
 
+    /// `[status_bar] menubar_item`：关掉就把状态项收成零宽并保持收起；打开则恢复展开。
+    pub fn set_enabled(&mut self, on: bool) {
+        if self.enabled == on {
+            return;
+        }
+        self.enabled = on;
+        self.english = None;
+        if on {
+            self.activate();
+        } else {
+            // 不等那半秒的延迟收起，立刻收
+            self.collapse();
+        }
+    }
+
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
     pub fn activate(&mut self) {
+        if !self.enabled {
+            self.collapse();
+            return;
+        }
         if let Some(timer) = self.collapse_timer.take() {
             timer.invalidate();
         }
