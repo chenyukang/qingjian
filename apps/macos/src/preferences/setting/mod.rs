@@ -158,6 +158,9 @@ pub enum Setting {
     /// `[status_bar] offset_y`，文本框：离边的纵向距离。
     StatusBarOffsetY,
 
+    /// `[general] shift_tap_toggle`，勾选框：轻拍 Shift 切换中 / 英。
+    ShiftTapToggle,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -316,6 +319,7 @@ impl Setting {
             Self::StatusBarNotice => 72,
             Self::StatusBarOffsetX => 73,
             Self::StatusBarOffsetY => 74,
+            Self::ShiftTapToggle => 75,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -405,6 +409,7 @@ impl Setting {
             72 => Self::StatusBarNotice,
             73 => Self::StatusBarOffsetX,
             74 => Self::StatusBarOffsetY,
+            75 => Self::ShiftTapToggle,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -481,6 +486,7 @@ mod tests {
             Setting::StatusBarNotice,
             Setting::StatusBarOffsetX,
             Setting::StatusBarOffsetY,
+            Setting::ShiftTapToggle,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

@@ -422,6 +422,35 @@ impl Host {
                 }
                 return;
             }
+            (Setting::StatusBarNotice, SettingValue::Bool(on)) => {
+                self.settings.set_bool("status_bar", "notice", on);
+                self.apply_config(false);
+                return;
+            }
+            (Setting::StatusBarOffsetX, SettingValue::Text(text))
+            | (Setting::StatusBarOffsetY, SettingValue::Text(text)) => {
+                let key = if matches!(setting, Setting::StatusBarOffsetY) {
+                    "offset_y"
+                } else {
+                    "offset_x"
+                };
+                match text.trim().parse::<i32>() {
+                    Ok(value) => {
+                        self.settings.set_value(
+                            "status_bar",
+                            key,
+                            i64::from(value.clamp(-4000, 4000)),
+                        );
+                        self.apply_config(false);
+                    }
+                    Err(error) => tracing::warn!(%error, key, "偏移要写整数（点），未改"),
+                }
+                return;
+            }
+            (Setting::ShiftTapToggle, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "shift_tap_toggle", on);
+                return;
+            }
             (Setting::StatusBarChineseColor, SettingValue::Color(native))
             | (Setting::StatusBarEnglishColor, SettingValue::Color(native)) => {
                 let english = matches!(setting, Setting::StatusBarEnglishColor);

@@ -64,6 +64,11 @@ pub struct GeneralConfig {
     /// 候选里是否给 emoji（`笑` → 😄，紧跟在那个词后面）。
     pub emoji_candidates: bool,
 
+    /// 轻拍 Shift（按下 250 毫秒内松开、期间没打别的键）切换中 / 英。缺省开。
+    /// 中文输入法的老习惯（Windows 侧的 `[general] switch_mode` 也是同一种做法）；不想用就关掉，
+    /// 按住 Shift 打大写不受影响 —— 只要期间敲了别的键就不算轻拍。
+    pub shift_tap_toggle: bool,
+
     /// 繁体输出模式。
     pub traditional: bool,
     /// 中文模式下中英混输时中文候选总排在英文词前面。缺省关：拼音不像话的输入（`hello`）英文词排第一，
@@ -152,6 +157,7 @@ impl Default for GeneralConfig {
             english_min_letters: 1,
             english_in_pinyin: true,
             emoji_candidates: true,
+            shift_tap_toggle: true,
             traditional: false,
             chinese_first: false,
             shift_letter: ShiftLetter::default(),

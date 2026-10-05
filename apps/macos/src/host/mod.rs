@@ -135,6 +135,12 @@ pub struct Host {
     /// 中 / 英切换的快捷键（缺省 `⌃⇧R`）。
     pub toggle_english_mode_keys: KeyCombo,
 
+    /// 轻拍 Shift 切换中 / 英（`[general] shift_tap_toggle`）。
+    pub shift_tap_toggle: bool,
+
+    /// Shift 按下的时刻：敲了别的键或超过 250 毫秒就作废，不算轻拍。
+    pub shift_tap_armed: Option<std::time::Instant>,
+
     /// 用户用快捷键切到了英文模式（与 Caps Lock 并存：两个任一开着就是英文）。
     /// 不落盘：重启回到中文，想一直英文就按 Caps Lock 或用 `[general]` 里的开关。
     pub english_mode_manual: bool,

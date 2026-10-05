@@ -33,12 +33,34 @@ impl Host {
     pub fn toggle_english_mode(&mut self) -> (bool, String) {
         self.english_mode_manual = !self.english_mode_manual;
         let on = self.english_mode_manual;
-        let message = if on {
+        // `[status_bar] notice` 关掉就不提示 —— 指示器的颜色本身已经说明模式
+        let message = if !self.status_bar.notice {
+            String::new()
+        } else if on {
             "英文输入".to_owned()
         } else {
             "中文输入".to_owned()
         };
         (on, message)
+    }
+
+    /// 轻拍 Shift 到点了：切换中 / 英。定时器里调，所以不依赖 `TextClient`：
+    /// 组句中写状态行（不动手上那串拼音），没组句时在记下的锚点弹一下。
+    pub fn tap_toggle_english(&mut self) {
+        let (on, message) = self.toggle_english_mode();
+        tracing::info!(on, "轻拍 Shift 切换中 / 英");
+        let composing = !self.engine.composition().is_empty();
+        if !message.is_empty() {
+            if composing {
+                self.status = Some(message);
+            } else {
+                let anchor = self.anchor;
+                self.show_notice(&message, anchor);
+            }
+        }
+        self.indicator.update();
+        self.sync_indicator_dot(crate::imk::modifiers::caps_lock_on());
+        self.render();
     }
 
     /// 切换中文模式下拼音时的英文词候选（快捷键），写回配置（下次启动照旧）。
@@ -47,7 +69,9 @@ impl Host {
         let on = !self.engine.english_in_pinyin();
         self.engine.set_english_in_pinyin(on);
         self.settings.set_bool("general", "english_in_pinyin", on);
-        let message = if on {
+        let message = if !self.status_bar.notice {
+            String::new()
+        } else if on {
             "英文候选：已开".to_owned()
         } else {
             "英文候选：已关（拼音只出中文，再按一次开启）".to_owned()

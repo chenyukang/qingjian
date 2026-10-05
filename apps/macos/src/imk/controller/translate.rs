@@ -184,6 +184,14 @@ impl QingjianInputController {
         // 词级学习不受影响：切之前手上那串键先按原样上屏的那套逻辑照旧走 handle_text
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         host::with(|h| h.indicator.update());
+        if message.is_empty() {
+            // `[status_bar] notice` 关着：组句中只重画一下（模式标记「英」还在），没组句时什么都不弹
+            if composing {
+                self.refresh(client);
+                self.render(client);
+            }
+            return true;
+        }
         if composing {
             self.refresh(client);
             host::with(|h| h.status = Some(message));
@@ -195,12 +203,51 @@ impl QingjianInputController {
         true
     }
 
+    /// `flagsChanged`：Shift 按下了还是松开了。**轻拍**（按下 250 毫秒内松开、期间没打别的键）
+    /// 切换中 / 英 —— 中文输入法的老习惯（`[general] shift_tap_toggle`）。
+    /// 敲了别的键会在 `dispatch_event` 里把标记清掉，所以按住 Shift 打大写不受影响。
+    pub(super) fn handle_flags_changed(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
+        /// 超过这么久就算「按住」，不算轻拍。
+        const TAP: std::time::Duration = std::time::Duration::from_millis(250);
+        let key = event.keyCode();
+        let is_shift = key == 56 || key == 60;
+        let flags = event.modifierFlags();
+        let shift = flags.contains(NSEventModifierFlags::Shift);
+        let other = flags.intersects(
+            NSEventModifierFlags::Command
+                | NSEventModifierFlags::Control
+                | NSEventModifierFlags::Option,
+        );
+        if !is_shift || other {
+            host::with(|h| h.shift_tap_armed = None);
+            return false;
+        }
+        if shift {
+            let armed = host::with(|h| h.shift_tap_toggle).unwrap_or(false);
+            host::with(|h| h.shift_tap_armed = armed.then(std::time::Instant::now));
+            return false;
+        }
+        let armed = host::with(|h| h.shift_tap_armed.take()).flatten();
+        match armed {
+            Some(at) if at.elapsed() <= TAP => self.toggle_english_mode(client),
+            _ => false,
+        }
+    }
+
     /// 切换中文模式下拼音时的英文词候选：组句中用状态条提示（不动拼音），没组句时弹一下提示。
     pub(super) fn toggle_english_candidates(&self, client: TextClient<'_>) -> bool {
         let (on, message) = host::with(|h| h.toggle_english_in_pinyin())
             .unwrap_or((true, "英文候选：已切换".to_owned()));
         tracing::info!(on, %message);
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        if message.is_empty() {
+            // `[status_bar] notice` 关着：组句中只重画一下（模式标记「英」还在），没组句时什么都不弹
+            if composing {
+                self.refresh(client);
+                self.render(client);
+            }
+            return true;
+        }
         if composing {
             self.refresh(client);
             host::with(|h| h.status = Some(message));

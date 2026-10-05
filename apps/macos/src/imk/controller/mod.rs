@@ -197,9 +197,15 @@ impl QingjianInputController {
 
     /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
+        // 修饰键自身的按下 / 松开也送进来（IMK 通过 handleEvent 转发）：轻拍 Shift 要用
+        if event.r#type() == NSEventType::FlagsChanged {
+            return self.handle_flags_changed(event, client);
+        }
         if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
             return false;
         }
+        // 敲了真的键：Shift 的「轻拍」标记作废（按住 Shift 打大写不会误触发切换）
+        host::with(|h| h.shift_tap_armed = None);
         let flags = event.modifierFlags();
         let (command, control, option, shift) = (
             flags.contains(NSEventModifierFlags::Command),

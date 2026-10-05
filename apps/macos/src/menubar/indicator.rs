@@ -10,14 +10,21 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{NSMenu, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer, ns_string};
 
 use crate::imk::modifiers;
 
-/// 轮询 Caps Lock 状态的间隔。
-const POLL_INTERVAL: f64 = 0.25;
+/// 轮询间隔。Shift 的「轻拍」要靠它抓（IMK 不把修饰键变化送给输入法，只能轮询物理状态）：
+/// 手指轻拍大概 80–150 毫秒，40 毫秒一轮能稳稳抓到按下与松开两个边沿。
+const POLL_INTERVAL: f64 = 0.04;
+
+/// 轻拍的判定窗口：按下到松开不超过这么久才算，超过就是「按住」。
+const TAP_WINDOW: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// 菜单栏标题与桌面指示器多久同步一次（`POLL_INTERVAL` 的多少轮）—— 它们的变化没那么急。
+const SLOW_EVERY: u32 = 6;
 
 /// 停用后隔多久才把状态项收起：焦点在输入框之间挪动时 deactivate 与下一次 activate 只隔几十毫秒。
 const COLLAPSE_DELAY: f64 = 0.5;
@@ -153,16 +160,51 @@ impl ModeIndicator {
     }
 }
 
+/// 菜单栏轮询器的状态：上一轮 Shift 是否按下（抓边沿）、慢同步的轮次。
+struct MonitorState {
+    shift: std::cell::Cell<bool>,
+    round: std::cell::Cell<u32>,
+}
+
+impl MonitorState {
+    fn new() -> Self {
+        Self {
+            shift: std::cell::Cell::new(false),
+            round: std::cell::Cell::new(0),
+        }
+    }
+}
+
 define_class!(
     // SAFETY: NSObject 没有子类化要求；没有实现 Drop。
     #[unsafe(super(NSObject))]
     #[thread_kind = MainThreadOnly]
-    #[ivars = ()]
+    #[ivars = MonitorState]
     struct ModeMonitor;
 
     impl ModeMonitor {
         #[unsafe(method(tick:))]
         fn tick(&self, _timer: Option<&AnyObject>) {
+            // 轻拍 Shift：按下 → 记时刻；松开 → 窗口内没敲过别的键就切换
+            let shift = modifiers::shift_down();
+            let was = self.ivars().shift.get();
+            self.ivars().shift.set(shift);
+            if shift && !was {
+                crate::host::with(|h| {
+                    h.shift_tap_armed = h.shift_tap_toggle.then(std::time::Instant::now);
+                });
+            } else if !shift && was {
+                let armed = crate::host::with(|h| h.shift_tap_armed.take()).flatten();
+                if armed.is_some_and(|at| at.elapsed() <= TAP_WINDOW) {
+                    crate::host::with(|h| h.tap_toggle_english());
+                }
+            }
+            // 标题与指示器慢一拍同步就够
+            let round = self.ivars().round.get().wrapping_add(1);
+            self.ivars().round.set(round);
+            if !round.is_multiple_of(SLOW_EVERY) {
+                return;
+            }
             let english = modifiers::caps_lock_on();
             crate::host::with(|h| {
                 h.indicator.update();
@@ -181,7 +223,7 @@ define_class!(
 
 impl ModeMonitor {
     fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        let this = mtm.alloc::<Self>().set_ivars(());
+        let this = mtm.alloc::<Self>().set_ivars(MonitorState::new());
         unsafe { msg_send![super(this), init] }
     }
 }

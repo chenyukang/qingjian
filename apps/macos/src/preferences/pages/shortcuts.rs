@@ -43,6 +43,9 @@ pub struct ShortcutsPage {
     /// 中 / 英切换。
     toggle_english_mode: Retained<KeyRecorder>,
 
+    /// 轻拍 Shift 切换中 / 英。
+    shift_tap: Retained<NSButton>,
+
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
 
@@ -124,6 +127,19 @@ impl ShortcutsPage {
             layout,
             mtm,
             "按住修饰键再按候选序号，上屏的是候选右侧的译词而不是中文；候选有两个译词时第二组键上屏后一个。两组不能相同。",
+        );
+        layout.space(GROUP_GAP);
+        let shift_tap = checkbox(
+            mtm,
+            "轻拍 Shift 切换中 / 英（按下 250 毫秒内松开、期间没打别的键）",
+            Setting::ShiftTapToggle,
+            target,
+        );
+        row_checkbox(layout, &shift_tap);
+        note(
+            layout,
+            mtm,
+            "中文输入法的老习惯，不用记住组合键。按住 Shift 打大写不受影响：只要期间敲了别的键就不算轻拍。",
         );
         layout.space(GROUP_GAP);
         let delete_candidate = row_recorder(
@@ -221,6 +237,7 @@ impl ShortcutsPage {
             delete_candidate,
             hide_candidate,
             toggle_english_mode,
+            shift_tap,
             translate_selection,
             correct_selection,
         }
@@ -254,6 +271,7 @@ impl ShortcutsPage {
         self.delete_candidate.show(&delete.key(), &delete.label());
         let hide = config.shortcut.hide_keys();
         self.hide_candidate.show(&hide.key(), &hide.label());
+        set_checked(&self.shift_tap, config.general.shift_tap_toggle);
         let toggle_english_mode = config.shortcut.toggle_english_mode;
         self.toggle_english_mode.show(
             &toggle_english_mode.key_string(),
