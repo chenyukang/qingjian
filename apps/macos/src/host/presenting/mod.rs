@@ -34,7 +34,7 @@ impl Host {
         self.english_mode_manual = !self.english_mode_manual;
         let on = self.english_mode_manual;
         let message = if on {
-            "英文输入：只出英文单词，回车原样上屏（再按一次回中文）".to_owned()
+            "英文输入）".to_owned()
         } else {
             "中文输入".to_owned()
         };

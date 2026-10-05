@@ -21,10 +21,6 @@ impl QingjianInputController {
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
                 .unwrap_or(false);
-        // 英文字模式排查用：只有英文模式下的按键才打，量很小（用户反馈"英文模式没候选"时靠它定位）
-        if english {
-            tracing::info!(english_candidates, composing, text = %text, "英文模式按键");
-        }
         // 英文模式组词中 Caps Lock 灭了（或开关关了）：敲的字母先原样上屏，别把它们当拼音
         if composing
             && !english_candidates
