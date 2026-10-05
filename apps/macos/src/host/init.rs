@@ -155,7 +155,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             toggle_english_keys: ShortcutConfig::default().toggle_english,
             toggle_english_mode_keys: ShortcutConfig::default().toggle_english_mode,
             english_mode_manual: false,
-            per_app_english: std::collections::HashMap::new(),
+            per_app_english: crate::app::paths::user_data_dir()
+                .and_then(|dir| std::fs::read_to_string(dir.join("app-modes.tsv")).ok())
+                .map(|text| crate::host::presenting::parse_app_modes(&text))
+                .unwrap_or_default(),
             per_app_mode: true,
             application: None,
             shift_tap_toggle: true,

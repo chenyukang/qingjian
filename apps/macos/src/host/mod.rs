@@ -145,7 +145,7 @@ pub struct Host {
     pub shift_tap_armed: Option<std::time::Instant>,
 
     /// 用户用快捷键切到了英文模式（与 Caps Lock 并存：两个任一开着就是英文）。
-    /// 不落盘：重启回到中文，想一直英文就按 Caps Lock 或用 `[general]` 里的开关。
+    /// 本身不落盘；`[apps] per_app_mode` 开着时按应用记的状态在 `app-modes.tsv` 里能跨重启。
     /// `[apps] per_app_mode` 开着时，这个值是**当前应用**的状态（切应用时从 [`Self::per_app_english`] 取回）。
     pub english_mode_manual: bool,
 

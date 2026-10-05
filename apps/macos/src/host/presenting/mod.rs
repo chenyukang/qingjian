@@ -30,6 +30,19 @@ impl Host {
 
     /// 中 / 英切换（快捷键，缺省 `⌃⇧R`）：切到英文就是纯英文模式（候选只出英文单词，输入框键盘原样）。
     /// 不写配置：这是一次会话里的临时切换，想一直英文就按 Caps Lock。返回新状态与给用户看的一句话。
+    /// 把 [`Host::per_app_english`] 落盘（`app-modes.tsv`）。按应用记的状态要跨重启 ——
+    /// 这是"每个应用有自己的中 / 英"能兑现的前提。写失败只记一条日志，不影响输入。
+    pub fn save_app_modes(&self) {
+        let Some(dir) = crate::app::paths::user_data_dir() else {
+            return;
+        };
+        let path = dir.join(APP_MODES_FILE);
+        let text = format_app_modes(&self.per_app_english);
+        if let Err(error) = std::fs::write(&path, text) {
+            tracing::warn!(?path, %error, "按应用的中 / 英状态没写成");
+        }
+    }
+
     pub fn toggle_english_mode(&mut self) -> (bool, String) {
         self.english_mode_manual = !self.english_mode_manual;
         let on = self.english_mode_manual;
@@ -38,6 +51,7 @@ impl Host {
             && let Some(bundle) = self.application.clone()
         {
             self.per_app_english.insert(bundle, on);
+            self.save_app_modes();
         }
         // `[status_bar] notice` 关掉就不提示 —— 指示器的颜色本身已经说明模式
         let message = if !self.status_bar.notice {
@@ -53,6 +67,17 @@ impl Host {
     /// 切到某个应用（`activateServer`）：按应用记状态的话，把这个应用上次的中 / 英取回来。
     /// `per_app_mode` 关着就什么都不做（全局一个状态）。
     pub fn switch_application(&mut self, bundle: Option<String>) {
+        if self.per_app_mode {
+            // **离开时先把这个应用的状态存下来**：否则一个应用里切了英文、没去别的应用"确认"过，
+            // 这个状态就只在内存里飘着；而 `english_mode_manual` 是全局的那一个值 —— 下一个
+            // 应用就"继承"了它，正是用户报的「受上一个应用影响」。
+            if let Some(left) = self.application.clone()
+                && left != bundle.clone().unwrap_or_default()
+            {
+                self.per_app_english.insert(left, self.english_mode_manual);
+            }
+            self.save_app_modes();
+        }
         self.application = bundle;
         if !self.per_app_mode {
             return;
@@ -258,5 +283,63 @@ fn candidate_message(text: &str, forgotten: qingjian_core::Forgotten) -> String 
             Some(SortPreference::Normal) => format!("「{text}」已恢复正常排序"),
             None => format!("「{text}」是词库里的词，也没有学习记录，没什么可删"),
         }
+    }
+}
+
+/// 按应用记的中 / 英落盘用的文件名（在用户数据目录里）。
+const APP_MODES_FILE: &str = "app-modes.tsv";
+
+/// 解析 `app-modes.tsv`：每行 `bundle<TAB>0|1`。坏行（空行、没制表符、值不是 0/1）直接跳过。
+pub fn parse_app_modes(text: &str) -> std::collections::HashMap<String, bool> {
+    text.lines()
+        .filter_map(|line| {
+            let (bundle, value) = line.split_once('\t')?;
+            let bundle = bundle.trim();
+            if bundle.is_empty() {
+                return None;
+            }
+            match value.trim() {
+                "0" => Some((bundle.to_owned(), false)),
+                "1" => Some((bundle.to_owned(), true)),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// 序列化成 `app-modes.tsv` 的正文（按 bundle 排序，方便人看、逐行 diff 稳定）。
+pub fn format_app_modes(modes: &std::collections::HashMap<String, bool>) -> String {
+    let mut entries: Vec<_> = modes.iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(b.0));
+    let mut out =
+        String::from("# 按应用记住的「中 / 英」：中文 0、英文 1（`[apps] per_app_mode`）\n");
+    for (bundle, english) in entries {
+        out.push_str(bundle);
+        out.push('\t');
+        out.push(if *english { '1' } else { '0' });
+        out.push('\n');
+    }
+    out
+}
+
+#[cfg(test)]
+mod app_modes_tests {
+    use super::{format_app_modes, parse_app_modes};
+    use std::collections::HashMap;
+
+    /// 落盘再读回来要一模一样；坏行不能把整张表带崩。
+    #[test]
+    fn app_modes_round_trip_and_bad_lines() {
+        let mut modes = HashMap::new();
+        modes.insert("dev.warp.Warp-Stable".to_owned(), false);
+        modes.insert("com.google.Chrome".to_owned(), true);
+        let text = format_app_modes(&modes);
+        assert_eq!(parse_app_modes(&text), modes);
+
+        let dirty = "# 注释\n\ncom.google.Chrome\t1\n坏行\tmaybe\ndev.warp.Warp-Stable\t0\n";
+        let parsed = parse_app_modes(dirty);
+        assert_eq!(parsed.len(), 2);
+        assert!(parsed["com.google.Chrome"]);
+        assert!(!parsed["dev.warp.Warp-Stable"]);
     }
 }
