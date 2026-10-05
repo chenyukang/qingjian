@@ -398,7 +398,9 @@ const DEFAULT_EXACT_BONUS: f64 = 5.6;
 const SENTENCE_LEARN_PATHS: usize = 8;
 
 /// 短于这么多音节的不给备选整句：那时候选表里的词级候选比另一种读法有用。
-const ALTERNATE_MIN_SYLLABLES: usize = 4;
+/// 三个音节起就给（`niuyuedui` → 纽约对 / 纽约队）：三音节输入词表里往往只有第一音节的单字，
+/// 另一种末字读法这时候比那些单字有用得多；两个音节仍不给，那是词级候选的主场。
+const ALTERNATE_MIN_SYLLABLES: usize = 3;
 
 /// 短于这么多字母的不让模型直接生成整句：那么短的输入词级候选够用，生成的几十毫秒不值。
 const MIN_GENERATED_LETTERS: usize = 6;

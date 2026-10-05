@@ -12,6 +12,7 @@ mod lookup;
 mod mixed_space;
 mod privacy;
 mod raw;
+mod sentence_candidates;
 mod shuangpin;
 mod zhuyin;
 
