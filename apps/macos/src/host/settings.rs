@@ -389,6 +389,11 @@ impl Host {
                 }
                 return;
             }
+            (Setting::PerAppMode, SettingValue::Bool(on)) => {
+                self.settings.set_bool("apps", "per_app_mode", on);
+                self.apply_config(false);
+                return;
+            }
             (Setting::StatusBarVisibility, SettingValue::Index(index)) => {
                 if let Some(visibility) = Visibility::ALL.get(index) {
                     self.settings

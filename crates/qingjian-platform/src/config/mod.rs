@@ -106,6 +106,8 @@ fn deserialize_phrases<'de, D: serde::Deserializer<'de>>(
 macro_rules! template_apps {
     () => {
         r#"[apps]
+# 每个应用各自记住「中 / 英」：在一个应用里切到英文，切到别的应用仍是中文。关掉则全局一个状态
+per_app_mode = true
 # 按应用改行为，条目是 fcitx5 认到的应用名（X11 是 WM_CLASS，Wayland 是 app_id；`*` 结尾按前缀匹配，不区分大小写）
 # 英文模式下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
 english_candidates_off = [

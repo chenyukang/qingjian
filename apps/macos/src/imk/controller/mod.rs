@@ -98,7 +98,9 @@ define_class!(
                     tracing::debug!(%bundle, "当前应用");
                 }
                 host::with(|h| {
-                    h.engine.set_application(bundle);
+                    h.engine.set_application(bundle.clone());
+                    // 每个应用各自记「中 / 英」（`[apps] per_app_mode`）
+                    h.switch_application(bundle);
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
                     h.indicator.activate();

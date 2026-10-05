@@ -41,6 +41,7 @@ impl Host {
         self.toggle_english_mode_keys = config.shortcut.toggle_english_mode;
         self.status_bar = config.status_bar.clone();
         self.shift_tap_toggle = config.general.shift_tap_toggle;
+        self.per_app_mode = config.apps.per_app_mode;
         self.engine
             .set_english_mode_min_letters(config.general.english_mode_min_letters);
         self.shift_tap_window = config.general.shift_tap_window();

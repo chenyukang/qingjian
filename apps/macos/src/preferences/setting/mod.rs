@@ -170,6 +170,9 @@ pub enum Setting {
     /// `[status_bar] visibility`，弹出菜单：指示器的显示时机。
     StatusBarVisibility,
 
+    /// `[apps] per_app_mode`，勾选框：每个应用各自记「中 / 英」。
+    PerAppMode,
+
     /// `[general] emoji_candidates`，勾选框：候选里是否给 emoji。
     EmojiCandidates,
 
@@ -332,6 +335,7 @@ impl Setting {
             Self::ShiftTapWindow => 76,
             Self::EnglishModeMinLetters => 77,
             Self::StatusBarVisibility => 78,
+            Self::PerAppMode => 79,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -425,6 +429,7 @@ impl Setting {
             76 => Self::ShiftTapWindow,
             77 => Self::EnglishModeMinLetters,
             78 => Self::StatusBarVisibility,
+            79 => Self::PerAppMode,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -505,6 +510,7 @@ mod tests {
             Setting::ShiftTapWindow,
             Setting::EnglishModeMinLetters,
             Setting::StatusBarVisibility,
+            Setting::PerAppMode,
             Setting::EmojiCandidates,
             Setting::MixedSpace,
             Setting::EnglishMinLetters,

@@ -33,6 +33,12 @@ impl Host {
     pub fn toggle_english_mode(&mut self) -> (bool, String) {
         self.english_mode_manual = !self.english_mode_manual;
         let on = self.english_mode_manual;
+        // `[apps] per_app_mode`：这个状态记在当前应用名下，切到别的应用不受影响
+        if self.per_app_mode
+            && let Some(bundle) = self.application.clone()
+        {
+            self.per_app_english.insert(bundle, on);
+        }
         // `[status_bar] notice` 关掉就不提示 —— 指示器的颜色本身已经说明模式
         let message = if !self.status_bar.notice {
             String::new()
@@ -42,6 +48,28 @@ impl Host {
             "中文输入".to_owned()
         };
         (on, message)
+    }
+
+    /// 切到某个应用（`activateServer`）：按应用记状态的话，把这个应用上次的中 / 英取回来。
+    /// `per_app_mode` 关着就什么都不做（全局一个状态）。
+    pub fn switch_application(&mut self, bundle: Option<String>) {
+        self.application = bundle;
+        if !self.per_app_mode {
+            return;
+        }
+        let restored = self
+            .application
+            .as_ref()
+            .and_then(|bundle| self.per_app_english.get(bundle).copied())
+            .unwrap_or(false);
+        if restored != self.english_mode_manual {
+            tracing::info!(
+                application = ?self.application,
+                english = restored,
+                "切应用：恢复该应用自己的中 / 英状态"
+            );
+            self.english_mode_manual = restored;
+        }
     }
 
     /// 轻拍 Shift 到点了：切换中 / 英。定时器里调，所以不依赖 `TextClient`：

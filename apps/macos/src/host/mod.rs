@@ -146,7 +146,17 @@ pub struct Host {
 
     /// 用户用快捷键切到了英文模式（与 Caps Lock 并存：两个任一开着就是英文）。
     /// 不落盘：重启回到中文，想一直英文就按 Caps Lock 或用 `[general]` 里的开关。
+    /// `[apps] per_app_mode` 开着时，这个值是**当前应用**的状态（切应用时从 [`Self::per_app_english`] 取回）。
     pub english_mode_manual: bool,
+
+    /// 按应用记住的「中 / 英」（`[apps] per_app_mode`）：在一个应用里切英文，切到别的应用仍是中文。
+    pub per_app_english: std::collections::HashMap<String, bool>,
+
+    /// `[apps] per_app_mode`：上面那张表开不开。
+    pub per_app_mode: bool,
+
+    /// 当前应用（`activateServer` 时记下的 bundle identifier）：按应用记状态要用它。
+    pub application: Option<String>,
 
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,

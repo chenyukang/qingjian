@@ -94,6 +94,11 @@ pub const DEFAULT_ENGLISH_CANDIDATES_OFF: &[&str] = DEFAULT_ENGLISH_CANDIDATES_O
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppsConfig {
+    /// 每个应用各自记住「中 / 英」：在一个应用里切到英文，切到别的应用仍是中文（缺省开）。
+    /// 关掉就是全局一个状态 —— 在 A 里切英文，切到 B 也跟着变。
+    /// Caps Lock 不受这项影响：它是系统级状态，亮着就是所有应用都英文。
+    pub per_app_mode: bool,
+
     /// 英文模式（Caps Lock）下不给候选的应用。条目是 bundle identifier（`com.jetbrains.*`）或 exe 文件名（`Code.exe`），
     /// `*` 结尾按前缀匹配。全局开关 `[general] english_candidates` 关着时这里不起作用。
     pub english_candidates_off: Vec<String>,
@@ -101,7 +106,10 @@ pub struct AppsConfig {
 
 impl Default for AppsConfig {
     fn default() -> Self {
-        Self::with_english_candidates_off(DEFAULT_ENGLISH_CANDIDATES_OFF)
+        Self {
+            per_app_mode: true,
+            ..Self::with_english_candidates_off(DEFAULT_ENGLISH_CANDIDATES_OFF)
+        }
     }
 }
 
@@ -109,6 +117,7 @@ impl AppsConfig {
     /// 用给定名单构造（缺省名单分平台，测试里要指定哪一份）。
     pub fn with_english_candidates_off(apps: &[&str]) -> Self {
         Self {
+            per_app_mode: true,
             english_candidates_off: apps.iter().map(|s| (*s).to_owned()).collect(),
         }
     }

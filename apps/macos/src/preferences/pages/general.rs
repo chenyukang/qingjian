@@ -52,6 +52,9 @@ pub struct GeneralPage {
     /// 英文模式下从几个字母起补全。
     english_mode_min_letters: Retained<NSPopUpButton>,
 
+    /// 每个应用各自记「中 / 英」。
+    per_app_mode: Retained<NSButton>,
+
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
@@ -235,6 +238,18 @@ impl GeneralPage {
             mtm,
             "英文模式（Caps Lock / ⌃⇧R）下的补全门槛，缺省 2：敲一个字母就弹一串候选太吵；敲到第二个字母再开始更像「在打一个词」。",
         );
+        let per_app_mode = checkbox(
+            mtm,
+            "每个应用各自记「中 / 英」",
+            Setting::PerAppMode,
+            target,
+        );
+        row_checkbox(layout, &per_app_mode);
+        note(
+            layout,
+            mtm,
+            "在一个应用里切到英文，切到别的应用仍是中文；关掉则全局一个状态（在 A 里切英文、切到 B 也跟着变）。Caps Lock 不受影响：它亮着就是所有应用都英文。",
+        );
         let chinese_first = checkbox(
             mtm,
             "输入拼音时中文候选排在英文词前面",
@@ -273,6 +288,7 @@ impl GeneralPage {
             mixed_space,
             english_min_letters,
             english_mode_min_letters,
+            per_app_mode,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -334,6 +350,7 @@ impl GeneralPage {
                     .saturating_sub(1),
             ),
         );
+        set_checked(&self.per_app_mode, config.apps.per_app_mode);
         set_checked(&self.chinese_first, general.chinese_first);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
