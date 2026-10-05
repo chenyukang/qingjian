@@ -4,6 +4,7 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
     NSClipView, NSColor, NSScreen, NSScrollView, NSTabView, NSTabViewItem, NSTextField, NSView,
+    NSWindowTitleVisibility,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
@@ -179,6 +180,13 @@ impl PreferencesWindow {
             tabs.addTabViewItem(&item);
         }
         let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
+        // 整窗玻璃：材质铺在 content 最底层，标签页与状态行浮在它上面
+        let backdrop = crate::ui::material::PanelBackdrop::new(
+            NSRect::new(NSPoint::ZERO, content_size),
+            crate::ui::material::DEFAULT_CORNER_RADIUS,
+            mtm,
+        );
+        content.addSubview(backdrop.view());
         content.addSubview(&tabs);
         let status = small_label(mtm, "");
         status.setTextColor(Some(&NSColor::systemRedColor()));
@@ -191,6 +199,11 @@ impl PreferencesWindow {
         ));
         content.addSubview(&status);
         let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
+        // 让玻璃能透到桌面：窗口自己不能画背景，标题栏也要透明
+        panel.setOpaque(false);
+        panel.setBackgroundColor(Some(&NSColor::clearColor()));
+        panel.setTitlebarAppearsTransparent(true);
+        panel.setTitleVisibility(NSWindowTitleVisibility::Hidden);
         panel.setTitle(&NSString::from_str("青简偏好设置"));
         panel.setContentView(Some(&content));
         panel.center();

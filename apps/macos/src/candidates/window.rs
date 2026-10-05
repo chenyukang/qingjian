@@ -15,6 +15,9 @@ use super::frame::Frame;
 use super::theme::Theme;
 use super::view::CandidateView;
 
+/// 玻璃底时候选窗自己的背景不透明度：再低就压不住后面的文字，再高就看不出玻璃。
+const GLASS_BACKGROUND_ALPHA: f64 = 0.55;
+
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
 const POPUP_MENU_LEVEL: NSWindowLevel = 101;
 
@@ -43,7 +46,14 @@ pub struct CandidateWindow {
 
 impl CandidateWindow {
     pub fn new(mtm: MainThreadMarker) -> Self {
-        let view = CandidateView::new(mtm, Theme::system_default());
+        let mut theme = Theme::system_default();
+        // 玻璃底：候选自己的背景要半透明，系统材质才透得出来（没有 Glass API 的老系统保持原样）
+        if crate::ui::material::glass_available() {
+            theme.background = theme
+                .background
+                .colorWithAlphaComponent(GLASS_BACKGROUND_ALPHA);
+        }
+        let view = CandidateView::new(mtm, theme);
         let panel = build_panel(mtm, &view);
         Self {
             panel,
@@ -208,7 +218,15 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     // 不要 setFloatingPanel(true)：它会把层级改回 NSFloatingWindowLevel（3），全屏应用的 Space 里就看不见了；
     // 层级最后设，别被前面任何一项覆盖
     panel.setLevel(POPUP_MENU_LEVEL);
-    panel.setContentView(Some(view));
+    // 玻璃底：候选视图浮在材质之上。圆角用主题里的（与高亮条同一个值），玻璃的圆角
+    // 与气泡的圆角对齐，才不会在四角露出方块。
+    let backdrop = crate::ui::material::PanelBackdrop::new(
+        NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0)),
+        view.theme().corner_radius,
+        mtm,
+    );
+    backdrop.content.addSubview(view);
+    panel.setContentView(Some(backdrop.view()));
     panel
 }
 
