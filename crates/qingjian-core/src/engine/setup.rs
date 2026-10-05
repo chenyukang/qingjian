@@ -566,6 +566,12 @@ impl Engine {
     /// 不接上的话学到的是 `inlane`，下次打 `win` 补不出来。`pending` 由调用方给（`take_raw` 要先取，
     /// 因为 log_commit 会清空 passthrough_pending）；只有整段都是字母时才接。
     pub(super) fn learn_english_word(&mut self, text: &str, pending: &str) {
+        // **英文模式（CapsLock / ⌃⇧R）下打的英文词不进个人词表**：那时整段都在打英文，
+        // 随手打的词（英文句子里那些 this / and，或者双拼按键被原样上屏的 xmzd 之类）
+        // 不是「你在中文输入里要用的词」——那才是个人词表服务的东西。
+        if self.english_mode {
+            return;
+        }
         let letters: String = pending.chars().filter(char::is_ascii_alphabetic).collect();
         let joinable = !letters.is_empty()
             && letters.len() == pending.chars().count()

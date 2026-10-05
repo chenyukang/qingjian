@@ -335,7 +335,7 @@ fn raw_committed_english_words_are_learned_and_come_back_as_candidates() {
             .iter()
             .all(|c| c.kind != CandidateKind::English)
     );
-    // 英文模式下直通的词也学
+    // 英文模式下直通的词**不学**：那时整段都在打英文，不算「中文输入里要用的词」
     engine.set_english_mode(true);
     engine.set_input("wo");
     assert_eq!(engine.take_raw(), "wo");
@@ -346,7 +346,9 @@ fn raw_committed_english_words_are_learned_and_come_back_as_candidates() {
         wo.candidates
             .items
             .iter()
-            .any(|c| c.kind == CandidateKind::English && c.text == "wo")
+            .all(|c| c.kind != CandidateKind::English),
+        "英文模式下直通的词不该进个人词表：{:?}",
+        wo.candidates.items
     );
 }
 
@@ -950,4 +952,49 @@ fn the_pinyin_toggle_only_hides_dictionary_english_words() {
         .map(|c| c.text)
         .collect();
     assert!(!all.contains(&"tam".to_owned()), "词库那份该关掉：{all:?}");
+}
+
+/// 英文模式下打的词不进个人英文词表：那时整段都在打英文，随手打的词不是「中文输入里要用的词」。
+/// 个人词表只服务中文模式的英文候选。
+#[test]
+fn english_mode_typing_is_not_personal_vocabulary() {
+    struct PersonalWords(WordList, Arc<Mutex<Vec<String>>>);
+    impl Learner for PersonalWords {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn learn_english(&mut self, word: &str) {
+            self.1.lock().unwrap().push(word.to_owned());
+        }
+        fn user_english(&self) -> Option<&WordList> {
+            Some(&self.0)
+        }
+    }
+
+    let learned = Arc::new(Mutex::new(Vec::new()));
+    let empty = WordList::parse("hello\thello\t1000\n").unwrap();
+    let mut engine = engine().with_learner(Box::new(PersonalWords(empty, learned.clone())));
+
+    // 英文模式：上屏一个词，不该被记
+    engine.set_english_mode(true);
+    engine.set_input("hello");
+    let word = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&word);
+    assert!(
+        learned.lock().unwrap().is_empty(),
+        "英文模式下打的词不该进个人词表：{:?}",
+        learned.lock().unwrap()
+    );
+
+    // 中文模式：同样这个输入、这个候选，照旧记
+    engine.set_english_mode(false);
+    engine.set_input("hello");
+    let word = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&word);
+    assert_eq!(
+        learned.lock().unwrap().as_slice(),
+        ["hello"],
+        "中文模式下要记"
+    );
 }
