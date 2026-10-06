@@ -97,4 +97,24 @@ impl Decoded {
         }
         keys
     }
+
+    /// [`Self::pinyin`] 的第 `pinyin_len` 个字节落在某个音节中间时，返回那个音节的末尾（否则原样返回）。
+    /// 注音与双拼一样：一个音节是一次按键单元，不能拆，消耗要按音节末尾算（见双拼那边同名方法）。
+    pub fn syllable_end(&self, pinyin_len: usize) -> usize {
+        let mut position = 0;
+        let mut first = true;
+        for unit in self.units.iter().filter(|unit| unit.pinyin != "'") {
+            let start = if first { 0 } else { position + 1 };
+            let end = start + unit.pinyin.len();
+            if pinyin_len <= start {
+                break;
+            }
+            if pinyin_len < end {
+                return end;
+            }
+            position = end;
+            first = false;
+        }
+        pinyin_len
+    }
 }

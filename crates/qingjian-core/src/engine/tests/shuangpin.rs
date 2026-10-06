@@ -206,3 +206,51 @@ fn calendar_shortcuts_follow_decoded_pinyin_under_shuangpin() {
             .any(|c| c.kind == CandidateKind::Shortcut)
     );
 }
+
+#[test]
+fn committing_a_fuzzy_matched_syllable_advances_the_composition() {
+    // 岚(lan) 靠模糊音 an↔ang 对上 `lang`（键 `lh`）：上屏时要把这个音节的整组键都吃掉。
+    // 只按对齐结果吃 `lan` 的话，双拼下一个音节的键不能拆、`keys_for` 会算出 0 个键，
+    // 组句原地不动 —— 用户选完 岚 就再也选不到 角（2026-10-06 报的岚角山）
+    let mut engine = Engine::new(
+        Dictionary::parse("岚\tlan\t1000\n角\tjiao\t1000\n山\tshan\t1000\n岚角\tlan jiao\t900\n")
+            .unwrap(),
+    );
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+    engine.set_fuzzy(FuzzyRules {
+        an_ang: true,
+        ..FuzzyRules::default()
+    });
+    engine.set_input("lhjnuj");
+    let query = engine.query().unwrap();
+    let lan = query
+        .candidates
+        .items
+        .iter()
+        .find(|candidate| candidate.text == "岚")
+        .expect("岚")
+        .clone();
+    assert_eq!(engine.commit(&lan), "岚");
+    // 剩下的组句自动推进到 jiao'shan（键 `jnuj`）
+    let rest = engine.query().unwrap();
+    assert_eq!(rest.text, "jnuj");
+    let jiao = rest
+        .candidates
+        .items
+        .iter()
+        .find(|candidate| candidate.text == "角")
+        .expect("角")
+        .clone();
+    assert_eq!(engine.commit(&jiao), "角");
+    let rest = engine.query().unwrap();
+    assert_eq!(rest.text, "uj");
+    let shan = rest
+        .candidates
+        .items
+        .iter()
+        .find(|candidate| candidate.text == "山")
+        .expect("山")
+        .clone();
+    assert_eq!(engine.commit(&shan), "山");
+    assert!(engine.composition().is_empty());
+}

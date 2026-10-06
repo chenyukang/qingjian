@@ -41,6 +41,14 @@ impl EngineDecoded {
         }
     }
 
+    /// 第 `pinyin_len` 个字节落在音节中间时补到那个音节的末尾（双拼 / 注音一个音节的键不能拆）。
+    pub fn syllable_end(&self, pinyin_len: usize) -> usize {
+        match self {
+            Self::Shuangpin(d) => d.syllable_end(pinyin_len),
+            Self::Zhuyin(d) => d.syllable_end(pinyin_len),
+        }
+    }
+
     pub fn is_complete(&self) -> bool {
         match self {
             Self::Shuangpin(d) => d.is_complete(),

@@ -496,6 +496,10 @@ impl Engine {
         let keys = self.composition.scope();
         if let Some(decoded) = self.decode(keys) {
             let pinyin_len = self.align(decoded.pinyin(), &candidate.syllables).consumed;
+            // 双拼 / 注音一个音节的键不能拆：对齐只对上音节的前几个字母时（`lang` 选 岚(lan)，
+            // 模糊音 an↔ang）要补到音节末尾，否则 `keys_for` 数不出键（它要求整单元被盖住）、
+            // 组句原地不动，用户选完第一个字就卡住
+            let pinyin_len = decoded.syllable_end(pinyin_len);
             return (
                 decoded.keys_for(pinyin_len),
                 choice_key(decoded.pinyin(), pinyin_len),
@@ -604,25 +608,50 @@ impl Engine {
                 || qingjian_dictionary::canonical_syllable(typed)
                     == qingjian_dictionary::canonical_syllable(syllable)
         });
-        if exact {
+        // 整段正好是这个音节（`kai` 选 开）：直接吃
+        if exact && rest.len() == syllable.len() {
             steps.push((syllable.len(), false));
         }
         // 没打完排在变体前面：`shijia` 选 时间 是 jian 没敲完，不是把 jian 敲成了 jia
         if !rest.is_empty() && rest.len() < syllable.len() && syllable.starts_with(rest) {
             steps.push((rest.len(), false));
         }
+        // 变体按长度从长到短，两类分开：模糊音排在「只吃前缀」前面，敲错排到后面
+        // 模糊音是一种拼写歧义（an↔ang 这类，用户就是照另一个写法敲的），该吃整段：
+        // `lang` 选 岚(lan) 只吃 `lan` 会把 `g` 留在缓冲区里（全拼下悬空，双拼下一个键都吃不到）
+        self.push_variants(&mut steps, rest, syllable, exact, true);
+        // 只吃前缀（`xian` 选 西，剩下的 `an` 是下一个音节）
+        if exact && rest.len() > syllable.len() {
+            steps.push((syllable.len(), false));
+        }
+        // 敲错排在后面：多出来的那个字母可能属于下一个音节（`kaiv` 选 开，`v` 是下一段的开头）
+        self.push_variants(&mut steps, rest, syllable, exact, false);
+        steps
+    }
+
+    /// 把「`rest` 的前几个字母是候选音节的变体」这些步推入 `steps`，长的在前。
+    /// `fuzzy` 为真只要模糊音变体，否则只要敲错变体 —— 两类分别排在「只吃前缀」的前后（见 [`Self::syllable_steps`]）。
+    fn push_variants(
+        &self,
+        steps: &mut Vec<(usize, bool)>,
+        rest: &str,
+        syllable: &str,
+        exact: bool,
+        fuzzy: bool,
+    ) {
         for len in (1..=rest.len().min(parser::MAX_SYLLABLE_LEN)).rev() {
             if exact && len == syllable.len() {
                 continue;
             }
             let typed = &rest[..len];
-            if self.fuzzy.is_variant(typed, syllable) {
-                steps.push((len, false));
-            } else if typo::is_variant(typed, syllable) {
+            if fuzzy {
+                if self.fuzzy.is_variant(typed, syllable) {
+                    steps.push((len, false));
+                }
+            } else if !self.fuzzy.is_variant(typed, syllable) && typo::is_variant(typed, syllable) {
                 steps.push((len, true));
             }
         }
-        steps
     }
 
     /// 整段作用域对应的候选（英文词、云端词、快捷候选）：吃掉全部键，学习键是整段全拼。

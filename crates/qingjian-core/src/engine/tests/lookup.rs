@@ -648,3 +648,47 @@ fn option_arrows_move_the_cursor_by_syllable() {
     assert!(engine.move_cursor_syllable_right());
     assert_eq!(engine.composition().cursor(), "hello".len());
 }
+
+#[test]
+fn fuzzy_syllable_commit_eats_the_whole_typed_syllable() {
+    // 岚(lan) 靠模糊音 an↔ang 对上 `lang`：上屏要吃掉整个 `lang`，不能只吃 `lan`
+    // —— 全拼下只吃 `lan` 会留下悬空的 `g`，双拼下一个键都吃不到（2026-10-06 岚角山）
+    let dict = || Dictionary::parse("岚\tlan\t1000\n角\tjiao\t1000\n山\tshan\t1000\n").unwrap();
+
+    // 全拼：langjiaoshan 选 岚 → 剩下的组句是 jiaoshan
+    let mut full = Engine::new(dict());
+    full.set_fuzzy(FuzzyRules {
+        an_ang: true,
+        ..FuzzyRules::default()
+    });
+    full.set_input("langjiaoshan");
+    let lan = full
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|candidate| candidate.text == "岚")
+        .expect("岚");
+    assert_eq!(full.commit(&lan), "岚");
+    assert_eq!(full.composition().text(), "jiaoshan");
+
+    // 双拼：lhjnuj 选 岚 → 剩下的组句是 jnuj（两个音节的键都推进了）
+    let mut shuangpin = Engine::new(dict());
+    shuangpin.set_shuangpin(Some(Scheme::Xiaohe));
+    shuangpin.set_fuzzy(FuzzyRules {
+        an_ang: true,
+        ..FuzzyRules::default()
+    });
+    shuangpin.set_input("lhjnuj");
+    let lan = shuangpin
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|candidate| candidate.text == "岚")
+        .expect("岚");
+    assert_eq!(shuangpin.commit(&lan), "岚");
+    assert_eq!(shuangpin.composition().text(), "jnuj");
+}

@@ -112,6 +112,31 @@ impl Decoded {
         }
         keys
     }
+
+    /// [`Self::pinyin`] 的第 `pinyin_len` 个字节落在某个音节中间时，返回那个音节的末尾；
+    /// 本来就是音节边界时原样返回。
+    ///
+    /// 双拼里一个音节就是一次按键单元，**不能拆**：对齐时候选音节可能只对上一段更长音节的前几个字母
+    /// （`lang` 选 岚(lan)：模糊音 an↔ang 让 `lan` 对上了 `lang` 的前三个字母），这时得按音节末尾算，
+    /// 才能把这一整组键消耗掉 —— 只按对齐结果算的话 [`Self::keys_for`] 要求整单元被盖住、会得出 0 个键，
+    /// 组句原地不动，用户选完第一个字就卡住了（2026-10-06 岚角山）。
+    pub fn syllable_end(&self, pinyin_len: usize) -> usize {
+        let mut position = 0;
+        let mut first = true;
+        for unit in self.units.iter().filter(|unit| !unit.is_separator()) {
+            let start = if first { 0 } else { position + 1 };
+            let end = start + unit.pinyin.len();
+            if pinyin_len <= start {
+                break;
+            }
+            if pinyin_len < end {
+                return end;
+            }
+            position = end;
+            first = false;
+        }
+        pinyin_len
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +153,22 @@ mod tests {
         assert_eq!(decoded.keys_for(10), 6);
         // 只盖住半个音节不算
         assert_eq!(decoded.keys_for(5), 2);
+    }
+
+    #[test]
+    fn syllable_end_rounds_up_inside_a_syllable() {
+        // `lang`(lh) 上对上 岚(lan) 时只吃前三个字母，得补到音节末尾才能算出键数
+        let decoded = Scheme::Xiaohe.decode("lhjnuj");
+        assert_eq!(decoded.pinyin(), "lang'jiao'shan");
+        assert_eq!(decoded.syllable_end(3), 4);
+        assert_eq!(decoded.keys_for(decoded.syllable_end(3)), 2);
+        // 本来就是边界（含音节之间的分隔符位置）时不动
+        assert_eq!(decoded.syllable_end(0), 0);
+        assert_eq!(decoded.syllable_end(4), 4);
+        assert_eq!(decoded.syllable_end(5), 5);
+        assert_eq!(decoded.syllable_end(14), 14);
+        // 中间的音节同理：`jiao` 只对上前两个字母时补到 `jiao` 末尾
+        assert_eq!(decoded.syllable_end(6), 9);
     }
 
     #[test]
