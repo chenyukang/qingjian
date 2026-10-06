@@ -24,8 +24,11 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
-	<key>LSBackgroundOnly</key>
+	<!-- 有菜单栏图标的输入法（微信输入法 / 鼠须管）都是 LSUIElement 这种「后台但有界面」的形态，这里跟它们对齐 -->
+	<key>LSUIElement</key>
 	<true/>
+	<key>LSBackgroundOnly</key>
+	<false/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 

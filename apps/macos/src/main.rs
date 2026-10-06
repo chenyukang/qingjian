@@ -16,7 +16,7 @@ mod preferences;
 mod ui;
 
 use objc2::{AnyThread, ClassType, MainThreadMarker};
-use objc2_app_kit::NSApplication;
+use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 use objc2_foundation::NSString;
 use objc2_input_method_kit::IMKServer;
 
@@ -75,5 +75,9 @@ fn main() {
         );
         std::process::exit(1);
     };
-    NSApplication::sharedApplication(mtm).run();
+    // 进程形态：`LSUIElement`（后台但有界面），与微信输入法 / 鼠须管对齐。
+    // 这里显式再设一次：换掉 .app 之后 LaunchServices 可能还拿着旧的 Info.plist 缓存。
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    app.run();
 }

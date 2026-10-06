@@ -5,9 +5,9 @@ use objc2_foundation::NSString;
 
 /// 给进程装一份只有「编辑」的主菜单。
 ///
-/// 输入法是 `LSBackgroundOnly`，从不显示菜单栏，也就没有主菜单；而 AppKit 文本框里的 ⌘X / ⌘C / ⌘V / ⌘A / ⌘Z
+/// 输入法是后台进程，平时没有菜单栏，也就没有主菜单；而 AppKit 文本框里的 ⌘X / ⌘C / ⌘V / ⌘A / ⌘Z
 /// 是主菜单里对应条目的快捷键，菜单不存在这些键就没人响应——偏好设置里的密钥框粘不进去就是这个原因。
-/// 菜单栏本身永远不会画出来（激活策略最多到 Accessory），只是让快捷键有地方落。重复调用只装一次。
+/// 这份菜单栏只在设置窗把进程激活时露出来。重复调用只装一次。
 pub fn install(mtm: MainThreadMarker) {
     let app = NSApplication::sharedApplication(mtm);
     if app.mainMenu().is_some() {
