@@ -74,6 +74,14 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 所以每次 `orderFront` 后查 `isOnActiveSpace`，不在就把内容视图搬到一块新建的面板上再排前，并记一条 warn（`candidates/window.rs`）。
 诊断脚本在 `target/diag/spaces.swift` 一类的临时位置，不进仓库。
 
+面板的底走系统材质（`ui/material.rs`）：候选窗用 `NSVisualEffectView`（`.UnderWindowBackground` + `BehindWindow`），设置窗用 Liquid Glass。
+候选窗这块置顶面板实测很难拿到 backdrop：换材质档、换进程形态都没用，这一版又把它从 `Borderless` 换成与设置窗同一种窗口形态
+（`Titled` + 铺满 + 隐藏标题栏与按钮）再试一次。所以 `[general] candidate_background` 给了三档，
+后两档不依赖材质、一定有底：`material` 系统材质（候选自己的底色 0.3）、`solid` 不透明系统色（1.0）、`translucent` 半透明色（0.72）
+（`CandidateBackground::alpha`）；换档时在容器里把最底下那层整个换掉（`candidates/window.rs` 的 `set_background`）。
+两个踩过的坑：**给 `NSVisualEffectView` 自己设 `layer.masksToBounds` 会把材质压成一块平色**（圆角要裁在包着它的那层容器上，
+`PanelBackdrop` 内部已经这么包了）；候选自己的底色不透明度过高也会把材质盖住。
+
 不选的方案及原因：
 
 - **WebView（水杉 HTML UI 的路线）**：样式最自由，但常驻进程多一个渲染引擎，首次弹窗有可见延迟，
@@ -287,7 +295,7 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 
 偏好设置窗口（原生 AppKit，无「保存」按钮，改完立即写回并生效）是 **NSTabView 八页**（通用 / 候选窗口 / 快捷键 / 模糊音 / 词库 / 云服务 / 高级 / 关于），每页一列自上而下，窗口高度取最高的一页：
 「通用」（学习语言：只列打进包里有释义表的语言；每页候选数 1–9；双拼方案；英文模式候选开关与「终端 / 编辑器里不给」）、「候选窗口」（外观 跟随系统 / 浅色 / 深色；
-排布 竖排 / 横排；拼音显示 行内 + 窗口 / 只在行内 / 只在窗口）、「快捷键」（翻页键对与模式键仍是下拉预设；上屏第一 / 第二个译词的修饰键、删除候选的修饰键、翻译选中文字的组合键是**录制按钮**：
+排布 竖排 / 横排；底色 系统材质 / 不透明 / 半透明；拼音显示 行内 + 窗口 / 只在行内 / 只在窗口）、「快捷键」（翻页键对与模式键仍是下拉预设；上屏第一 / 第二个译词的修饰键、删除候选的修饰键、翻译选中文字的组合键是**录制按钮**：
 点一下再按组合键，Esc 取消，`preferences/key_recorder.rs` 的 `KeyRecorder`，NSButton 子类接管 `mouseDown:` / `keyDown:`；
 页底「恢复默认快捷键」一键把翻页键、模式键、三个组合键写回缺省）、「模糊音」（九个勾选，三列摆）、「词库」（「导入词库…」走系统打开文件对话框，接受青简 TSV / Rime `.dict.yaml` / `.qj`，
 `qingjian_dictionary::import` 转成 `.qj` 放进用户目录 `dicts/`；下面列出每本附加词库：先是随包的 11 本领域词库（标「随包」，勾选写 `[dictionaries] domains`，
@@ -301,8 +309,9 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 标签视图先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸，页面视图与内容区正好一样大。
 密钥写到配置同目录的 `.env`（600 权限），不进 `config.toml`，密钥框永远不回显已有值，只提示「已设置 / 未设置」；
 文本框回车或失焦提交，值没变不写。底部「在编辑器中打开配置文件」留给想直接改 TOML 的人。
-输入法进程是 `LSBackgroundOnly`，开窗前把激活策略切成 Accessory、关窗切回 Prohibited，否则文本框拿不到键盘焦点；
-开窗前还装一份只有「编辑」项的主菜单（永远不显示），否则文本框里 ⌘C / ⌘V / ⌘A 没有菜单快捷键可分发，密钥粘不进去。
+输入法进程是 `LSUIElement`（后台但有界面，与微信输入法 / 鼠须管一致），平时不会自己抢前台：开窗前把激活策略切成 Accessory 并 `activate`，
+关窗 `deactivate` 把焦点还给用户的应用，否则文本框拿不到键盘焦点；
+开窗前还装一份只有「编辑」项的主菜单，否则文本框里 ⌘C / ⌘V / ⌘A 没有菜单快捷键可分发，密钥粘不进去。
 
 「关于」页：版本与构建号（`bundle.sh` 打包时把 git 短哈希与日期塞进环境变量 `QINGJIAN_BUILD`，编译期 `option_env!` 读，直接 `cargo build` 的显示「本地构建」）、
 许可说明（与仓库 `LICENSE` 一致）、随包数据的来源与署名（第三方数据的许可证要求署名在分发物里可见，文案在 `preferences/about.rs`，改数据来源时与 `bundle.sh` 的 `pack` 署名一起改）、

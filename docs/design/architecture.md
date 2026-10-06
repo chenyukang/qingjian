@@ -374,7 +374,8 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
 - `define_class!` 里返回 `bool` 的方法体内不能 `return`（宏会把返回类型换成 ObjC `BOOL`），
   逻辑放到 inherent impl 里，宏内只做转发。
 - Info.plist 约定：bundle id 是 `app.qingjian.inputmethod`（域名 qingjian.app 的反写 + 产品，其他平台外壳共用 `app.qingjian.` 前缀），`TISInputSourceID` 与它相同，`InputMethodConnectionName` 必须是 `<bundle id>_Connection`；
-  `LSBackgroundOnly = true`；ad-hoc `codesign` 之后 Apple Silicon 才会加载。
+  **`LSUIElement = true` + `LSBackgroundOnly = false`**（后台但有界面，微信输入法 / 鼠须管同此）；
+  ad-hoc `codesign` 之后 Apple Silicon 才会加载。
   **输入模式**：`ComponentInputModeDict` 里声明单模式 `app.qingjian.inputmethod.Hans`（TextInputSources.h 规定的位置），
   系统登记、启用、切换的都是模式，顶层 ID 只是父项，所以 `--register` 启用的是 `tsVisibleInputModeOrderedArrayKey` 的第一项；
   模式显示名在 `InfoPlist.strings` 按模式 ID 给，缺了对话框里显示裸 ID。没有模式时标准文本视图（备忘录等）切不过去、

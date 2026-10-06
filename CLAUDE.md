@@ -49,8 +49,11 @@ cargo run -p qingjian-cli -- <拼音>...          # Core 的主要验证方式�
 apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Methods/（IMK 不能 cargo run 验证）
 ```
 
-Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）；
-端到端验证 mac 可用 `osascript` 往 TextEdit 发按键再读回文本。
+Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）。
+
+**UI 验证由用户自己做**：mac 壳改完 `scripts/bundle.sh --install` 装上，把「改了什么、已装好」讲清楚就行。
+不要用 `osascript` / System Events 发按键或点击、不要 `screencapture` 截图、不要自己开关窗口去验证效果 ——
+那是用户的鼠标和屏幕，等用户自己看、自己反馈。
 
 ## 约定
 
