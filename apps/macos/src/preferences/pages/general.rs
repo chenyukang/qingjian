@@ -7,7 +7,7 @@ use qingjian_core::Language;
 use qingjian_platform::{Config, MAX_PAGE_SIZE, Scheme};
 
 use crate::preferences::controls::{
-    checkbox, language_label, note, row_checkbox, row_popup, select, set_checked,
+    checkbox, language_label, note, row_checkbox, row_popup, row_popup_pair, select, set_checked,
 };
 use crate::preferences::layout::Layout;
 use crate::preferences::setting::Setting;
@@ -46,10 +46,10 @@ pub struct GeneralPage {
     /// 中英之间自动加空格。
     mixed_space: Retained<NSButton>,
 
-    /// 英文候选从几个字母起（中文模式）。
+    /// 英文候选门槛（一行两个下拉）：拼音时那档（中文模式）。
     english_min_letters: Retained<NSPopUpButton>,
 
-    /// 英文模式下从几个字母起补全。
+    /// 英文候选门槛：英文模式那档（Caps Lock / ⌃⇧R 下的补全）。
     english_mode_min_letters: Retained<NSPopUpButton>,
 
     /// 每个应用各自记「中 / 英」。
@@ -202,41 +202,25 @@ impl GeneralPage {
             mtm,
             "我用Rust写的 → 我用 Rust 写的；标点、已有的空格、字母数字相邻的地方不动。",
         );
-        let english_min_letters = row_popup(
+        // 同一件事的两种模式（拼音时 / 英文模式），并成一行两个下拉：拆成两行会看着像两条重复的设置
+        let english_letters_titles: Vec<String> = (1..=4)
+            .map(|letters| format!("{letters} 个字母起"))
+            .collect();
+        let [english_min_letters, english_mode_min_letters] = row_popup_pair(
             layout,
             mtm,
-            "英文候选从几个字母起",
-            &[
-                "1 个字母起".to_owned(),
-                "2 个字母起".to_owned(),
-                "3 个字母起".to_owned(),
-                "4 个字母起".to_owned(),
+            "英文候选门槛",
+            [
+                ("拼音时", Setting::EnglishMinLetters),
+                ("英文模式", Setting::EnglishModeMinLetters),
             ],
-            Setting::EnglishMinLetters,
+            &english_letters_titles,
             target,
         );
         note(
             layout,
             mtm,
-            "短输入（o、en）几乎都在打中文，调大可以把这些字母候选挡掉；英文模式与「拼音头 + 英文尾」不受影响。",
-        );
-        let english_mode_min_letters = row_popup(
-            layout,
-            mtm,
-            "英文模式下从几个字母起补全",
-            &[
-                "1 个字母起".to_owned(),
-                "2 个字母起".to_owned(),
-                "3 个字母起".to_owned(),
-                "4 个字母起".to_owned(),
-            ],
-            Setting::EnglishModeMinLetters,
-            target,
-        );
-        note(
-            layout,
-            mtm,
-            "英文模式（Caps Lock / ⌃⇧R）下的补全门槛，缺省 2：敲一个字母就弹一串候选太吵；敲到第二个字母再开始更像「在打一个词」。",
+            "拼音时那档管「打中文顺手带出的英文词」（缺省 1）：o、en 这种短输入几乎都在打中文，调大就把它们挡掉，不影响英文模式与「拼音头 + 英文尾」；英文模式那档管 Caps Lock / ⌃⇧R 下的补全（缺省 2）：敲一个字母就弹一串候选太吵，敲到第二个字母再开始更像在打一个词。",
         );
         let per_app_mode = checkbox(
             mtm,

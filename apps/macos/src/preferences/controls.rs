@@ -135,10 +135,7 @@ pub(super) fn row_popup(
     setting: Setting,
     target: &PreferencesTarget,
 ) -> Retained<NSPopUpButton> {
-    let popup = NSPopUpButton::initWithFrame_pullsDown(mtm.alloc(), NSRect::ZERO, false);
-    let items: Vec<Retained<NSString>> = titles.iter().map(|t| NSString::from_str(t)).collect();
-    popup.addItemsWithTitles(&NSArray::from_retained_slice(&items));
-    wire(&popup, setting, target);
+    let popup = popup(mtm, titles, setting, target);
     let label = caption(mtm, title);
     layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
     layout.place(
@@ -148,6 +145,57 @@ pub(super) fn row_popup(
         ROW_HEIGHT,
     );
     layout.next_row(ROW_HEIGHT);
+    popup
+}
+
+/// 一行里并排两个下拉（每个前面一个小标题）：同一件事的两种模式，拆成两行会看着像两条重复的设置。
+/// `fields` 是每个下拉前面那行小标题与它绑的设置。
+pub(super) fn row_popup_pair(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    title: &str,
+    fields: [(&str, Setting); 2],
+    titles: &[String],
+    target: &PreferencesTarget,
+) -> [Retained<NSPopUpButton>; 2] {
+    /// 小标题宽度（“英文模式”四个字）。
+    const CAPTION_WIDTH: f64 = 60.0;
+
+    /// 下拉宽度：比单行那版窄，一行要放下两个。
+    const POPUP_WIDTH: f64 = 100.0;
+
+    /// 两个「小标题 + 下拉」之间的空隙。
+    const PAIR_GAP: f64 = 24.0;
+
+    let label = caption(mtm, title);
+    layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
+    let mut x = CONTROL_X;
+    let mut popups: Vec<Retained<NSPopUpButton>> = Vec::new();
+    for (field, setting) in fields {
+        let field_label = small_label(mtm, field);
+        layout.place(&field_label, x, CAPTION_WIDTH, ROW_HEIGHT);
+        x += CAPTION_WIDTH + 4.0;
+        let popup = popup(mtm, titles, setting, target);
+        layout.place(&popup, x, POPUP_WIDTH, ROW_HEIGHT);
+        x += POPUP_WIDTH + PAIR_GAP;
+        popups.push(popup);
+    }
+    layout.next_row(ROW_HEIGHT);
+    let [first, second] = popups.try_into().expect("row_popup_pair 就是两个");
+    [first, second]
+}
+
+/// 建一个绑上 [`Setting`] 的下拉菜单（`row_popup` 与 `row_popup_pair` 共用）。
+fn popup(
+    mtm: MainThreadMarker,
+    titles: &[String],
+    setting: Setting,
+    target: &PreferencesTarget,
+) -> Retained<NSPopUpButton> {
+    let popup = NSPopUpButton::initWithFrame_pullsDown(mtm.alloc(), NSRect::ZERO, false);
+    let items: Vec<Retained<NSString>> = titles.iter().map(|t| NSString::from_str(t)).collect();
+    popup.addItemsWithTitles(&NSArray::from_retained_slice(&items));
+    wire(&popup, setting, target);
     popup
 }
 
