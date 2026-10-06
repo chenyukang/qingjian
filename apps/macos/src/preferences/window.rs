@@ -82,6 +82,10 @@ const STATUS_HEIGHT: f64 = 18.0;
 /// 标题栏高度留给窗口：不算进来窗口会顶出屏幕，拖都拖不动。
 const TITLEBAR_ALLOWANCE: f64 = 30.0;
 
+/// 标题栏那条（关闭 / 最小化按钮）之后空出来的距离：内容整体往下让这么多。
+/// 窗口铺满标题栏之后，不留白就会让「青简」与右侧大标题紧贴着按钮。
+const TOP_INSET: f64 = 24.0;
+
 /// 窗口比屏幕可用高度至少矮这么多（标题栏 + 上下留一点边）；页面比窗口高时自己滚。
 const SCREEN_MARGIN: f64 = 80.0;
 
@@ -214,40 +218,57 @@ impl PreferencesWindow {
         let text_x = SIDEBAR_WIDTH + 1.0 + CONTENT_MARGIN;
         let content_size = NSSize::new(
             text_x + PAGE_WIDTH + CONTENT_MARGIN,
-            page_height + HEADER_HEIGHT + STATUS_HEIGHT + 16.0,
+            page_height + HEADER_HEIGHT + TOP_INSET + STATUS_HEIGHT + 16.0,
         );
-        let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
+        // 窗口先建出来：`FullSizeContentView` 下内容区铺满整窗，比上面算出来的高出一个标题栏。
+        // 材质 / 侧栏 / 分隔线要按整窗高度铺到标题栏里去；大标题那些按 `content_size.height - TOP_INSET - …`
+        // 定位（`TOP_INSET` 就是把内容从标题栏那条往下让的距离，别紧贴关闭按钮）。
+        let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
+        let window_height = panel.frame().size.height;
+        let content = NSView::initWithFrame(
+            mtm.alloc(),
+            NSRect::new(
+                NSPoint::ZERO,
+                NSSize::new(content_size.width, window_height),
+            ),
+        );
         let backdrop = crate::ui::material::PanelBackdrop::new(
-            NSRect::new(NSPoint::ZERO, content_size),
+            NSRect::new(
+                NSPoint::ZERO,
+                NSSize::new(content_size.width, window_height),
+            ),
             crate::ui::material::DEFAULT_CORNER_RADIUS,
             mtm,
         );
         content.addSubview(backdrop.view());
 
-        // 左侧栏：系统侧栏材质 + 品牌 + 分组条目（照 winlane 的设置窗）
-        let sidebar = NSVisualEffectView::initWithFrame(
-            NSVisualEffectView::alloc(mtm),
-            NSRect::new(
-                NSPoint::ZERO,
-                NSSize::new(SIDEBAR_WIDTH, content_size.height),
-            ),
-        );
+        // 左侧栏：系统侧栏材质 + 品牌 + 分组条目（照 winlane 的设置窗），顶端一直铺到窗口上沿。
+        // 圆角裁在容器上而不是侧栏自己身上：给 `NSVisualEffectView` 设 `masksToBounds` 会把材质
+        // 压成一块平色（见 `ui/material.rs`）。
+        let sidebar_frame = NSRect::new(NSPoint::ZERO, NSSize::new(SIDEBAR_WIDTH, window_height));
+        let sidebar_container = NSView::initWithFrame(mtm.alloc(), sidebar_frame);
+        let sidebar =
+            NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), sidebar_frame);
         sidebar.setMaterial(NSVisualEffectMaterial::Sidebar);
         sidebar.setBlendingMode(NSVisualEffectBlendingMode::WithinWindow);
-        crate::ui::material::round_corners(&sidebar, crate::ui::material::DEFAULT_CORNER_RADIUS);
-        content.addSubview(&sidebar);
+        sidebar_container.addSubview(&sidebar);
+        crate::ui::material::round_corners(
+            &sidebar_container,
+            crate::ui::material::DEFAULT_CORNER_RADIUS,
+        );
+        content.addSubview(&sidebar_container);
 
         let brand = small_label(mtm, "青简");
         brand.setFont(Some(&NSFont::boldSystemFontOfSize(21.0)));
         brand.setFrame(NSRect::new(
-            NSPoint::new(24.0, content_size.height - 58.0),
+            NSPoint::new(24.0, content_size.height - TOP_INSET - 58.0),
             NSSize::new(170.0, 30.0),
         ));
         sidebar.addSubview(&brand);
         let version_label = small_label(mtm, &format!("{version} · {build}"));
         version_label.setTextColor(Some(&NSColor::secondaryLabelColor()));
         version_label.setFrame(NSRect::new(
-            NSPoint::new(25.0, content_size.height - 80.0),
+            NSPoint::new(25.0, content_size.height - TOP_INSET - 80.0),
             NSSize::new(184.0, 20.0),
         ));
         sidebar.addSubview(&version_label);
@@ -256,14 +277,14 @@ impl PreferencesWindow {
             NSBox::alloc(mtm),
             NSRect::new(
                 NSPoint::new(SIDEBAR_WIDTH, 0.0),
-                NSSize::new(1.0, content_size.height),
+                NSSize::new(1.0, window_height),
             ),
         );
         divider.setBoxType(NSBoxType::Separator);
         content.addSubview(&divider);
 
         let mut navigation: Vec<Retained<NavigationButton>> = Vec::new();
-        let mut nav_y = content_size.height - 112.0;
+        let mut nav_y = content_size.height - TOP_INSET - 112.0;
         for (index, (title, _)) in PAGE_INFO.iter().enumerate() {
             if let Some((_, heading)) = NAV_GROUPS.iter().find(|(start, _)| *start == index) {
                 let label = small_label(mtm, heading);
@@ -298,14 +319,14 @@ impl PreferencesWindow {
         let page_title = small_label(mtm, PAGE_INFO[0].0);
         page_title.setFont(Some(&NSFont::boldSystemFontOfSize(25.0)));
         page_title.setFrame(NSRect::new(
-            NSPoint::new(text_x, content_size.height - 62.0),
+            NSPoint::new(text_x, content_size.height - TOP_INSET - 62.0),
             NSSize::new(PAGE_WIDTH, 34.0),
         ));
         content.addSubview(&page_title);
         let page_description = small_label(mtm, PAGE_INFO[0].1);
         page_description.setTextColor(Some(&NSColor::secondaryLabelColor()));
         page_description.setFrame(NSRect::new(
-            NSPoint::new(text_x, content_size.height - 96.0),
+            NSPoint::new(text_x, content_size.height - TOP_INSET - 96.0),
             NSSize::new(PAGE_WIDTH, 30.0),
         ));
         content.addSubview(&page_description);
@@ -348,9 +369,7 @@ impl PreferencesWindow {
         ));
         content.addSubview(&status);
 
-        let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
-        // 让材质能透到桌面：窗口自己不能画背景。**不动标题栏**（设了
-        // titlebarAppearsTransparent + titleVisibility=Hidden 会把关闭/最小化那排按钮弄坏）
+        // 让材质能透到桌面：窗口自己不能画背景（标题栏的透明与铺满在 `PreferencesPanel::new` 里设好）
         panel.setOpaque(false);
         panel.setBackgroundColor(Some(&NSColor::clearColor()));
         panel.setTitle(&NSString::from_str("青简偏好设置"));
@@ -500,6 +519,7 @@ fn max_content_height(mtm: MainThreadMarker) -> f64 {
             - SCREEN_MARGIN
             - TITLEBAR_ALLOWANCE
             - HEADER_HEIGHT
+            - TOP_INSET
             - STATUS_HEIGHT
             - 16.0
     })

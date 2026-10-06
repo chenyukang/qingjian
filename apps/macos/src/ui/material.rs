@@ -13,7 +13,7 @@ use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSGlassEffectView, NSGlassEffectViewStyle, NSView,
     NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
 };
-use objc2_foundation::NSRect;
+use objc2_foundation::{NSPoint, NSRect};
 
 /// 系统有没有 Liquid Glass API（macOS 26 起）。老系统上不能用 `NSGlassEffectView` 这个名字。
 pub fn glass_available() -> bool {
@@ -43,7 +43,9 @@ pub const DEFAULT_CORNER_RADIUS: f64 = 18.0;
 
 enum Material {
     Glass(Retained<NSGlassEffectView>),
-    Frosted(Retained<NSVisualEffectView>),
+
+    /// 毛玻璃容器：`NSVisualEffectView` 是它的 subview，圆角裁在容器这层（见 [`round_corners`] 的说明）。
+    Frosted(Retained<NSView>),
 }
 
 /// 一块面板底色：拿到 [`Self::view`]，放进容器最底层即可。
@@ -51,11 +53,30 @@ pub struct PanelBackdrop {
     material: Material,
 }
 
+/// 毛玻璃 + 一层包它的容器（圆角裁在容器上，返回的是容器）。
+fn frosted_container(frame: NSRect, corner_radius: f64, mtm: MainThreadMarker) -> Retained<NSView> {
+    let resize =
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable;
+    let container = NSView::initWithFrame(NSView::alloc(mtm), frame);
+    container.setAutoresizingMask(resize);
+    let blur = NSVisualEffectView::initWithFrame(
+        NSVisualEffectView::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, frame.size),
+    );
+    blur.setMaterial(NSVisualEffectMaterial::UnderWindowBackground);
+    blur.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
+    blur.setState(NSVisualEffectState::Active);
+    blur.setAutoresizingMask(resize);
+    container.addSubview(&blur);
+    // 圆角裁在容器这一层，**别裁材质自己**：给 `NSVisualEffectView` 设 `layer.masksToBounds`
+    // 会让材质退回一块平色（毛玻璃整个没了，2026-10-06 踩过）；裁父视图则照常。
+    round_corners(&container, corner_radius);
+    container
+}
+
 impl PanelBackdrop {
     /// 按 `frame` 建一块材质（圆角 `corner_radius`）。
     pub fn new(frame: NSRect, corner_radius: f64, mtm: MainThreadMarker) -> Self {
-        let resize = NSAutoresizingMaskOptions::ViewWidthSizable
-            | NSAutoresizingMaskOptions::ViewHeightSizable;
         let material = if glass_available() {
             // Liquid Glass：内容由 Glass 视图托管（它负责把 content 画在材质之上）
             let glass = NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), frame);
@@ -63,34 +84,20 @@ impl PanelBackdrop {
             glass.setCornerRadius(corner_radius);
             Material::Glass(glass)
         } else {
-            // 退路：毛玻璃 + 自己裁圆角
-            let blur = NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), frame);
-            blur.setMaterial(NSVisualEffectMaterial::Popover);
-            blur.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
-            blur.setState(NSVisualEffectState::Active);
-            blur.setAutoresizingMask(resize);
-            blur.setWantsLayer(true);
-            round_corners(&blur, corner_radius);
-            Material::Frosted(blur)
+            // 退路：毛玻璃
+            Material::Frosted(frosted_container(frame, corner_radius, mtm))
         };
         Self { material }
     }
 
     /// 强制用 `NSVisualEffectView` 毛玻璃（不走 Liquid Glass）。
     ///
-    /// 候选窗就走这条：`NSGlassEffectView` 在这种"置顶非激活面板"上实测不渲染（候选框
-    /// 看着还是纯色），而 `.Popover` + `BehindWindow` 的毛玻璃一直是好用的。
+    /// 候选窗就走这条。材质取 `.UnderWindowBackground` 而不是 `.Popover`：`.Popover` 是为气泡的
+    /// **可读性**调的，本身就偏实体、几乎不透明，叠上候选自己的底色就是一块平光的浅色板，
+    /// 毛玻璃看不出来；`.UnderWindowBackground` 糊得重、自己几乎不上色，背后的字会被糊成一片。
     pub fn frosted(frame: NSRect, corner_radius: f64, mtm: MainThreadMarker) -> Self {
-        let resize = NSAutoresizingMaskOptions::ViewWidthSizable
-            | NSAutoresizingMaskOptions::ViewHeightSizable;
-        let blur = NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), frame);
-        blur.setMaterial(NSVisualEffectMaterial::Popover);
-        blur.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
-        blur.setState(NSVisualEffectState::Active);
-        blur.setAutoresizingMask(resize);
-        round_corners(&blur, corner_radius);
         Self {
-            material: Material::Frosted(blur),
+            material: Material::Frosted(frosted_container(frame, corner_radius, mtm)),
         }
     }
 
