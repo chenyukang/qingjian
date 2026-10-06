@@ -51,6 +51,9 @@ pub struct Ivars {
 
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
+
+    /// 候选自己那层底色的不透明度（`[general] candidate_background`）。
+    background_alpha: Cell<f64>,
 }
 
 /// preedit 光标的宽度。
@@ -119,6 +122,7 @@ define_class!(
 impl CandidateView {
     pub fn new(mtm: MainThreadMarker, theme: Theme) -> Retained<Self> {
         let cloud = CloudIcon::new(&theme.cloud_color, CLOUD_SIZE);
+        let background_alpha = theme.background.alphaComponent();
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
             layout: Cell::new(LayoutMode::default()),
@@ -127,8 +131,21 @@ impl CandidateView {
             theme,
             bitmap: RefCell::new(None),
             font: RefCell::new(String::new()),
+            background_alpha: Cell::new(background_alpha),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
+    }
+
+    /// 候选自己那层底色的不透明度（`[general] candidate_background`）：底色越淡，后面的材质越透得出来。
+    pub fn set_background_alpha(&self, alpha: f64) {
+        if self.ivars().background_alpha.get() == alpha {
+            return;
+        }
+        self.ivars().background_alpha.set(alpha);
+        if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            bitmap.set_background_alpha(alpha);
+        }
+        self.setNeedsDisplay(true);
     }
 
     /// 候选窗字体（字族名，空为系统字体）。渲染器在用就当场重建。
@@ -137,7 +154,7 @@ impl CandidateView {
             return;
         }
         *self.ivars().font.borrow_mut() = font.to_owned();
-        let alpha = self.theme().background.alphaComponent();
+        let alpha = self.ivars().background_alpha.get();
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
             *bitmap = BitmapPainter::new(font, alpha);
@@ -151,7 +168,7 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                let alpha = self.theme().background.alphaComponent();
+                let alpha = self.ivars().background_alpha.get();
                 *bitmap = BitmapPainter::new(&self.ivars().font.borrow(), alpha);
             }
             CandidateRenderer::System if bitmap.is_some() => {
@@ -396,7 +413,10 @@ impl CandidateView {
         let order = self.ivars().order.get();
 
         // 背景
-        theme.background.set();
+        theme
+            .background
+            .colorWithAlphaComponent(self.ivars().background_alpha.get())
+            .set();
         NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(
             bounds,
             theme.corner_radius,

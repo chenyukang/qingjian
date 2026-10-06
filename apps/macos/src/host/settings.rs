@@ -3,7 +3,9 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::{Anchor, Color, SHIFT_TAP_WINDOW_CHOICES, Shape, ShiftLetter, Visibility};
+use qingjian_platform::{
+    Anchor, CandidateBackground, Color, SHIFT_TAP_WINDOW_CHOICES, Shape, ShiftLetter, Visibility,
+};
 
 /// 「指示器」页大小下拉里那几档，与页面上的列表一致。
 const STATUS_BAR_SIZES: [i32; 8] = [8, 10, 12, 14, 16, 20, 24, 30];
@@ -203,6 +205,12 @@ impl Host {
                 if let Some(renderer) = CandidateRenderer::ALL.get(index) {
                     self.settings
                         .set_value("general", "renderer", renderer.key());
+                }
+            }
+            (Setting::CandidateBackground, SettingValue::Index(index)) => {
+                if let Some(background) = CandidateBackground::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "candidate_background", background.key());
                 }
             }
             (Setting::Font, SettingValue::Text(text)) => {

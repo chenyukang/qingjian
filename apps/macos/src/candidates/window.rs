@@ -6,18 +6,17 @@ use objc2::rc::Retained;
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
     NSAutoresizingMaskOptions, NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSView,
-    NSWindowCollectionBehavior, NSWindowLevel, NSWindowStyleMask,
+    NSWindowButton, NSWindowCollectionBehavior, NSWindowLevel, NSWindowOrderingMode,
+    NSWindowStyleMask, NSWindowTitleVisibility,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
-use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
+use qingjian_platform::{CandidateBackground, CandidateRenderer, LayoutMode, ThemeMode};
 use qingjian_render::VerticalOrder;
 
 use super::frame::Frame;
 use super::theme::Theme;
 use super::view::CandidateView;
-
-/// 玻璃底时候选窗自己的背景不透明度：再低就压不住后面的文字，再高就看不出玻璃。
-const GLASS_BACKGROUND_ALPHA: f64 = 0.3;
+use crate::ui::material::PanelBackdrop;
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
 const POPUP_MENU_LEVEL: NSWindowLevel = 101;
@@ -41,30 +40,52 @@ pub struct CandidateWindow {
     /// 内容靠哪边排：窗口贴在光标下方是 `TopDown`，贴在上方是 `BottomUp`（候选项由下往上）。
     order: VerticalOrder,
 
+    /// 当前的底色（`[general] candidate_background`）：换档要把底下那层整个换掉。
+    background: CandidateBackground,
+
     /// 用来取屏幕尺寸。
     mtm: MainThreadMarker,
 }
 
 impl CandidateWindow {
     pub fn new(mtm: MainThreadMarker) -> Self {
+        let background = CandidateBackground::default();
         let mut theme = Theme::system_default();
-        // 玻璃底：候选自己的背景要半透明，系统材质才透得出来（没有 Glass API 的老系统保持原样）
-        let glass = crate::ui::material::glass_available();
-        tracing::info!(glass, "候选窗材质");
-        if glass {
-            theme.background = theme
-                .background
-                .colorWithAlphaComponent(GLASS_BACKGROUND_ALPHA);
-        }
+        // 候选自己那层底色由 `candidate_background` 定：材质那档要留出材质，另外两档直接当底色用
+        theme.background = theme.background.colorWithAlphaComponent(background.alpha());
         let view = CandidateView::new(mtm, theme);
-        let panel = build_panel(mtm, &view);
+        let panel = build_panel(mtm, &view, background);
         Self {
             panel,
             view,
             appearance: None,
             order: VerticalOrder::default(),
+            background,
             mtm,
         }
+    }
+
+    /// 底色（`[general] candidate_background`）：换档时把最底下那层换掉，并改候选自己的底色。
+    pub fn set_background(&mut self, background: CandidateBackground) {
+        if self.background == background {
+            return;
+        }
+        self.background = background;
+        self.view.set_background_alpha(background.alpha());
+        let Some(container) = self.panel.contentView() else {
+            return;
+        };
+        // 容器里除候选视图之外的东西就是底下那层（材质视图建好就定了，只能整块换）
+        for subview in container.subviews().iter() {
+            let same = std::ptr::eq(
+                subview.as_ref() as *const NSView,
+                self.view.as_ref() as *const NSView,
+            );
+            if !same {
+                subview.removeFromSuperview();
+            }
+        }
+        insert_backdrop(&container, &self.view, background, self.mtm);
     }
 
     /// 显示一帧。`anchor` 是光标行的屏幕矩形，窗口贴在它下方，放不下就放上方。
@@ -116,7 +137,7 @@ impl CandidateWindow {
         }
         let frame = self.panel.frame();
         self.panel.orderOut(None);
-        let panel = build_panel(self.mtm, &self.view);
+        let panel = build_panel(self.mtm, &self.view, self.background);
         panel.setAppearance(self.appearance.as_deref());
         panel.setFrame_display(frame, true);
         panel.orderFrontRegardless();
@@ -206,16 +227,37 @@ impl CandidateWindow {
 }
 
 /// 建一块面板并把内容视图装进去：无边框、不抢焦点、透明背景带阴影、不吃鼠标。
-fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel> {
+fn build_panel(
+    mtm: MainThreadMarker,
+    view: &CandidateView,
+    background: CandidateBackground,
+) -> Retained<NSPanel> {
     let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
         mtm.alloc::<NSPanel>(),
         NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0)),
-        NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
+        // 和设置窗同一种窗口形态：**带标题栏**（铺满 + 透明 + 隐藏）而不是 Borderless。
+        // 两边只差这一项，而设置窗那扇的材质一直是好的 —— 材质拿不到 backdrop 时先试这个。
+        NSWindowStyleMask::Titled
+            | NSWindowStyleMask::FullSizeContentView
+            | NSWindowStyleMask::NonactivatingPanel,
         NSBackingStoreType::Buffered,
         false,
     );
     panel.setOpaque(false);
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
+    // 标题栏与三个按钮都藏起来（winlane 的浮动面板也是这么干的）：看不见标题栏，但窗口服务器
+    // 当它是正常的窗口，backdrop 才可能给。
+    panel.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+    panel.setTitlebarAppearsTransparent(true);
+    for button in [
+        NSWindowButton::CloseButton,
+        NSWindowButton::MiniaturizeButton,
+        NSWindowButton::ZoomButton,
+    ] {
+        if let Some(button) = panel.standardWindowButton(button) {
+            button.setHidden(true);
+        }
+    }
     panel.setHasShadow(true);
     panel.setBecomesKeyOnlyIfNeeded(true);
     panel.setIgnoresMouseEvents(true);
@@ -225,23 +267,38 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     // 不要 setFloatingPanel(true)：它会把层级改回 NSFloatingWindowLevel（3），全屏应用的 Space 里就看不见了；
     // 层级最后设，别被前面任何一项覆盖
     panel.setLevel(POPUP_MENU_LEVEL);
-    // 玻璃底：**用一个普通容器装**，玻璃只是最底下的 subview，候选视图在它上面 ——
+    // 底色：**用一个普通容器装**，材质只是最底下的 subview，候选视图在它上面 ——
     // 不能把候选视图塞进 `NSGlassEffectView.setContentView`：这版系统上材质会压在内容
     // 上方，候选文字全被盖住（踩过）。subview 的顺序就是层级，靠它就够了。
-    // 圆角取主题里的（与高亮条同一个值），玻璃的圆角与气泡对齐，四角才不会露方块。
     let bounds = NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0));
     let container = NSView::initWithFrame(NSView::alloc(mtm), bounds);
     container.setAutoresizingMask(
         NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
-    // 候选窗用毛玻璃（Liquid Glass 在置顶面板上不渲染，见 material.rs）
-    let backdrop =
-        crate::ui::material::PanelBackdrop::frosted(bounds, view.theme().corner_radius, mtm);
-    container.addSubview(backdrop.view());
     // 不给候选视图挂 autoresizing：它的 frame 每次由 `show()` 精确设定
     container.addSubview(view);
+    insert_backdrop(&container, view, background, mtm);
     panel.setContentView(Some(&container));
     panel
+}
+
+/// 把底色那层插到候选视图**底下**（`Solid` / `Translucent` 不需要额外一层，候选自己的底色就够了）。
+fn insert_backdrop(
+    container: &NSView,
+    view: &CandidateView,
+    background: CandidateBackground,
+    mtm: MainThreadMarker,
+) {
+    if background != CandidateBackground::Material {
+        return;
+    }
+    // 圆角取主题里的（与高亮条同一个值），材质的圆角与气泡对齐，四角才不会露方块
+    let backdrop = PanelBackdrop::frosted(container.bounds(), view.theme().corner_radius, mtm);
+    container.addSubview_positioned_relativeTo(
+        backdrop.view(),
+        NSWindowOrderingMode::Below,
+        Some(view),
+    );
 }
 
 /// 面板的 Space 归属：出现在所有 Space 上、能与全屏应用同处一个 Space、Mission Control 里不动。

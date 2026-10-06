@@ -67,6 +67,8 @@ impl Host {
         }
         self.window.set_font(&config.general.font);
         self.window.set_renderer(config.general.renderer);
+        self.window
+            .set_background(config.general.candidate_background);
         self.apply_learning_language(&config.general);
         if self.input_log_enabled != Some(config.general.input_log) {
             self.input_log_enabled = Some(config.general.input_log);

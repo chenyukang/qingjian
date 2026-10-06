@@ -8,7 +8,10 @@ pub const DEFAULT_SHIFT_TAP_WINDOW_MS: u32 = 300;
 pub const SHIFT_TAP_WINDOW_CHOICES: [u32; 7] = [150, 200, 250, 300, 400, 500, 800];
 
 use super::scheme::{Scheme, scheme_label};
-use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode};
+use super::{
+    CandidateBackground, CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter,
+    ThemeMode,
+};
 
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
@@ -51,6 +54,9 @@ pub struct GeneralConfig {
 
     /// 候选窗口字体的字族名；空为系统字体。只对青简渲染器生效，没装这个字体时回到系统字体。
     pub font: String,
+
+    /// 候选窗口底下垫什么：系统材质（毛玻璃）/ 不透明系统色 / 半透明色。只有 macOS 用。
+    pub candidate_background: CandidateBackground,
 
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
@@ -166,6 +172,7 @@ impl Default for GeneralConfig {
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
+            candidate_background: CandidateBackground::default(),
             preedit: PreeditMode::default(),
             english_candidates: true,
             english_min_letters: 1,

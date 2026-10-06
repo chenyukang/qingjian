@@ -3,7 +3,9 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_platform::{CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{
+    CandidateBackground, CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode,
+};
 
 use crate::candidates::available_families;
 use crate::preferences::controls::{checkbox, note, row_checkbox, row_popup, select, set_checked};
@@ -24,6 +26,9 @@ pub struct CandidatesPage {
 
     /// 青简渲染器 / 系统绘制。
     renderer: Retained<NSPopUpButton>,
+
+    /// 候选窗底色：系统材质 / 不透明 / 半透明。
+    background: Retained<NSPopUpButton>,
 
     /// 候选窗字体：搜索框 + 列表。
     font: FontPicker,
@@ -70,6 +75,23 @@ impl CandidatesPage {
             target,
         );
         note(layout, mtm, "青简渲染器让候选窗口在各平台一致。");
+        let background_titles: Vec<String> = CandidateBackground::ALL
+            .iter()
+            .map(|b| b.label().to_owned())
+            .collect();
+        let background = row_popup(
+            layout,
+            mtm,
+            "底色",
+            &background_titles,
+            Setting::CandidateBackground,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "系统材质是毛玻璃；有些窗口拿不到系统的 backdrop 时它会看着像块纯色，那就换成不透明或半透明。",
+        );
         let font = FontPicker::build(layout, mtm, "字体", available_families(mtm));
         note(
             layout,
@@ -98,6 +120,7 @@ impl CandidatesPage {
             layout_mode,
             horizontal_grid,
             renderer,
+            background,
             font,
             preedit,
         }
@@ -121,6 +144,12 @@ impl CandidatesPage {
             CandidateRenderer::ALL
                 .iter()
                 .position(|r| *r == general.renderer),
+        );
+        select(
+            &self.background,
+            CandidateBackground::ALL
+                .iter()
+                .position(|b| *b == general.candidate_background),
         );
         self.font.sync(&general.font);
         select(

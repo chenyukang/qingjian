@@ -85,6 +85,15 @@ impl BitmapPainter {
         })
     }
 
+    /// 背景不透明度（`[general] candidate_background` 定）变了：下一次绘制就按新的画。
+    pub fn set_background_alpha(&mut self, alpha: f64) {
+        if self.background_alpha == alpha {
+            return;
+        }
+        self.background_alpha = alpha;
+        self.repaint();
+    }
+
     /// 记下新一帧并画好，返回窗口该有的尺寸（点）。
     pub fn set_frame(
         &mut self,

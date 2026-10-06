@@ -47,6 +47,9 @@ pub enum Setting {
     /// `[general] renderer`，弹出菜单：青简渲染器 / 系统绘制。
     Renderer,
 
+    /// `[general] candidate_background`，弹出菜单：系统材质 / 不透明 / 半透明。
+    CandidateBackground,
+
     /// `[general] font`，字体列表选中的字族名；「系统默认」为系统字体。
     Font,
 
@@ -338,6 +341,7 @@ impl Setting {
             Self::EnglishInPinyin => 63,
             Self::ToggleEnglishModeKeys => 64,
             Self::OpenSettingsKeys => 81,
+            Self::CandidateBackground => 82,
             Self::StatusBarEnabled => 65,
             Self::StatusBarOutline => 66,
             Self::StatusBarAnchor => 67,
@@ -390,6 +394,7 @@ impl Setting {
             3 => Self::PageKeys,
             4 => Self::Theme,
             43 => Self::Renderer,
+            82 => Self::CandidateBackground,
             44 => Self::Font,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
@@ -502,6 +507,7 @@ mod tests {
             Setting::PageKeys,
             Setting::Theme,
             Setting::Renderer,
+            Setting::CandidateBackground,
             Setting::Font,
             Setting::ExpressionKey,
             Setting::QuestionKey,
