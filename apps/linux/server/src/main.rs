@@ -86,6 +86,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_emoji(config.general.emoji_candidates);
     engine.set_mixed_space(config.general.mixed_space);
     engine.set_english_min_letters(config.general.english_min_letters());
+    // 下面三个之前漏接了（macOS 壳一直有）：不接的话 Linux 上它们一直是引擎缺省，
+    // 其中 `english_mode_min_letters` 缺省 2 —— fcitx5 的 `real-server` 用例正因此一直红（2026-10-07）
+    engine.set_english_mode_min_letters(config.general.english_mode_min_letters);
+    engine.set_english_in_pinyin(config.general.english_in_pinyin);
+    engine.set_join_previous_word(config.general.join_previous_word);
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())
