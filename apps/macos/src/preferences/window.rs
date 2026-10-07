@@ -287,7 +287,10 @@ impl PreferencesWindow {
         let mut nav_y = content_size.height - TOP_INSET - 112.0;
         for (index, (title, _)) in PAGE_INFO.iter().enumerate() {
             if let Some((_, heading)) = NAV_GROUPS.iter().find(|(start, _)| *start == index) {
+                // 分组标题：原来用 small_label（11pt 灰），跟 14pt 的条目差得太远、看着像脚注；
+                // 13pt 半粗灰字读起来是标题，也不抢条目
                 let label = small_label(mtm, heading);
+                label.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
                 label.setTextColor(Some(&NSColor::secondaryLabelColor()));
                 label.setFrame(NSRect::new(
                     NSPoint::new(24.0, nav_y),
