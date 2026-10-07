@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <thread>
 #include <sys/wait.h>
 #include <signal.h>
@@ -20,6 +21,12 @@ int main(int argc, char **argv) {
     auto sampleDir = std::filesystem::path(directory) / "assets/sample";
     std::filesystem::create_directories(sampleDir);
     std::filesystem::copy_file(std::filesystem::path(argv[2]) / "assets/sample/english.tsv", sampleDir / "english.tsv");
+    // 英文模式的补全门槛缺省是 2（`[general] english_mode_min_letters`，4b34c2c 起可配）：
+    // 这条用例验的是「敲一个字母 → hello」与「失焦回焦后 Server 的英文模式还在」，门槛显式写成 1。
+    // 路径按本文件的 `XDG_CONFIG_HOME`（临时目录本身）算：`<tmp>/qingjian/config.toml`
+    const auto configDir = std::filesystem::path(directory) / "qingjian";
+    std::filesystem::create_directories(configDir);
+    std::ofstream(configDir / "config.toml") << "[general]\nenglish_mode_min_letters = 1\n";
     setenv("QINGJIAN_RESOURCES", directory, 1);
     setenv("QINGJIAN_DICT", dictionary.c_str(), 1);
     setenv("XDG_CONFIG_HOME", directory, 1);
