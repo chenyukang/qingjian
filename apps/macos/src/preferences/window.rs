@@ -244,7 +244,7 @@ impl PreferencesWindow {
 
         // 左侧栏：系统侧栏材质 + 品牌 + 分组条目（照 winlane 的设置窗），顶端一直铺到窗口上沿。
         // 圆角裁在容器上而不是侧栏自己身上：给 `NSVisualEffectView` 设 `masksToBounds` 会把材质
-        // 压成一块平色（见 `ui/material.rs`）。
+        // 压成一块平色（见 `ui/material.rs`）；只圆**左边**两个角 —— 右边与内容区是一条直缝。
         let sidebar_frame = NSRect::new(NSPoint::ZERO, NSSize::new(SIDEBAR_WIDTH, window_height));
         let sidebar_container = NSView::initWithFrame(mtm.alloc(), sidebar_frame);
         let sidebar =
@@ -252,7 +252,7 @@ impl PreferencesWindow {
         sidebar.setMaterial(NSVisualEffectMaterial::Sidebar);
         sidebar.setBlendingMode(NSVisualEffectBlendingMode::WithinWindow);
         sidebar_container.addSubview(&sidebar);
-        crate::ui::material::round_corners(
+        crate::ui::material::round_left_corners(
             &sidebar_container,
             crate::ui::material::DEFAULT_CORNER_RADIUS,
         );

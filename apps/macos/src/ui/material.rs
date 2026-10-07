@@ -38,6 +38,20 @@ pub fn round_corners(view: &NSView, corner_radius: f64) {
     }
 }
 
+/// 只圆左边两个角：侧栏右边缘与内容区是一条直缝（中间还有一条分隔线），圆了会在交界处留缺口。
+pub fn round_left_corners(view: &NSView, corner_radius: f64) {
+    round_corners(view, corner_radius);
+    unsafe {
+        let layer: *mut AnyObject = msg_send![view, layer];
+        if layer.is_null() {
+            return;
+        }
+        // kCALayerMinXMinYCorner | kCALayerMinXMaxYCorner = 1 | 4。
+        // 两个都是 minX 侧（左右与图层翻转无关），所以不担心坐标系上下颠倒。
+        let _: () = msg_send![layer, setMaskedCorners: 1usize | 4usize];
+    }
+}
+
 /// 面板圆角缺省值（偏好设置用；候选窗用主题里的 `corner_radius`）。
 pub const DEFAULT_CORNER_RADIUS: f64 = 18.0;
 
