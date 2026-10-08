@@ -52,6 +52,9 @@ def merge_zh(args: argparse.Namespace) -> None:
         if word in have:
             skipped.append((word, "已在词库里"))
             continue
+        if docs < args.min_docs_clean:
+            skipped.append((word, f"只出现 {docs} 篇（下限 {args.min_docs_clean}）"))
+            continue
         if word in blocklist:
             skipped.append((word, "碎片"))
             continue
@@ -115,6 +118,8 @@ def main() -> None:
     parser.add_argument("src", help="人工过目的候选 TSV")
     parser.add_argument("--data-dir", default=None)
     parser.add_argument("--min-docs", type=int, default=None, help="带标记的条目至少要多少篇（zh 默认 5，en 默认 3）")
+    parser.add_argument("--min-docs-clean", type=int, default=3,
+                        help="无标记的条目也至少要这么多篇（zh 默认 3，防往词库里塞只出现过一两次的串）")
     parser.add_argument("--blocklist", default=None, help="额外的碎片黑名单（zh）")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()

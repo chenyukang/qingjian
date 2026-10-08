@@ -1,12 +1,35 @@
 # 个人词库工具
 
-从**自己的 markdown 语料**（Obsidian 库、笔记、文章）抽候选词，人工过目后并进青简的个人词库。
+从**自己的 markdown 语料**（Obsidian 库、笔记、文章）抽候选词，并进青简的个人词库。
 
 ```
-extract_zh.py ── mark_zh.py ──(人工过目)── merge.py zh ── verify.py zh
-extract_en.py ──────────────(人工过目)── merge.py en ── verify.py en
+一键：run.sh （抽取 → 自动选词 → 合并 → 验证 → 重启输入法，不等待人工过目）
+
+手工：extract_zh.py ── mark_zh.py ──(人工过目)── merge.py zh ── verify.py zh
+      extract_en.py ─────────────(人工过目)── merge.py en ── verify.py en
 discover_zh.py（实验：互信息 / 左右熵，辅助判断成词）
 ```
+
+## 一键跑（不人工过目）
+
+```bash
+bash tools/personal-dict/run.sh                # 默认扫 ~/code/writing/ob
+bash tools/personal-dict/run.sh --dry-run      # 只看要加什么，不写文件
+bash tools/personal-dict/run.sh --corpus ~/notes --corpus /tmp/md --no-restart
+bash tools/personal-dict/run.sh --zh-only --min-docs-zh 8
+```
+
+自动选词规则（想改就走上面的手工流程）：
+
+| | 收 | 不收 |
+| --- | --- | --- |
+| 中文 | 无标记且 ≥ 3 篇；带标记且 ≥ `--min-docs-zh`（默认 5）篇 | 篇数不够、已知碎片黑名单、词库里已有 |
+| 英文 | A 段（词表没有的专用词）+ B 段（词表里有但用得多），篇数 ≥ `--min-docs-en`（默认 3） | 已存在（按小写判重） |
+
+清单落在 `~/Documents/qingjian-词库/<日期>/`（中文/英文的候选 TSV 与 Markdown、含篇数与来源），
+合并前备份在 `/tmp/qj-backup-*`。**重跑安全**：已有的不重复加；自动収进来的个别不像词的，
+可以在输入法里组句时按 ⇧+数字 删掉，或拷回备份重来。
+
 
 ## 依赖
 
@@ -20,7 +43,11 @@ bash tools/personal-dict/setup.sh        # 建 ~/.venvs/qingjian-dict（jieba + 
 装好之后**直接跑就行**：`extract_zh.py` 发现系统 python3 缺包时会自动用那个 venv 重跑。
 其余命令（`extract_en.py` / `mark_zh.py` / `merge.py` / `verify.py`）只用标准库，`python3` 直接跑。
 
-## 中文
+## 手工流程（要自己过目）
+
+下面两条是逐条看清单的做法，等价于 `run.sh` 但每步可以停下来改。
+
+### 中文
 
 ```bash
 OB=~/code/writing/ob
@@ -41,7 +68,7 @@ python3 tools/personal-dict/merge.py zh /tmp/zh-marked.tsv
 python3 tools/personal-dict/verify.py zh /tmp/zh-marked.tsv --limit 9
 ```
 
-## 英文
+### 英文
 
 ```bash
 # 1. 抽候选（正文 + 代码块都算），输出分两段：
@@ -83,4 +110,5 @@ python3 tools/personal-dict/verify.py en /tmp/en.tsv
 | `merge.py` | 并入个人词库（备份 + 去重 + 词频） |
 | `verify.py` | 用 `qingjian-cli` 在副本上验证候选能不能出得来 |
 | `discover_zh.py` | 互信息 / 左右熵（实验） |
+| `run.sh` | 一键：抽取 → 自动选词 → 合并 → 验证 → 重启输入法 |
 | `setup.sh` | 建本机虚拟环境 `~/.venvs/qingjian-dict`（jieba + pypinyin，给 `extract_zh.py` 用） |

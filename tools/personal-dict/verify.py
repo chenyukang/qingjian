@@ -82,7 +82,14 @@ def run_batch(cli: pathlib.Path, extra: list[str], queries: list[str]) -> list[s
 def verify_zh(args: argparse.Namespace) -> int:
     data = qingjian.data_dir(args.data_dir)
     # 清单里的拼音是空格分隔的音节（词库格式），查询要连起来（yi lin → yilin）
-    rows = [(r[0], r[1].replace(" ", "")) for r in read_rows(args.words) if len(r) >= 2 and r[1].strip()]
+    # 只验证篇数够的：抽词会把只出现过一两次的串也倒出来，那些本来就不在候选里
+    rows = []
+    for r in read_rows(args.words):
+        if len(r) < 2 or not r[1].strip():
+            continue
+        if len(r) >= 4 and r[3].strip().isdigit() and int(r[3]) < args.min_docs:
+            continue
+        rows.append((r[0], r[1].replace(" ", "")))
     with tempfile.TemporaryDirectory(prefix="qj-verify-") as tmp:
         tmp_dir = pathlib.Path(tmp)
         copy_user_data(data, tmp_dir)
@@ -124,6 +131,8 @@ def main() -> None:
     parser.add_argument("--cli", type=pathlib.Path, default=None)
     parser.add_argument("--config", default=None, help="CLI 的 --config（缺省用随包数据）")
     parser.add_argument("--limit", type=int, default=9, help="只看前 N 个候选（默认 9）")
+    parser.add_argument("--min-docs", type=int, default=3,
+                        help="zh：算上这一列的话，只验证篇数 ≥ N 的行（默认 3，默认列是第 4 列）")
     parser.add_argument("--data-dir", default=None)
     args = parser.parse_args()
     args.cli = args.cli or default_cli()
