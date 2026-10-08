@@ -177,6 +177,7 @@ impl Host {
     /// 翻译结束（接受、放弃或失败）：收窗、停轮询。
     pub fn end_translation(&mut self) {
         if self.translation.take().is_some() {
+            self.manual_marks.clear();
             self.cancel_prediction();
             self.reset_session(None, Vec::new());
             self.window.hide();
@@ -225,11 +226,16 @@ impl Host {
                         text: String::new(),
                         annotation: Vec::new(),
                         cloud: false,
+                        marks: Vec::new(),
                     };
                 };
                 let mut row = Row::from_candidate(offset, candidate);
                 row.index = index;
                 row.cloud = candidate.kind == CandidateKind::Cloud;
+                if self.translation.is_some() {
+                    // 手动任务（翻译 / 纠错）：窗口里只有结果一个候选，改动的那几段标出来
+                    row.marks = self.manual_marks.clone();
+                }
                 row
             })
             .collect();

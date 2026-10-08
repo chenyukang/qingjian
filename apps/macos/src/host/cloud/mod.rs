@@ -90,6 +90,7 @@ impl Host {
         // 翻译选中文字：译文作为唯一候选摆进窗口，等用户回车替换或 Esc 放弃
         if self.translation.is_some() {
             if let Some(text) = prediction.sentence {
+                self.manual_marks = prediction.sentence_marks;
                 let unchanged = {
                     let Some(job) = self.translation.as_mut() else {
                         return;

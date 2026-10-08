@@ -109,7 +109,14 @@ impl ChatClient {
         let content = self
             .chat_within(prompt::system_prompt(request), &user, max_tokens, timeout)
             .await?;
-        let reply = prompt::parse_reply(&content, request);
+        let mut reply = prompt::parse_reply(&content, request);
+        // 纠错：算出结果里哪几段与原文不同，弹窗据此上色（用户要一眼看出改了哪）
+        if request.kind == qingjian_core::PredictionKind::Correct
+            && let Some(sentence) = reply.sentence.as_deref()
+        {
+            reply.sentence_marks =
+                qingjian_core::text_diff::changed_ranges(&request.text, sentence);
+        }
         // 手动任务（翻译 / 纠错）解析不出文本时把原始回复记下来：模型偶尔不按 JSON 回，
         // 光看「没有给出译文」没法判断是没回、还是回了个别的形状（2026-10-04 纠错第一次上线时踩到）
         if reply.is_empty()

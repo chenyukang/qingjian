@@ -10,6 +10,14 @@ pub const MAX_TEXT_WIDTH: f32 = 640.0;
 /// 几十行的窗口既放不下也没人看。
 pub const MAX_TEXT_LINES: usize = 6;
 
+/// 折出来的一行：文本，以及它在原文里的字符区间（左闭右开，已去掉首尾空白）。
+/// 区间是给「改动用别的颜色标出来」用的：标记按原文下标给，折行后要能映射回每一行。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Line {
+    pub range: (usize, usize),
+    pub text: String,
+}
+
 /// 按宽度把 `text` 折成若干行。
 ///
 /// - 显式的 `\n` 断行；
@@ -20,9 +28,9 @@ pub fn wrap_text(
     mut width_of: impl FnMut(&str) -> f32,
     max_width: f32,
     max_lines: usize,
-) -> Vec<String> {
+) -> Vec<Line> {
     let max_lines = max_lines.max(1);
-    let mut lines: Vec<String> = Vec::new();
+    let mut lines: Vec<Line> = Vec::new();
     let mut truncated = false;
     for segment in text.split('\n') {
         if lines.len() >= max_lines {
@@ -35,12 +43,42 @@ pub fn wrap_text(
         truncated |= more;
     }
     if lines.is_empty() {
-        lines.push(String::new());
+        lines.push(Line {
+            range: (0, 0),
+            text: String::new(),
+        });
     }
     if truncated && let Some(last) = lines.last_mut() {
-        last.push('…');
+        // 省略号不是原文里的字，不影响区间
+        last.text.push('…');
     }
     lines
+}
+
+/// 把一行按改动区间切成若干段：`(是否改动, 文本)`。`marks` 是原文下标，`line.range` 负责把
+/// 行里的第几个字映射回原文。相邻同类合并，省得逐字画。
+pub fn split_by_marks(line: &Line, marks: &[(usize, usize)]) -> Vec<(bool, String)> {
+    let mut segments: Vec<(bool, String)> = Vec::new();
+    for (index, ch) in line.text.chars().enumerate() {
+        let at = line.range.0 + index;
+        let marked = marks.iter().any(|&(start, end)| at >= start && at < end);
+        match segments.last_mut() {
+            Some((kind, text)) if *kind == marked => text.push(ch),
+            _ => segments.push((marked, ch.to_string())),
+        }
+    }
+    segments
+}
+
+/// 切出 `chars[start..end]` 的展示文本与它在原文里的字符区间（去掉首尾空白）。
+fn trimmed_line(chars: &[char], start: usize, end: usize) -> ((usize, usize), String) {
+    let raw: String = chars[start..end].iter().collect();
+    let leading = raw.chars().take_while(|c| c.is_whitespace()).count();
+    let text = raw.trim().to_string();
+    (
+        (start + leading, start + leading + text.chars().count()),
+        text,
+    )
 }
 
 /// 折一段（不含换行符），返回（行们，是否还有没画下的）。
@@ -49,9 +87,9 @@ fn wrap_segment(
     width_of: &mut impl FnMut(&str) -> f32,
     max_width: f32,
     max_lines: usize,
-) -> (Vec<String>, bool) {
+) -> (Vec<Line>, bool) {
     let chars: Vec<char> = segment.chars().collect();
-    let mut lines: Vec<String> = Vec::new();
+    let mut lines: Vec<Line> = Vec::new();
     let mut start = 0;
     while start < chars.len() {
         if lines.len() >= max_lines {
@@ -75,9 +113,9 @@ fn wrap_segment(
         }
 
         if end >= chars.len() {
-            let line = slice(start, end).trim().to_string();
+            let (range, line) = trimmed_line(&chars, start, end);
             if !line.is_empty() {
-                lines.push(line);
+                lines.push(Line { range, text: line });
             }
             break;
         }
@@ -90,9 +128,9 @@ fn wrap_segment(
             cut = pos;
         }
 
-        let line = slice(start, cut).trim().to_string();
+        let (range, line) = trimmed_line(&chars, start, cut);
         if !line.is_empty() {
-            lines.push(line);
+            lines.push(Line { range, text: line });
         }
         start = cut;
         while start < chars.len() && chars[start].is_whitespace() {
@@ -111,10 +149,15 @@ mod tests {
         s.chars().count() as f32
     }
 
+    /// 只要文本，忽略区间。
+    fn texts(lines: Vec<Line>) -> Vec<String> {
+        lines.into_iter().map(|line| line.text).collect()
+    }
+
     #[test]
     fn breaks_on_width() {
         assert_eq!(
-            wrap_text("abcdefghij", width, 4.0, 5),
+            texts(wrap_text("abcdefghij", width, 4.0, 5)),
             vec!["abcd", "efgh", "ij"]
         );
     }
@@ -122,7 +165,7 @@ mod tests {
     #[test]
     fn prefers_breaking_at_spaces() {
         assert_eq!(
-            wrap_text("hello world again", width, 8.0, 5),
+            texts(wrap_text("hello world again", width, 8.0, 5)),
             vec!["hello", "world", "again"]
         );
     }
@@ -130,7 +173,7 @@ mod tests {
     #[test]
     fn breaks_chinese_per_character() {
         assert_eq!(
-            wrap_text("今天天气不错我们出去走走吧", width, 4.0, 5),
+            texts(wrap_text("今天天气不错我们出去走走吧", width, 4.0, 5)),
             vec!["今天天气", "不错我们", "出去走走", "吧"]
         );
     }
@@ -138,26 +181,59 @@ mod tests {
     #[test]
     fn truncates_past_max_lines_with_ellipsis() {
         assert_eq!(
-            wrap_text("abcdefghijklmnopqrstuvwxyz", width, 4.0, 2),
+            texts(wrap_text("abcdefghijklmnopqrstuvwxyz", width, 4.0, 2)),
             vec!["abcd", "efgh…"]
         );
     }
 
     #[test]
     fn keeps_short_text_as_one_line_and_handles_empty() {
-        assert_eq!(wrap_text("短", width, 4.0, 5), vec!["短"]);
-        assert_eq!(wrap_text("", width, 4.0, 5), vec![""]);
+        assert_eq!(texts(wrap_text("短", width, 4.0, 5)), vec!["短"]);
+        assert_eq!(texts(wrap_text("", width, 4.0, 5)), vec![""]);
+    }
+
+    #[test]
+    fn splits_a_line_by_marks() {
+        let line = Line {
+            range: (10, 15),
+            text: "hello".to_owned(),
+        };
+        // 改动区间是原文下标：原文 11..13 就是这一行的 "el"
+        assert_eq!(
+            split_by_marks(&line, &[(11, 13)]),
+            vec![
+                (false, "h".to_owned()),
+                (true, "el".to_owned()),
+                (false, "lo".to_owned()),
+            ]
+        );
+        assert_eq!(
+            split_by_marks(&line, &[]),
+            vec![(false, "hello".to_owned())]
+        );
+        assert_eq!(
+            split_by_marks(&line, &[(0, 99)]),
+            vec![(true, "hello".to_owned())]
+        );
+    }
+
+    #[test]
+    fn reports_each_line_range_in_the_source() {
+        let lines = wrap_text("aa bb cc", width, 2.0, 5);
+        assert_eq!(texts(lines.clone()), vec!["aa", "bb", "cc"]);
+        let ranges: Vec<(usize, usize)> = lines.into_iter().map(|line| line.range).collect();
+        assert_eq!(ranges, vec![(0, 2), (3, 5), (6, 8)]);
     }
 
     #[test]
     fn honours_explicit_newlines() {
         assert_eq!(
-            wrap_text("first\nsecond", width, 40.0, 5),
+            texts(wrap_text("first\nsecond", width, 40.0, 5)),
             vec!["first", "second"]
         );
         // 段落比行数预算还多：末尾给省略号
         assert_eq!(
-            wrap_text("aaaa\nbbbb\ncccc", width, 4.0, 2),
+            texts(wrap_text("aaaa\nbbbb\ncccc", width, 4.0, 2)),
             vec!["aaaa", "bbbb…"]
         );
     }
@@ -165,7 +241,7 @@ mod tests {
     #[test]
     fn a_word_wider_than_the_line_still_breaks() {
         assert_eq!(
-            wrap_text("abcdefghij klm", width, 4.0, 5),
+            texts(wrap_text("abcdefghij klm", width, 4.0, 5)),
             vec!["abcd", "efgh", "ij", "klm"]
         );
     }

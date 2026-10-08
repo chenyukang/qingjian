@@ -18,6 +18,10 @@ pub struct Row {
 
     /// 来自云联想：词前画一个小云朵，与本地候选区分。
     pub cloud: bool,
+
+    /// 需要标出来的字符区间（原文下标；纠错结果里相对原文改动的那几段）。
+    /// 空就是不标。壳把 Core 的 `Candidate::marks` 搬过来。
+    pub marks: Vec<(usize, usize)>,
 }
 
 impl Row {
@@ -29,6 +33,7 @@ impl Row {
             code: None,
             annotation: Vec::new(),
             cloud: false,
+            marks: Vec::new(),
         }
     }
 }

@@ -173,6 +173,10 @@ pub struct Host {
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
 
+    /// 本次手动任务（翻译 / 纠错）结果里相对原文改动的字符区间；窗口里给那几段上色。
+    /// 结果到手时由 `cloud` 侧写入，`end_translation` 清空。
+    pub manual_marks: Vec<(usize, usize)>,
+
     /// 纠错选中的文字的快捷键组合（`[shortcut] correct_selection`）。
     pub correct_keys: KeyCombo,
 

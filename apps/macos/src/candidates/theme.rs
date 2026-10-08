@@ -39,6 +39,9 @@ pub struct Theme {
     /// 当前候选的高亮底色。
     pub highlight: Retained<NSColor>,
 
+    /// 标出来的字（纠错结果里改动的几段）。
+    pub marked_color: Retained<NSColor>,
+
     /// 窗口内边距。
     pub padding: f64,
 
@@ -70,6 +73,7 @@ impl Theme {
             cloud_color: NSColor::systemTealColor(),
             background: NSColor::windowBackgroundColor(),
             highlight: NSColor::colorWithSRGBRed_green_blue_alpha(0.0, 0.48, 1.0, 0.16),
+            marked_color: NSColor::systemRedColor(),
             padding: 8.0,
             row_padding: 4.0,
             column_gap: 8.0,

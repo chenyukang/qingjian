@@ -21,6 +21,7 @@ pub mod sentence;
 pub mod shortcut;
 pub mod shuangpin;
 pub mod storage;
+pub mod text_diff;
 pub mod zhuyin;
 
 pub use custom_phrase::CustomPhrase;

@@ -173,6 +173,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             swallow_newline: false,
             pending_space: false,
             translation: None,
+            manual_marks: Vec::new(),
             notice: None,
             preedit_mode: PreeditMode::default(),
             layout: LayoutMode::default(),

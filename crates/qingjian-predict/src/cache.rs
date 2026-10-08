@@ -68,6 +68,7 @@ mod tests {
         let reply = |s: &str| Reply {
             words: Vec::new(),
             sentence: Some(s.to_owned()),
+            sentence_marks: Vec::new(),
         };
         let mut cache = PredictionCache::with_capacity(2);
         cache.insert("a".into(), reply("1"));

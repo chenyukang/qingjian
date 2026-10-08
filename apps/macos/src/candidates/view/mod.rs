@@ -19,6 +19,7 @@ use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
 use qingjian_platform::{CandidateRenderer, LayoutMode};
+use qingjian_render::wrap::{Line, split_by_marks};
 use qingjian_render::{MAX_TEXT_LINES, MAX_TEXT_WIDTH, VerticalOrder, wrap_text};
 
 use super::bitmap::BitmapPainter;
@@ -658,7 +659,7 @@ impl CandidateView {
     }
 
     /// 画候选词，可能已折行：云端词第一行前带云朵。返回文字块高度。
-    fn draw_word_lines(&self, row: &Row, lines: &[String], x: f64, top: f64) -> f64 {
+    fn draw_word_lines(&self, row: &Row, lines: &[Line], x: f64, top: f64) -> f64 {
         let theme = self.theme();
         let color = if row.cloud {
             &theme.cloud_color
@@ -672,7 +673,12 @@ impl CandidateView {
             if i == 0 && row.cloud {
                 word_x += self.draw_cloud(word_x, y, line_height);
             }
-            self.draw_text(line, &theme.text_font, color, y, word_x);
+            // 纠错结果里改动的那几段用 marked 色
+            let mut line_x = word_x;
+            for (marked, text) in split_by_marks(line, &row.marks) {
+                let color = if marked { &theme.marked_color } else { color };
+                line_x += self.draw_text(&text, &theme.text_font, color, y, line_x);
+            }
             y += line_height;
         }
         self.text_lines_height(lines.len())
@@ -716,7 +722,7 @@ impl CandidateView {
 
     /// 候选文字按固定最大宽度折行：翻译 / 纠错的结果可能上千字，一行铺开会把窗口拉成几千像素的长条。
     /// 与位图渲染器共用 `qingjian_render::wrap` 的同一份规则，两条路径的窗口宽度才一致。
-    fn text_lines(&self, text: &str) -> Vec<String> {
+    fn text_lines(&self, text: &str) -> Vec<Line> {
         let font = &self.theme().text_font;
         wrap_text(
             text,
@@ -727,11 +733,11 @@ impl CandidateView {
     }
 
     /// 折行后文字块的宽度（取最宽一行）。
-    fn text_lines_width(&self, lines: &[String]) -> f64 {
+    fn text_lines_width(&self, lines: &[Line]) -> f64 {
         let font = &self.theme().text_font;
         lines
             .iter()
-            .fold(0.0, |w, line| w.max(self.measure(line, font).width))
+            .fold(0.0, |w, line| w.max(self.measure(&line.text, font).width))
     }
 
     /// 折行后文字块的高度。

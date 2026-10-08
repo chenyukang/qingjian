@@ -208,6 +208,11 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+纠错结果的改动标记：`text_diff::changed_ranges`（Core）按比较单位求最长公共子序列，落不进公共序列的单位就是改动
+（西文按词、汉字逐字、空白与标点各自一个；单位数之积超 400 万就不标），`ChatClient::complete` 在纠错任务里用它算出
+`Reply::sentence_marks` → `Prediction::sentence_marks` → 壳把它贴到结果候选那一行（`Row::marks`，原文下标）→
+渲染器折行时用 `wrap::split_by_marks` 把每行按区间切段，改动段用 `Palette::marked` 画（AppKit 退路用 `marked_color`）。
+
 候选文字折行：`wrap.rs` 是纯逻辑（宽度由调用方注入，可单测），位图渲染器与 mac 壳的 AppKit 退路共用同一份规则 ——
 翻译 / 纠错的结果可能上千字，一行铺开会把窗口拉成几千像素的长条（实测 3252×134）。宽度封顶 `MAX_TEXT_WIDTH` = 640 点
 （随缩放换像素），最多 `MAX_TEXT_LINES` = 6 行，再长以省略号收尾；拉丁文优先在空白处断、汉字逐字断。

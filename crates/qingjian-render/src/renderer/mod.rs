@@ -22,7 +22,7 @@ use crate::shadow::Shadow;
 use crate::text::{TextPainter, TextSize, TextStyle};
 use crate::theme::{FontSpec, Theme};
 use crate::vertical_order::VerticalOrder;
-use crate::wrap::{self, MAX_TEXT_LINES, MAX_TEXT_WIDTH};
+use crate::wrap::{self, Line, MAX_TEXT_LINES, MAX_TEXT_WIDTH};
 
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
@@ -58,9 +58,9 @@ pub struct Renderer {
     text: TextPainter,
 }
 
-/// 折行后的候选词：行、整体宽高（像素）。
+/// 折行后的候选词：行（含它们在原文里的位置）、整体宽高（像素）。
 pub(super) struct WrappedText {
-    pub(super) lines: Vec<String>,
+    pub(super) lines: Vec<Line>,
     pub(super) width: f32,
     pub(super) height: f32,
 }
@@ -274,7 +274,7 @@ impl Renderer {
             MAX_TEXT_LINES,
         );
         let width = lines.iter().fold(0.0_f32, |width, line| {
-            width.max(self.measure(line, style).width)
+            width.max(self.measure(&line.text, style).width)
         });
         WrappedText {
             height: style.line_height * lines.len() as f32,
@@ -326,10 +326,19 @@ impl Renderer {
         if row.cloud {
             word_x += self.draw_cloud(canvas, m, word_x, top, text_height);
         }
+        let marked_style = m.style(m.theme.text_font, m.theme.colors.marked);
         let mut y = top;
         let mut last_width = 0.0;
         for line in &wrapped.lines {
-            last_width = self.draw_text(canvas, line, &style, word_x, y);
+            // 纠错结果里改动的那几段用 marked 色：不分段时就是整行一次画完
+            let mut x = word_x;
+            let mut width = 0.0;
+            for (marked, text) in wrap::split_by_marks(line, &row.marks) {
+                let style = if marked { &marked_style } else { &style };
+                width = self.draw_text(canvas, &text, style, x, y);
+                x += width;
+            }
+            last_width = width;
             y += line_height;
         }
         if let Some(code) = &row.code {

@@ -11,6 +11,10 @@ pub struct Prediction {
 
     /// 组句中的整句补全，替换整段拼音。
     pub sentence: Option<String>,
+
+    /// 手动任务（纠错）的结果里，哪几段和原文不同（字符区间，给弹窗上色用）。
+    /// 翻译与普通联想为空；语义与算法见 [`crate::text_diff::changed_ranges`]。
+    pub sentence_marks: Vec<(usize, usize)>,
 }
 
 impl Prediction {

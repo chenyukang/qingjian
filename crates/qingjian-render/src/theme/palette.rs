@@ -27,6 +27,9 @@ pub struct Palette {
 
     /// 当前候选的高亮底色。
     pub highlight: Color,
+
+    /// 标出来的字（纠错结果里相对原文改动的那几段）：比候选词醒目的暖色。
+    pub marked: Color,
 }
 
 impl Palette {
@@ -40,6 +43,7 @@ impl Palette {
             cloud: Color::rgb(0, 195, 208),
             background: Color::rgb(255, 255, 255),
             highlight: Color::rgba(176, 206, 125, 127),
+            marked: Color::rgb(200, 80, 30),
         }
     }
 
@@ -53,6 +57,7 @@ impl Palette {
             cloud: Color::rgb(0, 210, 224),
             background: Color::rgb(30, 30, 30),
             highlight: Color::rgba(36, 76, 36, 255),
+            marked: Color::rgb(255, 138, 76),
         }
     }
 }

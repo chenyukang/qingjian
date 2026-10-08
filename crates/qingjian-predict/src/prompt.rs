@@ -161,6 +161,9 @@ pub struct Reply {
 
     /// 整句补全。
     pub sentence: Option<String>,
+
+    /// 纠错结果里相对原文改动的字符区间（翻译与联想为空）。
+    pub sentence_marks: Vec<(usize, usize)>,
 }
 
 impl Reply {
@@ -258,6 +261,7 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
             return Reply {
                 words: Vec::new(),
                 sentence: plain_text(content),
+                sentence_marks: Vec::new(),
             };
         }
         Err(_) => return Reply::default(),
@@ -273,6 +277,7 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
         return Reply {
             words: Vec::new(),
             sentence: plain_reply(content, &raw, request),
+            sentence_marks: Vec::new(),
         };
     }
     let mut reply = Reply::default();
