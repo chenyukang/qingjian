@@ -10,9 +10,29 @@ impl QingjianInputController {
         }
     }
 
+    /// 英文模式里「欠着的空格」见分晓的地方：
+    ///
+    /// - 下一个字符是标点（`, . ! ? : ; ) ] } %` 与全角那一套）→ 空格不算数，直接打标点（`hello ,` → `hello,`）；
+    /// - 其余（字母、数字、`(`、`[`、`{` 等）→ 先把欠的空格补给应用，再接这个字符；
+    /// - 又是空格 → 合一个（还是欠着，不补）。
+    ///
+    /// 宁可晚一步也不去改应用里已插好的文本：上屏之后那段文本就不归我们了。
+    fn flush_pending_space(&self, c: char, client: TextClient<'_>) {
+        let pending =
+            host::with(|h| std::mem::replace(&mut h.pending_space, false)).unwrap_or(false);
+        if !pending || c == ' ' || !wants_leading_space(c) {
+            return;
+        }
+        client.insert_text(" ");
+    }
+
     pub(super) fn handle_text(&self, text: &str, client: TextClient<'_>) -> bool {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
+        // 上一个键欠着的空格（英文模式）：下一个字符是标点就撤掉，否则先补给应用
+        if let Some(c) = text.chars().next() {
+            self.flush_pending_space(c, client);
+        }
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         // 英文模式 = Caps Lock 亮着，或者用户用快捷键切过去了（`⌃⇧R`）
         let english =
@@ -117,12 +137,18 @@ impl QingjianInputController {
             if composing && c == page_next {
                 return self.turn_page(1, client);
             }
-            if composing {
-                if c == ' ' {
+            // 空格：英文模式下它既是「选词键」也是「词间分隔」，但**先欠着**不立刻送到应用 ——
+            // 下一个键是标点时该把空格撤掉（`hello` + 空格 + `,` → `hello,`，见 `flush_pending_space`）。
+            // 不这样做就只能去改应用里已经插好的文本，而提交之后输入法已经碰不到那段文本了。
+            if c == ' ' {
+                if composing {
                     self.commit_highlighted(client);
-                } else {
-                    self.commit_raw(client);
                 }
+                host::with(|h| h.pending_space = true);
+                return true;
+            }
+            if composing {
+                self.commit_raw(client);
             }
             self.pass_through(c, client);
             return false;
@@ -220,6 +246,53 @@ impl QingjianInputController {
                 self.pass_through(c, client);
                 false
             }
+        }
+    }
+}
+
+/// 前面欠着一个空格时，这个字符该不该保留它：标点不留（`hello ` + `,` → `hello,`），其余照旧。
+///
+/// 只列「肯定不想被空格隔开」的那些（半角 + 全角），引号、括号的**左半边**、运算符都不算 ——
+/// 那些地方留空格更常见（`foo (bar)`、`a + b`）。
+fn wants_leading_space(c: char) -> bool {
+    !matches!(
+        c,
+        ',' | '.'
+            | '!'
+            | '?'
+            | ':'
+            | ';'
+            | ')'
+            | ']'
+            | '}'
+            | '%'
+            | '…'
+            | '\u{ff0c}' // ，
+            | '\u{3002}' // 。
+            | '\u{ff01}' // ！
+            | '\u{ff1f}' // ？
+            | '\u{ff1a}' // ：
+            | '\u{ff1b}' // ；
+            | '\u{ff09}' // ）
+            | '\u{3011}' // 】
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wants_leading_space;
+
+    #[test]
+    fn punctuation_takes_the_place_of_a_pending_space() {
+        for c in [
+            ',', '.', '!', '?', ':', ';', ')', ']', '}', '…', '，', '。', '！', '？',
+        ] {
+            assert!(!wants_leading_space(c), "{c} 前面不该留空格");
+        }
+        for c in [
+            'a', 'Z', '9', '(', '[', '{', '#', '@', '&', '+', '-', '=', '/', '<', '"', '\'',
+        ] {
+            assert!(wants_leading_space(c), "{c} 前面该留着空格");
         }
     }
 }

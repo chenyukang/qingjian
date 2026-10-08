@@ -180,6 +180,10 @@ pub struct Host {
     /// 那时任务已经结束、会落到「回车交给应用」那条分支往文档里插换行，所以这一次要吃掉。
     pub swallow_newline: bool,
 
+    /// 英文模式下那个「欠着的空格」：按了空格（选词或词间分隔）先不往应用里送，
+    /// 等下一个键决定 —— 是标点就撤掉、否则先补上。见 [`crate::imk::controller::QingjianInputController::flush_pending_space`]。
+    pub pending_space: bool,
+
     /// 正在显示的提示（候选窗口里一行字，几秒后自动收）。
     pub notice: Option<Notice>,
 

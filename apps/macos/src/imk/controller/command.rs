@@ -7,6 +7,9 @@ impl QingjianInputController {
     pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
         self.note_application(&client);
+        // 命令键（回车、退格、方向键、Tab、Esc…）不是「接着打字」：欠着的那个英文空格到此为止，
+        // 不再补（`hello ` + 回车 → `hello` + 换行）。下一个字符由文本那条路（`flush_pending_space`）管。
+        host::with(|h| h.pending_space = false);
         // 刚用回车接受了翻译 / 纠错结果：同一颗键随后送来的这个 `insertNewline:` 要吃掉，
         // 否则会落到下面「回车交给应用」那条分支，往文档里插一个换行
         if selector == sel!(insertNewline:)

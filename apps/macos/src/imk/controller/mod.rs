@@ -78,6 +78,8 @@ define_class!(
                 }
                 host::with(|h| {
                     h.cancel_prediction();
+                    // 这次输入到此结束：英文模式欠着的那个空格不再补（新的焦点由新的会话重头算）
+                    h.pending_space = false;
                     // 桌面指示器跟着走：输入源还是青简（只是焦点挪了）不收，真切走了立刻收
                     h.sync_indicator_dot(modifiers::caps_lock_on());
                     h.window.hide();
@@ -139,6 +141,7 @@ define_class!(
                 // 切换输入源时无论如何都收掉候选框，不能留一个孤儿窗口在屏幕上
                 host::with(|h| {
                     h.cancel_prediction();
+                    h.pending_space = false;
                     h.window.hide();
                     h.indicator.deactivate();
                     h.watch.stop();

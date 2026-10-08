@@ -171,6 +171,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
 
             correct_keys: KeyCombo::CORRECT_DEFAULT,
             swallow_newline: false,
+            pending_space: false,
             translation: None,
             notice: None,
             preedit_mode: PreeditMode::default(),
