@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `apps/windows`：`server`（Server 进程：Engine + IPC + 自绘候选窗与状态条）+ `tsf`（TSF DLL）+ `settings`（WinUI 3）+ `installer`（Inno）。DLL 不能带 Engine 的依赖树，所以是两个 package。
 - `apps/linux`：`server`（Engine + Unix socket）+ `fcitx5`（框架事件、默认面板）+ `scripts`（用户级安装卸载、`package.sh` 打预编译包）；Server 手动启动，见 `docs/notes/linux-fcitx5.md`。
 - `tools/dict-convert`、`tools/gloss-gen`、`tools/corpus`：产品数据生成（词库 / 语言模型 / 释义表 / emoji / 英文词表），输出到 `data/generated/`（gitignore）。
+- `tools/personal-dict`：开发机脚本（Python）：从自己的 markdown 语料抽中 / 英候选词，人工过目后并进个人词库；用法见该目录 README。
 - `assets/`：随包数据源与样例，各目录有 README 写来源与许可。雾凇拼音（GPL）已彻底移除，不要再引入。
 
 `docs/` 分四类（索引在 `docs/README.md`）：`design/` 设计与决定、`plan/` 路线与待办、`notes/` 工程记录（性能、复盘、踩坑、crate 实现要点）、
