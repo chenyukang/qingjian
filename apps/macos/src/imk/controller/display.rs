@@ -210,6 +210,8 @@ impl QingjianInputController {
         if turned {
             self.render(client);
         }
-        true
+        // 没翻成（只有一页、或已经在头 / 尾）时返回 false：调用方把翻页键当普通字符处理
+        //（用户把 `-` 配成翻页键时，`sec-reports` 里的连字符才进得去）
+        turned
     }
 }
