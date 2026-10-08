@@ -10,11 +10,11 @@ impl QingjianInputController {
         }
     }
 
-    /// 英文模式里「欠着的空格」见分晓的地方：
+    /// 英文模式里「欠着的空格」见分晓的地方（只在**用空格选词**后才欠，见 `handle_text`）：
     ///
     /// - 下一个字符是标点（`, . ! ? : ; ) ] } %` 与全角那一套）→ 空格不算数，直接打标点（`hello ,` → `hello,`）；
     /// - 其余（字母、数字、`(`、`[`、`{` 等）→ 先把欠的空格补给应用，再接这个字符；
-    /// - 又是空格 → 合一个（还是欠着，不补）。
+    /// - 又是空格 → 把欠的清掉（不清会多出一个：这一次手动空格由按键处理那边当场递交）。
     ///
     /// 宁可晚一步也不去改应用里已插好的文本：上屏之后那段文本就不归我们了。
     fn flush_pending_space(&self, c: char, client: TextClient<'_>) {
@@ -137,15 +137,18 @@ impl QingjianInputController {
             if composing && c == page_next {
                 return self.turn_page(1, client);
             }
-            // 空格：英文模式下它既是「选词键」也是「词间分隔」，但**先欠着**不立刻送到应用 ——
-            // 下一个键是标点时该把空格撤掉（`hello` + 空格 + `,` → `hello,`，见 `flush_pending_space`）。
-            // 不这样做就只能去改应用里已经插好的文本，而提交之后输入法已经碰不到那段文本了。
+            // 空格分两种：
+            // ① 组句中敲 —— 它同时是「选词键」与词间分隔，先**欠着**由下一个键决定
+            //   （`hello` 空格 `,` → `hello,`；见 `flush_pending_space`）；
+            // ② 没在组句 —— 就是普通的手动空格，任何时候都该出空格，照常递交。
             if c == ' ' {
                 if composing {
                     self.commit_highlighted(client);
+                    host::with(|h| h.pending_space = true);
+                    return true;
                 }
-                host::with(|h| h.pending_space = true);
-                return true;
+                self.pass_through(c, client);
+                return false;
             }
             if composing {
                 self.commit_raw(client);

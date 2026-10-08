@@ -244,8 +244,8 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
-- 英文模式的空格「欠着的」（`host.pending_space`，`imk/controller/text.rs` 的 `flush_pending_space`）：空格键（包括用空格选词）不当场送到应用，
-  等下一个字符 —— 标点就不算数（`hello` 空格 `,` → `hello,`），其余先补上（`hello world`）；命令键（回车 / 退格 / 方向键 / Esc）与拆卸会话时直接清掉。
+- 英文模式的空格「欠着的」（`host.pending_space`，`imk/controller/text.rs` 的 `flush_pending_space`）：用空格**选词**时那个空格不当场送到应用，
+  没在组句时按的空格是普通空格，照旧立刻递交；命令键（回车 / 退格 / 方向键 / Esc）与拆卸会话时直接清掉。
   只能这样晚一步：上屏之后那段文本就归应用了，输入法改不了（其他平台还没这个机制，选完立刻补一个空格）。
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
