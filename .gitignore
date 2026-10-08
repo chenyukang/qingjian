@@ -6,3 +6,5 @@
 /logs
 /data
 .playwright-mcp/
+__pycache__/
+tools/personal-dict/.venv/

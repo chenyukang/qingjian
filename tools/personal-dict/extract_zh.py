@@ -22,8 +22,14 @@ import re
 import sys
 from collections import Counter
 
-import jieba
-from pypinyin import lazy_pinyin
+try:
+    import jieba
+    from pypinyin import lazy_pinyin
+except ImportError as error:
+    raise SystemExit(
+        f"缺少依赖 {error.name}：先跑 tools/personal-dict/setup.sh 建目录内的虚拟环境，\n"
+        f"再用 tools/personal-dict/.venv/bin/python 跑本脚本（其它命令用系统 python3 即可）。"
+    ) from error
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import qingjian

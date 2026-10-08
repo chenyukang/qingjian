@@ -8,46 +8,50 @@ extract_en.py ──────────────(人工过目)── mer
 discover_zh.py（实验：互信息 / 左右熵，辅助判断成词）
 ```
 
-## 安装依赖
+## 依赖
+
+只有 **中文抽取**（`extract_zh.py`）需要第三方包（jieba 分词、pypinyin 补拼音）。系统 python3 没有、
+macOS 又不让直接 `pip install`（PEP 668），所以建一个目录内的虚拟环境：
 
 ```bash
-python3 -m venv /tmp/qjw && /tmp/qjw/bin/pip install -r tools/personal-dict/requirements.txt
+bash tools/personal-dict/setup.sh          # 建 tools/personal-dict/.venv（已 gitignore）
+PY=tools/personal-dict/.venv/bin/python    # 中文抽取用它
 ```
+
+其余命令（`extract_en.py` / `mark_zh.py` / `merge.py` / `verify.py`）只用标准库，`python3` 直接跑。
 
 ## 中文
 
 ```bash
-P=/tmp/qjw/bin/python
+PY=$PWD/tools/personal-dict/.venv/bin/python
 OB=~/code/writing/ob
 
 # 1. 抽候选（只留词库里没有的词），输出：词 拼音 出现次数 篇数
-$P tools/personal-dict/extract_zh.py /tmp/zh-raw.tsv $OB
+$PY tools/personal-dict/extract_zh.py /tmp/zh-raw.tsv $OB
 
 # 2. 打可疑标记（首尾虚字 / 量词 / 两词连写），无标记的排前面；顺手出一份能读的 md
-$P tools/personal-dict/mark_zh.py /tmp/zh-raw.tsv /tmp/zh-marked.tsv --md ~/Documents/候选词.md
+python3 tools/personal-dict/mark_zh.py /tmp/zh-raw.tsv /tmp/zh-marked.tsv --md ~/Documents/候选词.md
 
 # 3. 人工过目：把不要的行删掉（或保留带标记的某些行）
 
 # 4. 合并：无标记的全收，带标记的默认要 ≥5 篇；先 --dry-run 看一遍
-$P tools/personal-dict/merge.py zh /tmp/zh-marked.tsv --dry-run
-$P tools/personal-dict/merge.py zh /tmp/zh-marked.tsv
+python3 tools/personal-dict/merge.py zh /tmp/zh-marked.tsv --dry-run
+python3 tools/personal-dict/merge.py zh /tmp/zh-marked.tsv
 
 # 5. 验证：拿 engine 在副本上查，确认「词 + 拼音」能出候选
-$P tools/personal-dict/verify.py zh /tmp/zh-marked.tsv --limit 9
+python3 tools/personal-dict/verify.py zh /tmp/zh-marked.tsv --limit 9
 ```
 
 ## 英文
 
 ```bash
-P=/tmp/qjw/bin/python
-
 # 1. 抽候选（正文 + 代码块都算），输出分两段：
 #    A = 随包英文词表里没有的专用词；B = 词表里有但你用得远超通用统计的（Zipf < 3.5）
-$P tools/personal-dict/extract_en.py ~/code/writing/ob --tsv /tmp/en.tsv --md ~/Documents/英文候选词.md
+python3 tools/personal-dict/extract_en.py ~/code/writing/ob --tsv /tmp/en.tsv --md ~/Documents/英文候选词.md
 
 # 2. 过目 → 合并 → 验证
-$P tools/personal-dict/merge.py en /tmp/en.tsv
-$P tools/personal-dict/verify.py en /tmp/en.tsv
+python3 tools/personal-dict/merge.py en /tmp/en.tsv
+python3 tools/personal-dict/verify.py en /tmp/en.tsv
 ```
 
 ## 注意
@@ -80,3 +84,4 @@ $P tools/personal-dict/verify.py en /tmp/en.tsv
 | `merge.py` | 并入个人词库（备份 + 去重 + 词频） |
 | `verify.py` | 用 `qingjian-cli` 在副本上验证候选能不能出得来 |
 | `discover_zh.py` | 互信息 / 左右熵（实验） |
+| `setup.sh` | 建 `tools/personal-dict/.venv`（只装 jieba + pypinyin，给 `extract_zh.py` 用） |
