@@ -3,10 +3,13 @@
 //! 输入源图标（Info.plist 的 tsInputMethodIconFileKey）没法动态换，所以自己放一个 NSStatusItem。
 //! Caps Lock 的变化不会作为按键送到输入法，用一个定时器轮询系统状态刷新。
 //!
-//! 状态项一旦创建就**不再隐藏**：`setVisible(false)` 再 `setVisible(true)` 会把它重新排到菜单栏最左边，用户 ⌘ 拖到输入法图标旁的位置就丢了
-//! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
-//! 停用时改成收成零宽、清空标题，并且延迟 [`COLLAPSE_DELAY`] 再收：焦点只是在输入框之间挪的话，半秒内就会再次激活，根本收不下去；
-//! 真换到别的输入法才收起来，切回来再展开，位置一直在。
+//! 状态项一旦创建，可见性分两种处理：
+//! - **配置关掉**（`[status_bar] menubar_item = false`）：`setVisible(false)` 真的从菜单栏拿掉。只收成零宽不行 ——
+//!   这版系统上零宽状态项会留一个小黑块（2026-10-07 用户报的：「配置的是隐藏就应该真的不显示」）。
+//!   代价是再打开时会被系统排到最左边（固定 autosave 名也保不住），但只在用户改开关时发生。
+//! - **输入法停用**：收成零宽 + 藏起按钮（**位置要保住**）。焦点每进出一次输入框 IMK 就 deactivate / activate 一轮，
+//!   所以延迟 [`COLLAPSE_DELAY`] 再收：焦点只是在输入框之间挪的话，半秒内就会再次激活，根本收不下去；
+//!   真换到别的输入法才收起来，切回来再展开，位置一直在。
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -68,7 +71,10 @@ impl ModeIndicator {
         }
     }
 
-    /// `[status_bar] menubar_item`：关掉就把状态项收成零宽并保持收起；打开则恢复展开。
+    /// `[status_bar] menubar_item`：关掉就**真的从菜单栏拿掉**（`setVisible(false)`），打开则恢复。
+    ///
+    /// 只收成零宽不够 —— 这版系统上会留一个小黑块（见本文件开头的说明）。拿掉的代价是再打开时位置可能被
+    /// 系统排到最左边，这只在用户主动改开关时发生；焦点来回挪动那种「停用收起」仍走零宽那条路（保位置）。
     pub fn set_enabled(&mut self, on: bool) {
         if self.enabled == on {
             return;
@@ -76,10 +82,12 @@ impl ModeIndicator {
         self.enabled = on;
         self.english = None;
         if on {
+            self.item.setVisible(true);
             self.activate();
         } else {
-            // 不等那半秒的延迟收起，立刻收
+            // 不等那半秒的延迟收起，立刻收，并整个拿掉
             self.collapse();
+            self.item.setVisible(false);
         }
     }
 
@@ -94,6 +102,9 @@ impl ModeIndicator {
         }
         if !self.shown {
             self.shown = true;
+            if let Some(button) = self.item.button(self.mtm) {
+                button.setHidden(false);
+            }
             self.item.setLength(NSVariableStatusItemLength);
         }
         self.english = None;
@@ -133,7 +144,10 @@ impl ModeIndicator {
         self.collapse_timer = Some(timer);
     }
 
-    /// 收成零宽、清空标题；位置保留。
+    /// 收成零宽、清空标题并藏起按钮；**位置保留**。
+    ///
+    /// 位置是要保的（焦点在输入框之间挪动不该让图标跳位置），所以这里不用 `setVisible(false)` ——
+    /// 那会把它排到菜单栏最左边。真要「配置关掉」走 [`Self::set_enabled`]。
     pub fn collapse(&mut self) {
         self.collapse_timer = None;
         if !self.shown {
@@ -143,6 +157,7 @@ impl ModeIndicator {
         self.english = None;
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(ns_string!(""));
+            button.setHidden(true);
         }
         self.item.setLength(0.0);
     }

@@ -243,6 +243,9 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。
+- 菜单栏「中 / 英」状态项（`menubar/indicator.rs`）的两种不可见不一样：**配置关掉**（`[status_bar] menubar_item = false`）走 `setVisible(false)` 真拿掉
+  —— 只收成零宽在这版系统上会留一个小黑块（2026-10-07 用户报的）；**输入源不是青简**时的收起走「零宽 + 藏按钮」，因为那条要保住位置
+  （焦点在输入框之间挪动会反复触发，位置跳来跳去很难受）。
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
 - 英文模式的空格「欠着的」（`host.pending_space`，`imk/controller/text.rs` 的 `flush_pending_space`）：用空格**选词**时那个空格不当场送到应用，
   没在组句时按的空格是普通空格，照旧立刻递交；命令键（回车 / 退格 / 方向键 / Esc）与拆卸会话时直接清掉。
