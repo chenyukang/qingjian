@@ -19,7 +19,7 @@ use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
 use qingjian_platform::{CandidateRenderer, LayoutMode};
-use qingjian_render::VerticalOrder;
+use qingjian_render::{MAX_TEXT_LINES, MAX_TEXT_WIDTH, VerticalOrder, wrap_text};
 
 use super::bitmap::BitmapPainter;
 use super::cloud_icon::CloudIcon;
@@ -365,9 +365,11 @@ impl CandidateView {
         };
         for row in rows {
             let index = self.measure(&row.index, &theme.index_font);
-            let mut text = self.measure(&row.text, &theme.text_font);
+            // 长文本（翻译 / 纠错的结果）按固定最大宽度折行：宽度封顶、行高按行数算
+            let lines = self.text_lines(&row.text);
+            let mut text_width = self.text_lines_width(&lines);
             if row.cloud {
-                text.width += self.cloud_width();
+                text_width += self.cloud_width();
             }
             let annotation: f64 = row
                 .annotation
@@ -375,11 +377,11 @@ impl CandidateView {
                 .map(|(s, _)| self.measure(s, &theme.annotation_font).width)
                 .sum();
             columns.index_width = columns.index_width.max(index.width);
-            columns.text_width = columns.text_width.max(text.width);
+            columns.text_width = columns.text_width.max(text_width);
             columns.annotation_width = columns.annotation_width.max(annotation);
             columns.row_height = columns
                 .row_height
-                .max(text.height + theme.row_padding * 2.0);
+                .max(self.text_lines_height(lines.len()) + theme.row_padding * 2.0);
         }
         columns
     }
@@ -392,14 +394,17 @@ impl CandidateView {
             .iter()
             .map(|row| {
                 let index = self.measure(&row.index, &theme.index_font);
-                let mut text = self.measure(&row.text, &theme.text_font);
+                // 长文本（翻译 / 纠错的结果）按固定最大宽度折行
+                let lines = self.text_lines(&row.text);
+                let mut text_width = self.text_lines_width(&lines);
                 if row.cloud {
-                    text.width += self.cloud_width();
+                    text_width += self.cloud_width();
                 }
-                row_height = row_height.max(text.height + theme.row_padding * 2.0);
+                row_height =
+                    row_height.max(self.text_lines_height(lines.len()) + theme.row_padding * 2.0);
                 Item {
                     index_width: index.width,
-                    text_width: text.width,
+                    text_width,
                 }
             })
             .collect();
@@ -530,7 +535,7 @@ impl CandidateView {
                 baseline + small_offset,
                 theme.padding,
             );
-            self.draw_word(row, text_x, baseline, text_size.height);
+            self.draw_word_lines(row, &self.text_lines(&row.text), text_x, baseline);
             let mut x = annotation_x;
             for (segment, tone) in &row.annotation {
                 x += self.draw_text(
@@ -599,11 +604,11 @@ impl CandidateView {
                 baseline + self.small_offset(text_size.height),
                 x,
             );
-            self.draw_word(
+            self.draw_word_lines(
                 row,
+                &self.text_lines(&row.text),
                 x + item.index_width + INDEX_GAP,
                 baseline,
-                text_size.height,
             );
             x += item_width + theme.column_gap;
         }
@@ -652,6 +657,27 @@ impl CandidateView {
         self.draw_text(&row.text, &theme.text_font, color, baseline, word_x);
     }
 
+    /// 画候选词，可能已折行：云端词第一行前带云朵。返回文字块高度。
+    fn draw_word_lines(&self, row: &Row, lines: &[String], x: f64, top: f64) -> f64 {
+        let theme = self.theme();
+        let color = if row.cloud {
+            &theme.cloud_color
+        } else {
+            &theme.text_color
+        };
+        let line_height = self.measure("x", &theme.text_font).height;
+        let mut word_x = x;
+        let mut y = top;
+        for (i, line) in lines.iter().enumerate() {
+            if i == 0 && row.cloud {
+                word_x += self.draw_cloud(word_x, y, line_height);
+            }
+            self.draw_text(line, &theme.text_font, color, y, word_x);
+            y += line_height;
+        }
+        self.text_lines_height(lines.len())
+    }
+
     fn fill_highlight(&self, rect: NSRect) {
         let theme = self.theme();
         theme.highlight.set();
@@ -686,6 +712,31 @@ impl CandidateView {
     fn measure(&self, text: &str, font: &NSFont) -> NSSize {
         self.attributed(text, font, &self.theme().text_color, false)
             .size()
+    }
+
+    /// 候选文字按固定最大宽度折行：翻译 / 纠错的结果可能上千字，一行铺开会把窗口拉成几千像素的长条。
+    /// 与位图渲染器共用 `qingjian_render::wrap` 的同一份规则，两条路径的窗口宽度才一致。
+    fn text_lines(&self, text: &str) -> Vec<String> {
+        let font = &self.theme().text_font;
+        wrap_text(
+            text,
+            |s| self.measure(s, font).width as f32,
+            MAX_TEXT_WIDTH,
+            MAX_TEXT_LINES,
+        )
+    }
+
+    /// 折行后文字块的宽度（取最宽一行）。
+    fn text_lines_width(&self, lines: &[String]) -> f64 {
+        let font = &self.theme().text_font;
+        lines
+            .iter()
+            .fold(0.0, |w, line| w.max(self.measure(line, font).width))
+    }
+
+    /// 折行后文字块的高度。
+    fn text_lines_height(&self, lines: usize) -> f64 {
+        self.measure("x", &self.theme().text_font).height * lines.max(1) as f64
     }
 
     fn attributed(

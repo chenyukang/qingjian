@@ -22,6 +22,7 @@ use crate::shadow::Shadow;
 use crate::text::{TextPainter, TextSize, TextStyle};
 use crate::theme::{FontSpec, Theme};
 use crate::vertical_order::VerticalOrder;
+use crate::wrap::{self, MAX_TEXT_LINES, MAX_TEXT_WIDTH};
 
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
@@ -55,6 +56,13 @@ const MIN_VERTICAL_WIDTH: f32 = 120.0;
 pub struct Renderer {
     /// 文字测绘。
     text: TextPainter,
+}
+
+/// 折行后的候选词：行、整体宽高（像素）。
+pub(super) struct WrappedText {
+    pub(super) lines: Vec<String>,
+    pub(super) width: f32,
+    pub(super) height: f32,
 }
 
 /// 一次渲染期间的上下文：主题按倍数换算后的像素值。
@@ -256,6 +264,25 @@ impl Renderer {
         self.text.draw(canvas, text, style, x, y)
     }
 
+    /// 候选词文字按固定最大宽度折行：翻译 / 纠错的结果可能上千字，一行铺开会把窗口拉成几千像素的长条。
+    /// 宽度上限按缩放换算成像素，最多 [`MAX_TEXT_LINES`] 行，再长以省略号收尾。
+    fn wrap_row_text(&mut self, text: &str, style: &TextStyle, m: &Metrics) -> WrappedText {
+        let lines = wrap::wrap_text(
+            text,
+            |s| self.measure(s, style).width,
+            m.px(MAX_TEXT_WIDTH),
+            MAX_TEXT_LINES,
+        );
+        let width = lines.iter().fold(0.0_f32, |width, line| {
+            width.max(self.measure(line, style).width)
+        });
+        WrappedText {
+            height: style.line_height * lines.len() as f32,
+            width,
+            lines,
+        }
+    }
+
     /// 画云朵，返回占用宽度（含间距）。`top` 是所在行文字的顶边，`line_height` 用来垂直居中。
     fn draw_cloud(
         &mut self,
@@ -286,25 +313,33 @@ impl Renderer {
         top: f32,
         text_height: f32,
     ) {
-        let mut word_x = x;
-        if row.cloud {
-            word_x += self.draw_cloud(canvas, m, word_x, top, text_height);
-        }
         let color = if row.cloud {
             m.theme.colors.cloud
         } else {
             m.theme.colors.text
         };
         let style = m.style(m.theme.text_font, color);
-        word_x += self.draw_text(canvas, &row.text, &style, word_x, top);
+        // 长文本（翻译 / 纠错的结果）折行画：宽度上限与排版时的一致
+        let wrapped = self.wrap_row_text(&row.text, &style, m);
+        let line_height = style.line_height;
+        let mut word_x = x;
+        if row.cloud {
+            word_x += self.draw_cloud(canvas, m, word_x, top, text_height);
+        }
+        let mut y = top;
+        let mut last_width = 0.0;
+        for line in &wrapped.lines {
+            last_width = self.draw_text(canvas, line, &style, word_x, y);
+            y += line_height;
+        }
         if let Some(code) = &row.code {
             let style = m.annotation_style(m.tone_color(Tone::Code));
             self.draw_text(
                 canvas,
                 code,
                 &style,
-                word_x,
-                top + m.small_offset(text_height),
+                word_x + last_width,
+                y - line_height + m.small_offset(text_height),
             );
         }
     }

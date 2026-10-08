@@ -19,6 +19,7 @@ mod shadow;
 mod text;
 mod theme;
 mod vertical_order;
+pub mod wrap;
 
 pub use color::Color;
 pub use error::RenderError;
@@ -32,6 +33,7 @@ pub use renderer::{Rendered, RenderedStatus, Renderer, StatusCell};
 pub use shadow::Shadow;
 pub use theme::{FontSpec, Palette, Theme};
 pub use vertical_order::VerticalOrder;
+pub use wrap::{MAX_TEXT_LINES, MAX_TEXT_WIDTH, wrap_text};
 
 /// 让 `tiny_skia::Pixmap` 的使用方不用再单独依赖 tiny-skia。
 pub use tiny_skia::Pixmap;

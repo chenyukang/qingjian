@@ -34,20 +34,24 @@ impl Renderer {
         let annotation_style = m.annotation_style(m.theme.colors.gloss);
         for row in rows {
             let index = self.measure(&row.index, &index_style);
-            let mut text = self.measure(&row.text, &text_style);
+            // 长文本（翻译 / 纠错的结果）按固定最大宽度折行：宽度封顶、行高按行数算
+            let wrapped = self.wrap_row_text(&row.text, &text_style, m);
+            let mut text_width = wrapped.width;
             if row.cloud {
-                text.width += m.cloud_width();
+                text_width += m.cloud_width();
             }
-            text.width += self.code_width(row, m);
+            text_width += self.code_width(row, m);
             let annotation: f32 = row
                 .annotation
                 .iter()
                 .map(|(s, _)| self.measure(s, &annotation_style).width)
                 .sum();
             columns.index_width = columns.index_width.max(index.width);
-            columns.text_width = columns.text_width.max(text.width);
+            columns.text_width = columns.text_width.max(text_width);
             columns.annotation_width = columns.annotation_width.max(annotation);
-            columns.row_height = columns.row_height.max(text.height + m.row_padding() * 2.0);
+            columns.row_height = columns
+                .row_height
+                .max(wrapped.height + m.row_padding() * 2.0);
         }
         columns
     }

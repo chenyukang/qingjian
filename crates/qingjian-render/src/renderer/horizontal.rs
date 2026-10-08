@@ -55,15 +55,17 @@ impl Renderer {
             .iter()
             .map(|row| {
                 let index = self.measure(&row.index, &index_style);
-                let mut text = self.measure(&row.text, &text_style);
+                // 长文本（翻译 / 纠错的结果）按固定最大宽度折行
+                let wrapped = self.wrap_row_text(&row.text, &text_style, m);
+                let mut text_width = wrapped.width;
                 if row.cloud {
-                    text.width += m.cloud_width();
+                    text_width += m.cloud_width();
                 }
-                text.width += self.code_width(row, m);
-                row_height = row_height.max(text.height + m.row_padding() * 2.0);
+                text_width += self.code_width(row, m);
+                row_height = row_height.max(wrapped.height + m.row_padding() * 2.0);
                 Item {
                     index_width: index.width,
-                    text_width: text.width,
+                    text_width,
                 }
             })
             .collect();
