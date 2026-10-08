@@ -22,13 +22,19 @@ import re
 import sys
 from collections import Counter
 
+VENV_FALLBACK = pathlib.Path(os.environ.get("QINGJIAN_DICT_VENV", pathlib.Path.home() / ".venvs" / "qingjian-dict"))
+
 try:
     import jieba
     from pypinyin import lazy_pinyin
 except ImportError as error:
+    # 本机环境装在 ~/.venvs/qingjian-dict（见 setup.sh）：在的话直接用它重跑，不用手动切
+    if error.name in {"jieba", "pypinyin"} and (VENV_FALLBACK / "bin" / "python").is_file():
+        print(f"用 {VENV_FALLBACK}/bin/python 重跑（缺 {error.name}）", file=sys.stderr)
+        os.execv(str(VENV_FALLBACK / "bin" / "python"), [str(VENV_FALLBACK / "bin" / "python"), *sys.argv])
     raise SystemExit(
-        f"缺少依赖 {error.name}：先跑 tools/personal-dict/setup.sh 建目录内的虚拟环境，\n"
-        f"再用 tools/personal-dict/.venv/bin/python 跑本脚本（其它命令用系统 python3 即可）。"
+        f"缺少依赖 {error.name}：先跑 bash tools/personal-dict/setup.sh 装本机虚拟环境\n"
+        f"（默认 {VENV_FALLBACK}），或用它的 python 跑本脚本。其它命令用系统 python3 即可。"
     ) from error
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))

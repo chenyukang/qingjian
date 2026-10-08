@@ -11,23 +11,22 @@ discover_zh.py（实验：互信息 / 左右熵，辅助判断成词）
 ## 依赖
 
 只有 **中文抽取**（`extract_zh.py`）需要第三方包（jieba 分词、pypinyin 补拼音）。系统 python3 没有、
-macOS 又不让直接 `pip install`（PEP 668），所以建一个目录内的虚拟环境：
+macOS 又不让直接 `pip install`（PEP 668），所以给本机建一个仓库外的虚拟环境：
 
 ```bash
-bash tools/personal-dict/setup.sh          # 建 tools/personal-dict/.venv（已 gitignore）
-PY=tools/personal-dict/.venv/bin/python    # 中文抽取用它
+bash tools/personal-dict/setup.sh        # 建 ~/.venvs/qingjian-dict（jieba + pypinyin）
 ```
 
+装好之后**直接跑就行**：`extract_zh.py` 发现系统 python3 缺包时会自动用那个 venv 重跑。
 其余命令（`extract_en.py` / `mark_zh.py` / `merge.py` / `verify.py`）只用标准库，`python3` 直接跑。
 
 ## 中文
 
 ```bash
-PY=$PWD/tools/personal-dict/.venv/bin/python
 OB=~/code/writing/ob
 
 # 1. 抽候选（只留词库里没有的词），输出：词 拼音 出现次数 篇数
-$PY tools/personal-dict/extract_zh.py /tmp/zh-raw.tsv $OB
+python3 tools/personal-dict/extract_zh.py /tmp/zh-raw.tsv $OB
 
 # 2. 打可疑标记（首尾虚字 / 量词 / 两词连写），无标记的排前面；顺手出一份能读的 md
 python3 tools/personal-dict/mark_zh.py /tmp/zh-raw.tsv /tmp/zh-marked.tsv --md ~/Documents/候选词.md
@@ -84,4 +83,4 @@ python3 tools/personal-dict/verify.py en /tmp/en.tsv
 | `merge.py` | 并入个人词库（备份 + 去重 + 词频） |
 | `verify.py` | 用 `qingjian-cli` 在副本上验证候选能不能出得来 |
 | `discover_zh.py` | 互信息 / 左右熵（实验） |
-| `setup.sh` | 建 `tools/personal-dict/.venv`（只装 jieba + pypinyin，给 `extract_zh.py` 用） |
+| `setup.sh` | 建本机虚拟环境 `~/.venvs/qingjian-dict`（jieba + pypinyin，给 `extract_zh.py` 用） |
