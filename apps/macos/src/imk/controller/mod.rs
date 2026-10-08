@@ -12,7 +12,9 @@ use objc2_input_method_kit::{IMKInputController, IMKServer};
 use qingjian_core::{Candidate, QUESTION_PREFIX};
 use qingjian_platform::Modifiers;
 
-use super::{TextClient, catch_panic, modifiers, recover_from_panic, secure_input};
+use super::{
+    SelectionFailure, TextClient, catch_panic, modifiers, recover_from_panic, secure_input,
+};
 use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
@@ -165,8 +167,11 @@ define_class!(
     unsafe impl NSObjectProtocol for QingjianInputController {}
 );
 
-/// 翻译选中文字最多接受多少个字符：再长既慢又贵，也不是输入法该干的事。
-const MAX_TRANSLATE_CHARS: usize = 500;
+/// 读不到配置时的兜底上限（正常走 `[predict] max_selection_chars`，缺省 1000 个字符）。
+fn max_selection_chars() -> usize {
+    host::with(|h| h.settings.config().predict.max_selection_chars)
+        .unwrap_or_else(|| qingjian_predict::PredictConfig::default().max_selection_chars)
+}
 
 /// 给本地整句模型看的光标前文最多读多少字符（Engine 自己再按它的前文长度截）。
 const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;

@@ -15,8 +15,33 @@ use crate::config::PredictConfig;
 use crate::error::PredictError;
 use crate::prompt::{self, Reply};
 
-/// 联想回复的 token 上限：几条短句足够，防止模型长篇大论。
+/// 组句联想的 token 上限：几条短句足够，防止模型长篇大论。
 const MAX_TOKENS: u32 = 200;
+
+/// 手动任务（翻译 / 纠错）的 token 与等待时间预算：
+///
+/// 这两个任务要求模型把**整段选中文字原样吐回来**，所以输出长度和选区长度同量级 ——
+/// 500 个汉字要上千 token，固定 200 的预算会直接把回复截断（`finish_reason = length`，
+/// JSON 也就断了）。同样地，配置里的 `timeout_ms`（默认 5 秒）是为联想设计的，
+/// 几千 token 的生成撑不住，这里按字数放宽。
+///
+/// 估算：一个汉字约 1 token，乘 2 留余量；夹在 256…8192（DeepSeek 一档的输出上限）之间。
+/// 等待时间：3 秒底 + 每字 30 毫秒，最多 60 秒。
+const MANUAL_MIN_TOKENS: u32 = 256;
+const MANUAL_MAX_TOKENS: u32 = 8192;
+const MANUAL_BASE_MS: u64 = 3000;
+const MANUAL_MS_PER_CHAR: u64 = 30;
+const MANUAL_MAX_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// 手动任务的 (输出 token 上限, 等待时间)。`base_timeout` 是配置里的 `timeout_ms`，只作为下限。
+fn manual_budget(chars: usize, base_timeout: Duration) -> (u32, Duration) {
+    let chars = chars as u32;
+    let tokens = chars
+        .saturating_mul(2)
+        .clamp(MANUAL_MIN_TOKENS, MANUAL_MAX_TOKENS);
+    let wait = Duration::from_millis(MANUAL_BASE_MS + u64::from(chars) * MANUAL_MS_PER_CHAR);
+    (tokens, base_timeout.max(wait).min(MANUAL_MAX_TIMEOUT))
+}
 
 /// 采样温度：联想要稳，不要花。
 const TEMPERATURE: f32 = 0.3;
@@ -63,8 +88,26 @@ impl ChatClient {
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
         let user = prompt::user_prompt(request);
         tracing::debug!(sequence = request.sequence, %user, "联想请求");
+        // 翻译 / 纠错要把整段原样吐回来：预算与等待时间都按选中字数算，不能沿用联想的 200 token / 5 秒
+        let manual = matches!(
+            request.kind,
+            qingjian_core::PredictionKind::Translate | qingjian_core::PredictionKind::Correct
+        );
+        let (max_tokens, timeout) = if manual {
+            manual_budget(request.text.chars().count(), self.timeout)
+        } else {
+            (MAX_TOKENS, self.timeout)
+        };
+        if manual {
+            tracing::debug!(
+                chars = request.text.chars().count(),
+                max_tokens,
+                timeout_ms = timeout.as_millis() as u64,
+                "手动任务的预算"
+            );
+        }
         let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
+            .chat_within(prompt::system_prompt(request), &user, max_tokens, timeout)
             .await?;
         let reply = prompt::parse_reply(&content, request);
         // 手动任务（翻译 / 纠错）解析不出文本时把原始回复记下来：模型偶尔不按 JSON 回，
@@ -88,6 +131,18 @@ impl ChatClient {
         user: &str,
         max_tokens: u32,
     ) -> Result<String, PredictError> {
+        self.chat_within(system, user, max_tokens, self.timeout)
+            .await
+    }
+
+    /// 同上，但用调用方给的等待时间（手动任务按字数放宽，见 [`manual_budget`]）。
+    async fn chat_within(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+        timeout: Duration,
+    ) -> Result<String, PredictError> {
         let messages: Vec<ChatCompletionRequestMessage> = vec![
             ChatCompletionRequestSystemMessage::from(system).into(),
             ChatCompletionRequestUserMessage::from(user).into(),
@@ -106,9 +161,9 @@ impl ChatClient {
             self.thinking_switch.disable(&mut body);
         }
         let raw: serde_json::Value =
-            tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
+            tokio::time::timeout(timeout, self.client.chat().create_byot(body))
                 .await
-                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))??;
+                .map_err(|_| PredictError::Timeout(timeout.as_millis() as u64))??;
         let response: CreateChatCompletionResponse = serde_json::from_value(raw.clone())?;
         let cut_off = response
             .choices
@@ -230,6 +285,23 @@ fn parse_reasoning_effort(value: &str) -> Option<ReasoningEffort> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manual_budget_scales_with_selection_length() {
+        let base = Duration::from_millis(5000);
+        // 短选区：token 抬到下限，等待时间仍用配置里的超时
+        assert_eq!(manual_budget(20, base).0, MANUAL_MIN_TOKENS);
+        assert_eq!(manual_budget(20, base).1, base);
+        // 500 字：1000 token、18 秒（原来的 200 token / 5 秒就是在这里截断的）
+        assert_eq!(
+            manual_budget(500, base),
+            (1000, Duration::from_millis(18000))
+        );
+        // 2000 字：4000 token、63 秒 → 夹回 60 秒上限
+        assert_eq!(manual_budget(2000, base), (4000, MANUAL_MAX_TIMEOUT));
+        // 极长选区：token 不超过接口上限
+        assert_eq!(manual_budget(100_000, base).0, MANUAL_MAX_TOKENS);
+    }
 
     #[test]
     fn reasoning_effort_parses_known_values_and_ignores_the_rest() {

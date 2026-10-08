@@ -364,6 +364,9 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
+# 翻译 / 纠错选中文字时，选区最多多少个字符（一个汉字算 1）。选区要原样发给模型、
+# 再由模型整段吐回来，所以这个值同时决定等待时间（大段文字会比普通请求慢很多）
+max_selection_chars = 1000
 
 [status_bar]
 # 桌面上的悬浮中 / 英指示器。Windows 是显示「中 / 英」文字的悬浮状态条（可拖动）；
@@ -632,6 +635,7 @@ mod tests {
         assert_eq!(config.predict.model, "deepseek-v4-flash");
         assert_eq!(config.predict.reasoning_effort, "none");
         assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
+        assert_eq!(config.predict.max_selection_chars, 1000);
     }
 
     #[test]

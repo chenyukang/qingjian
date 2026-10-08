@@ -101,6 +101,11 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   （`user-glossary-<语言>.tsv`，`LayeredTranslator` 个人表优先）；随云联想开关一起开。
 - 问字键（缺省 `u`）开头是问字模式（`PredictionKind::Question`，答案带读音、不校验拼音），`?` 开头要 `ModeKeys::question_mark` 开着才算（配置 `[shortcut] question_mark`，缺省关，壳用 `Engine::takes_question_mark` 决定空缓冲区的 `?` 是入口还是标点）；`PredictionKind::Translate` 是壳里快捷键触发的「翻译选中文字」
   （双向：汉字为主译成学习语言，外文译回中文，`prediction::translation_target`），译文走结果的 `sentence`。
+- 翻译 / 纠错（`PredictionKind::Translate` / `Correct`）要把整段选中文字**原样吐回来**，输出长度与选区同量级：
+  `ChatClient::complete` 对这两类任务不沿用联想的 200 token / 配置超时，改用 `manual_budget` 按字数算
+  （token = 字数×2，夹在 256–8192；等待 = 3 秒 + 每字 30 毫秒，夹在配置超时与 60 秒之间）。选区长度上限
+  是 `[predict] max_selection_chars`（缺省 1000），由壳在调 `TextClient::selected_text` 前施加，
+  读不到时按「没选中 / 应用不给读 / 超长」分别提示（`SelectionFailure`）。
 
 ## crates/qingjian-format
 

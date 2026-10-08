@@ -42,6 +42,11 @@ pub struct PredictConfig {
     /// 其余 minimal / low / medium / high / xhigh 照传；留空则不发（给不认这个参数的接口）。
     /// DeepSeek V4 这类默认带思考的模型不关会把 token 预算全花在思考上，正文为空。
     pub reasoning_effort: String,
+
+    /// 翻译 / 纠错选中文字时，选区最多多少个字符（按 UTF-16 单位算，一个汉字算 1）。
+    /// 选中的文字要原样发给模型、再由模型整段吐回来，所以这个值同时决定 prompt 长度、
+    /// 输出 token 预算与等待时间（见 `chat_client::manual_budget`）；调大时留意 `timeout_ms`。
+    pub max_selection_chars: usize,
 }
 
 impl Default for PredictConfig {
@@ -59,6 +64,7 @@ impl Default for PredictConfig {
             slots: 2,
             sentence: true,
             reasoning_effort: "none".to_owned(),
+            max_selection_chars: 1000,
         }
     }
 }

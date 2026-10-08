@@ -27,17 +27,29 @@ impl QingjianInputController {
             tracing::debug!("Secure Input 中，不翻译");
             return false;
         }
-        let Some((text, range)) = client.selected_text(MAX_TRANSLATE_CHARS) else {
-            // 分不清是没选还是应用不给读（不少 Electron 应用不支持），两种情况都提示一下，键吞掉
-            tracing::debug!("没有选中的文字，或应用不支持读选区");
-            let anchor = notice_anchor(client);
-            host::with(|h| {
-                h.show_notice(
-                    &format!("没有选中的文字，或这个应用不支持读取选区（{label}，最多 500 字）"),
-                    anchor,
-                )
-            });
-            return true;
+        let max_chars = max_selection_chars();
+        let (text, range) = match client.selected_text(max_chars) {
+            Ok(selected) => selected,
+            Err(failure) => {
+                // 三种失败原因分开报：原来一句话把「没选中」「应用不给读」「选得太长」
+                // 揉在一起，选了长段落的用户会以为是应用不支持，白折腾一圈
+                let message = match failure {
+                    SelectionFailure::Empty => {
+                        format!("先选中要{label}的文字，再按快捷键")
+                    }
+                    SelectionFailure::TooLong(chars) => format!(
+                        "选中的文字 {chars} 字，超过上限 {max_chars} 字：少选一段，\
+                         或在 config.toml 的 [predict] max_selection_chars 调大（调大前先看 timeout_ms）"
+                    ),
+                    SelectionFailure::Unreadable => format!(
+                        "这个应用不让读选中的文字（{label}）：换到备忘录、TextEdit 这类原生文本框里再试"
+                    ),
+                };
+                tracing::debug!(label, ?failure, max_chars, "读选区失败");
+                let anchor = notice_anchor(client);
+                host::with(|h| h.show_notice(&message, anchor));
+                return true;
+            }
         };
         // 弹框锚点：**跟当前鼠标**。三种「问应用要位置」的办法都不靠谱：
         // `caret_rect()` 问第 0 个字符（很多应用返回文档开头）、`firstRectForCharacterRange:`

@@ -17,6 +17,20 @@ pub struct TextClient<'a> {
     object: &'a AnyObject,
 }
 
+/// 读选区失败的原因。分开报：原来三种情况共用一句「没有选中的文字，或这个应用不支持读取选区」，
+/// 选区超长的用户会以为是应用不支持，白折腾一圈。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionFailure {
+    /// 没有选区，或只选了空白。
+    Empty,
+
+    /// 选区长度（UTF-16 单位，与 `NSRange.length` 一致）超过上限。
+    TooLong(usize),
+
+    /// 应用不给读选区（部分 Electron / 非标准控件）。
+    Unreadable,
+}
+
 impl<'a> TextClient<'a> {
     pub fn new(object: &'a AnyObject) -> Self {
         Self { object }
@@ -45,19 +59,28 @@ impl<'a> TextClient<'a> {
         }
     }
 
-    /// 应用里当前选中的文字与它的范围（翻译用）。没有选区、应用不支持读文本、超过 `max_chars` 个字符都返回 `None`。
-    pub fn selected_text(&self, max_chars: usize) -> Option<(String, NSRange)> {
+    /// 应用里当前选中的文字与它的范围（翻译 / 纠错用）。
+    ///
+    /// 超过 `max_chars` 个单位直接返回 [`SelectionFailure::TooLong`]：读下来再丢更费内存，
+    /// 调用方也要知道实际长度才能把话说清楚。
+    pub fn selected_text(&self, max_chars: usize) -> Result<(String, NSRange), SelectionFailure> {
         let selected: NSRange = unsafe { msg_send![self.object, selectedRange] };
-        if selected.location == NSNotFound as usize
-            || selected.length == 0
-            || selected.length > max_chars
-        {
-            return None;
+        if selected.location == NSNotFound as usize || selected.length == 0 {
+            return Err(SelectionFailure::Empty);
+        }
+        if selected.length > max_chars {
+            return Err(SelectionFailure::TooLong(selected.length));
         }
         let text: Option<Retained<NSAttributedString>> =
             unsafe { msg_send![self.object, attributedSubstringFromRange: selected] };
-        let text = text?.string().to_string();
-        (!text.trim().is_empty()).then_some((text, selected))
+        let Some(text) = text else {
+            return Err(SelectionFailure::Unreadable);
+        };
+        let text = text.string().to_string();
+        if text.trim().is_empty() {
+            return Err(SelectionFailure::Empty);
+        }
+        Ok((text, selected))
     }
 
     /// 用 `text` 替换应用里 `range` 那段文字（翻译结果替换选区）。
