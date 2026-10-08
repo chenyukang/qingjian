@@ -162,9 +162,18 @@ impl QingjianInputController {
         let expression = composing && host::with(|h| h.engine.expression_mode()).unwrap_or(false);
         // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，空格 / 回车整段原样上屏
         let raw = composing && host::with(|h| h.engine.raw_mode()).unwrap_or(false);
-        // 组句中敲 `-`：进入英文直输段（`no-way`）。翻页键如果真翻了页，上面已经返回；
-        // 没翻成时（只有一页、已在头尾）这里接手，把 `-` 当内容
+        // 翻页键：真的翻到页才吃掉这个键。没得翻（只有一页、已在第一页 / 最后一页）时退回
+        // 字符本身，接着走「英文直输段」—— 于是把 `-` 配成翻页键的人也能输入 `sec-reports`。
+        // 必须在英文直输段的标点判断之前：否则 `=` `-` 会先被当成内容，翻页就没了
+        if composing && c == page_previous && self.turn_page(-1, client) {
+            return true;
+        }
+        if composing && c == page_next && self.turn_page(1, client) {
+            return true;
+        }
+        // 组句中敲 `-`：进入英文直输段（`no-way`）。
         let hyphen = composing && !question && c == '-';
+
         // 问字模式下敲的还可能是码点（`u4e00`、`u+1f600`）：数字与 `+` 进缓冲区而不是选词
         let unicode = question && host::with(|h| h.engine.unicode_entry()).unwrap_or(false);
         // 微软 / 搜狗双拼的 `;` 是 ing 键：末尾有落单声母时进缓冲区，其他时候还是标点
