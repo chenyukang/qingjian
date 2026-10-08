@@ -18,8 +18,12 @@ use super::theme::Theme;
 use super::view::CandidateView;
 use crate::ui::material::PanelBackdrop;
 
-/// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
-const POPUP_MENU_LEVEL: NSWindowLevel = 101;
+/// 候选窗口层级：比 `kCGPopUpMenuWindowLevel`（101）再高一级。
+///
+/// 101 是系统输入法候选框的惯例层级，但有些应用把自己的浮窗钉在 102（`kCGOverlayWindowLevel`），
+/// 比如 Bob 翻译的悬浮窗 —— 在那种窗口里打字时，101 的候选框被它整个盖住（2026-10-07 用户报的）。
+/// 取 103：比 overlay 高一级，仍然在屏保（1000）之类系统层级之下。
+const CANDIDATE_LEVEL: NSWindowLevel = 103;
 
 /// 候选窗口与光标行之间的间隙。
 const CARET_GAP: f64 = 4.0;
@@ -266,7 +270,7 @@ fn build_panel(
     panel.setCollectionBehavior(collection_behavior());
     // 不要 setFloatingPanel(true)：它会把层级改回 NSFloatingWindowLevel（3），全屏应用的 Space 里就看不见了；
     // 层级最后设，别被前面任何一项覆盖
-    panel.setLevel(POPUP_MENU_LEVEL);
+    panel.setLevel(CANDIDATE_LEVEL);
     // 底色：**用一个普通容器装**，材质只是最底下的 subview，候选视图在它上面 ——
     // 不能把候选视图塞进 `NSGlassEffectView.setContentView`：这版系统上材质会压在内容
     // 上方，候选文字全被盖住（踩过）。subview 的顺序就是层级，靠它就够了。
