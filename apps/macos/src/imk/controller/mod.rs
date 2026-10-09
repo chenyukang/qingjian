@@ -245,14 +245,36 @@ impl QingjianInputController {
         let combo = host::with(|h| h.translate_keys).unwrap_or_default();
         if pressed == combo.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(combo.key)
+            && !event.isARepeat()
             && !host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
         {
             return self.translate_selection(client);
+        }
+        // 查询模式（`⌃8`）：中文照常组句、候选换成英文词；组句中也允许切，切了立刻按新模式重算候选
+        let lookup = host::with(|h| h.lookup_keys).unwrap_or_default();
+        if pressed == lookup.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(lookup.key)
+            // 按键自动重复（按住不放、或按得稍慢）会再送 keyDown：切换类的组合键必须忽略它，
+            // 否则「按一下开了、半秒后被重复事件又关掉」
+            && !event.isARepeat()
+        {
+            tracing::info!(?pressed, typed = ?typed, "查询模式快捷键");
+            let on = !host::with(|h| h.engine.lookup_mode()).unwrap_or(false);
+            host::with(|h| h.toggle_lookup(on));
+            self.refresh(client);
+            self.render(client);
+            return true;
+        }
+        // 查询模式：回车 / `⌃⏎` 都当「选中高亮候选（英文词）并上屏」——
+        // 其它模式里回车是「拼音原样上屏」，查询模式下那样只会把拼音打进文档
+        if matches!(key, 36 | 76) && host::with(|h| h.engine.lookup_mode()).unwrap_or(false) {
+            return self.commit_highlighted(client);
         }
         // 纠错快捷键（不在组句中）：读应用里的选区，交给云端纠错
         let correct = host::with(|h| h.correct_keys).unwrap_or_default();
         if pressed == correct.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(correct.key)
+            && !event.isARepeat()
             && !host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
         {
             return self.correct_selection(client);

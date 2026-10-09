@@ -43,6 +43,12 @@ impl QingjianInputController {
                     query.candidates.items
                 })
                 .unwrap_or_default();
+            // 查询模式的第二段：本地查不到时由 Lookup 侧决定显示缓存 / 占位 / 发请求
+            let candidates = if marked.is_empty() {
+                candidates
+            } else {
+                h.lookup_candidates(candidates)
+            };
             h.reset_session(preedit, candidates);
             h.schedule_rescoring();
             (marked, cursor, h.preedit_mode.inline())
@@ -55,8 +61,10 @@ impl QingjianInputController {
         } else {
             client.set_marked_text("", 0);
         }
-        // 先发联想再画：发出去就留好云端槽位，画出来的第一帧本地候选就已经在最终位置
-        if !marked.is_empty() {
+        // 先发联想再画：发出去就留好云端槽位，画出来的第一帧本地候选就已经在最终位置。
+        // 查询模式下不发组句联想（要的是英文说法，不是拼音对应的中文词）
+        let lookup = host::with(|h| h.engine.lookup_mode()).unwrap_or(false);
+        if !marked.is_empty() && !lookup {
             let candidates = host::with(|h| h.session.layout.local().to_vec()).unwrap_or_default();
             self.request_prediction(client, &candidates);
         }

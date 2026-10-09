@@ -170,6 +170,10 @@ translation_second = "shift+option"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
+# 查询模式（中文想法 → 英文写法）：照中文打拼音，候选先是中文（挑一条确认要查哪句），
+# 选完换成它的英文写法（右侧带词性与中文解释），再选一条即上屏；Esc 退回上一段 / 退出；
+# 本地查不到（整句、说法）才问云端；再按一次本键也退出
+lookup = "control+8"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 # 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）
@@ -192,6 +196,8 @@ translation = "ctrl"
 translation_second = "shift+ctrl"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 translate_selection = "ctrl+alt+t"
+# 查询模式（中文想法 → 英文写法）：照中文打拼音，候选给英文词（右侧带词性与中文解释）；Esc 退出
+lookup = "ctrl+8"
 # 切换中文模式下拼音时的英文词候选：按一次关、再按一次开
 toggle_english = "ctrl+shift+e"
 # 中 / 英切换：切到英文就是纯英文模式；与 Caps Lock 并存
@@ -391,6 +397,8 @@ visibility = "follow"
 # 中文 / 英文输入时的颜色：#RRGGBB，也可以写 red / green / blue / orange / white / black
 chinese_color = "#E5484D"
 english_color = "#46A758"
+# 查询模式（⌃8）时那颗点换成这个颜色（并描一圈白边），一眼看出「正等着查中文」
+lookup_color = "#D9822B"
 # 描一圈白边：深色壁纸和浅色窗口上都看得清
 outline = true
 # 切换中 / 英时在光标处提示一句("英文输入" / "中文输入")；嫌啰嗦可以关掉
@@ -613,6 +621,7 @@ mod template_tests {
         assert_eq!(config.status_bar.shape, Shape::Circle);
         assert_eq!(config.status_bar.chinese_color, Color::CHINESE);
         assert_eq!(config.status_bar.english_color, Color::ENGLISH);
+        assert_eq!(config.status_bar.lookup_color, Color::LOOKUP);
         assert!(config.status_bar.outline);
     }
 }
@@ -672,6 +681,11 @@ mod tests {
             Config::default().shortcut.translation
         );
         assert_eq!(config.shortcut.switch_mode, SwitchKeys::default());
+        // 节里没写 lookup：不能落到 KeyCombo::default()（那是 ⌃⌥T，与翻译撞车）
+        assert_eq!(
+            config.shortcut.lookup,
+            crate::config::key_combo::KeyCombo::LOOKUP_DEFAULT
+        );
         assert!(config.general.english_mode);
     }
 

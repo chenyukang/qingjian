@@ -161,6 +161,9 @@ pub enum Setting {
     /// `[status_bar] english_color`，文本框：英文时的颜色。
     StatusBarEnglishColor,
 
+    /// `[status_bar] lookup_color`，文本框：查询模式（`⌃8`）时的颜色。
+    StatusBarLookupColor,
+
     /// `[status_bar] notice`，勾选框：切模式时在光标处提示一句。
     StatusBarNotice,
 
@@ -217,6 +220,9 @@ pub enum Setting {
 
     /// `[shortcut] correct_selection`，同上（纠错选中文字）。
     CorrectSelectionKeys,
+
+    /// `[shortcut] lookup`，同上（查询模式：中文想法 → 英文写法）。
+    LookupKeys,
 
     /// 「恢复默认快捷键」按钮：翻页键、模式键、译词 / 删候选 / 翻译 / 纠错快捷键全部回缺省。
     ResetShortcuts,
@@ -322,6 +328,7 @@ impl Setting {
             Self::TranslationSecondKeys => 16,
             Self::TranslateSelectionKeys => 17,
             Self::CorrectSelectionKeys => 60,
+            Self::LookupKeys => 83,
             Self::ResetShortcuts => 18,
             Self::ImportDictionary => 19,
             Self::RestoreSortPreferences => 61,
@@ -349,6 +356,7 @@ impl Setting {
             Self::StatusBarSize => 69,
             Self::StatusBarChineseColor => 70,
             Self::StatusBarEnglishColor => 71,
+            Self::StatusBarLookupColor => 84,
             Self::StatusBarNotice => 72,
             Self::StatusBarOffsetX => 73,
             Self::StatusBarOffsetY => 74,
@@ -417,6 +425,7 @@ impl Setting {
             16 => Self::TranslationSecondKeys,
             17 => Self::TranslateSelectionKeys,
             60 => Self::CorrectSelectionKeys,
+            83 => Self::LookupKeys,
             18 => Self::ResetShortcuts,
             19 => Self::ImportDictionary,
             61 => Self::RestoreSortPreferences,
@@ -450,6 +459,7 @@ impl Setting {
             69 => Self::StatusBarSize,
             70 => Self::StatusBarChineseColor,
             71 => Self::StatusBarEnglishColor,
+            84 => Self::StatusBarLookupColor,
             72 => Self::StatusBarNotice,
             73 => Self::StatusBarOffsetX,
             74 => Self::StatusBarOffsetY,
@@ -534,6 +544,7 @@ mod tests {
             Setting::StatusBarSize,
             Setting::StatusBarChineseColor,
             Setting::StatusBarEnglishColor,
+            Setting::StatusBarLookupColor,
             Setting::StatusBarNotice,
             Setting::StatusBarOffsetX,
             Setting::StatusBarOffsetY,
@@ -550,6 +561,7 @@ mod tests {
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,
             Setting::CorrectSelectionKeys,
+            Setting::LookupKeys,
             Setting::ResetShortcuts,
             Setting::ImportDictionary,
             Setting::RestoreSortPreferences,

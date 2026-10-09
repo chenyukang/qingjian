@@ -331,6 +331,13 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
                 }
             }
+            (Setting::LookupKeys, SettingValue::Text(text)) => match text.parse::<KeyCombo>() {
+                Ok(combo) => {
+                    self.settings
+                        .set_value("shortcut", "lookup", combo.key_string());
+                }
+                Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
+            },
             (Setting::ResetShortcuts, _) => {
                 let defaults = ShortcutConfig::default();
                 self.settings
@@ -502,17 +509,13 @@ impl Host {
                 return;
             }
             (Setting::StatusBarChineseColor, SettingValue::Color(native))
-            | (Setting::StatusBarEnglishColor, SettingValue::Color(native)) => {
-                let english = matches!(setting, Setting::StatusBarEnglishColor);
+            | (Setting::StatusBarEnglishColor, SettingValue::Color(native))
+            | (Setting::StatusBarLookupColor, SettingValue::Color(native)) => {
                 match crate::indicator::config_color(&native) {
                     Some(color) => {
                         self.settings.set_value(
                             "status_bar",
-                            if english {
-                                "english_color"
-                            } else {
-                                "chinese_color"
-                            },
+                            status_bar_color_key(setting),
                             color.hex(),
                         );
                         self.apply_config(false);
@@ -522,17 +525,13 @@ impl Host {
                 return;
             }
             (Setting::StatusBarChineseColor, SettingValue::Text(text))
-            | (Setting::StatusBarEnglishColor, SettingValue::Text(text)) => {
-                let english = matches!(setting, Setting::StatusBarEnglishColor);
+            | (Setting::StatusBarEnglishColor, SettingValue::Text(text))
+            | (Setting::StatusBarLookupColor, SettingValue::Text(text)) => {
                 match text.parse::<Color>() {
                     Ok(color) => {
                         self.settings.set_value(
                             "status_bar",
-                            if english {
-                                "english_color"
-                            } else {
-                                "chinese_color"
-                            },
+                            status_bar_color_key(setting),
                             color.hex(),
                         );
                         self.apply_config(false);
@@ -742,5 +741,14 @@ impl Host {
             (setting, value) => tracing::warn!(?setting, ?value, "设置项与控件值不匹配"),
         }
         self.apply_config(false);
+    }
+}
+
+/// 三种指示器颜色各自写哪个配置键。
+fn status_bar_color_key(setting: Setting) -> &'static str {
+    match setting {
+        Setting::StatusBarEnglishColor => "english_color",
+        Setting::StatusBarLookupColor => "lookup_color",
+        _ => "chinese_color",
     }
 }

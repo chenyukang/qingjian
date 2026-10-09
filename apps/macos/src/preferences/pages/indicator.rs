@@ -29,6 +29,9 @@ pub struct IndicatorPage {
     visibility: Retained<NSPopUpButton>,
     chinese_color: Retained<NSColorWell>,
     english_color: Retained<NSColorWell>,
+
+    /// 查询模式（`⌃8`）下的颜色。
+    lookup_color: Retained<NSColorWell>,
     /// 菜单栏状态项显示开关。
     cloud_icon: Retained<NSButton>,
     notice: Retained<NSButton>,
@@ -95,6 +98,13 @@ impl IndicatorPage {
         row_control(layout, mtm, "中文颜色", &chinese_color);
         let english_color = color_well(mtm, Setting::StatusBarEnglishColor, target);
         row_control(layout, mtm, "英文颜色", &english_color);
+        let lookup_color = color_well(mtm, Setting::StatusBarLookupColor, target);
+        row_control(layout, mtm, "查询模式颜色", &lookup_color);
+        note(
+            layout,
+            mtm,
+            "按 ⌃8 进查询模式时那颗点换成这个颜色并描一圈白边；10px 的点看不清可以把大小调大，或打开菜单栏那一项。",
+        );
         note(
             layout,
             mtm,
@@ -145,6 +155,7 @@ impl IndicatorPage {
             visibility,
             chinese_color,
             english_color,
+            lookup_color,
             cloud_icon,
             notice,
             offset_x,
@@ -168,6 +179,7 @@ impl IndicatorPage {
         );
         set_color(&self.chinese_color, &native_color(bar.chinese_color));
         set_color(&self.english_color, &native_color(bar.english_color));
+        set_color(&self.lookup_color, &native_color(bar.lookup_color));
         set_checked(&self.cloud_icon, bar.menubar_item);
         set_checked(&self.notice, bar.notice);
         self.offset_x

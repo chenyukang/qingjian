@@ -42,8 +42,8 @@ pub struct ModeIndicator {
     /// 正展开着（输入法激活中）。收起时不刷新标题。
     shown: bool,
 
-    /// 上次显示的是否英文模式，避免每次轮询都重设标题。
-    english: Option<bool>,
+    /// 上次显示的状态（是否英文、是否查询模式），避免每次轮询都重设标题。
+    state: Option<(bool, bool)>,
 
     /// `[status_bar] menubar_item`：关掉就整个收成零宽（位置保留），也不再展开。
     enabled: bool,
@@ -64,7 +64,7 @@ impl ModeIndicator {
             timer: None,
             collapse_timer: None,
             shown: false,
-            english: None,
+            state: None,
             enabled: true,
             cloud: false,
             mtm,
@@ -80,7 +80,7 @@ impl ModeIndicator {
             return;
         }
         self.enabled = on;
-        self.english = None;
+        self.state = None;
         if on {
             self.item.setVisible(true);
             self.activate();
@@ -107,7 +107,7 @@ impl ModeIndicator {
             }
             self.item.setLength(NSVariableStatusItemLength);
         }
-        self.english = None;
+        self.state = None;
         self.update();
         if self.timer.is_none() {
             let target = ModeMonitor::new(self.mtm);
@@ -154,7 +154,7 @@ impl ModeIndicator {
             return;
         }
         self.shown = false;
-        self.english = None;
+        self.state = None;
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(ns_string!(""));
             button.setHidden(true);
@@ -169,7 +169,7 @@ impl ModeIndicator {
 
     pub fn set_cloud(&mut self, cloud: bool) {
         self.cloud = cloud;
-        self.english = None;
+        self.state = None;
     }
 
     /// 按当前 Caps Lock 状态刷新标题；收起时不动。
@@ -179,16 +179,19 @@ impl ModeIndicator {
         }
         let english = modifiers::caps_lock_on()
             || crate::host::with(|h| h.english_mode_manual).unwrap_or(false);
-        if self.english == Some(english) {
+        // 查询模式在这一栏常显：它是「模式之外」的状态，光看候选窗口看不出来
+        let lookup = crate::host::with(|h| h.engine.lookup_mode()).unwrap_or(false);
+        if self.state == Some((english, lookup)) {
             return;
         }
-        self.english = Some(english);
+        self.state = Some((english, lookup));
         if let Some(button) = self.item.button(self.mtm) {
             let mode = if english { "英" } else { "中" };
-            let title = if self.cloud {
-                format!("{mode} ☁︎")
-            } else {
-                mode.to_owned()
+            let title = match (self.cloud, lookup) {
+                (true, true) => format!("{mode} 查 ☁︎"),
+                (true, false) => format!("{mode} ☁︎"),
+                (false, true) => format!("{mode} 查"),
+                (false, false) => mode.to_owned(),
             };
             button.setTitle(&NSString::from_str(&title));
         }

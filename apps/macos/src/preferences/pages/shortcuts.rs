@@ -55,6 +55,9 @@ pub struct ShortcutsPage {
     /// 纠错选中文字的组合键。
     correct_selection: Retained<KeyRecorder>,
 
+    /// 查询模式的组合键。
+    lookup: Retained<KeyRecorder>,
+
     /// 打开偏好设置。
     open_settings: Retained<KeyRecorder>,
 }
@@ -185,6 +188,20 @@ impl ShortcutsPage {
             "另一组修饰键 + 候选序号：词库里的词从此不再出现在候选里（自己造的词、云端选过的词仍然整个删掉）。隐藏了的词在「词库」页的列表里恢复。",
         );
         layout.space(GROUP_GAP);
+        let lookup = row_recorder(
+            layout,
+            mtm,
+            "查询模式（中文 → 英文写法）",
+            Setting::LookupKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "按这个键进查询模式：先照中文打拼音、候选是中文（挑一条确认要查哪句），选完候选换成它的英文写法（右侧带词性与中文解释），再选一条即上屏。本地查不到（整句、说法）时才问云端。Esc 退回上一段 / 退出。",
+        );
+        layout.space(GROUP_GAP);
         let translate_selection = row_recorder(
             layout,
             mtm,
@@ -271,6 +288,7 @@ impl ShortcutsPage {
             shift_tap_window,
             translate_selection,
             correct_selection,
+            lookup,
             open_settings,
         }
     }
@@ -318,6 +336,8 @@ impl ShortcutsPage {
         let correct = config.shortcut.correct_selection;
         self.correct_selection
             .show(&correct.key_string(), &correct.label());
+        let lookup = config.shortcut.lookup;
+        self.lookup.show(&lookup.key_string(), &lookup.label());
         let translate = config.shortcut.translate_selection;
         self.translate_selection
             .show(&translate.key_string(), &translate.label());

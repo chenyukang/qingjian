@@ -110,6 +110,25 @@ pub struct Engine {
     /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
     english_mode: bool,
 
+    /// 查询模式专用的释义表（中文 → 目标语言写法）。查询模式关着「显示译文」时也要能查，
+    /// 所以它与 `translator` 分开装：没装就退回 `translator`。
+    lookup_translator: Option<Box<dyn Translator>>,
+
+    /// 查询模式选中的中文（词或整句）：`None` 是第一段（候选给中文，让用户挑一条），
+    /// `Some` 是第二段（候选给这条中文对应的英文写法）。
+    lookup_source: std::cell::RefCell<Option<String>>,
+
+    /// 挑上面那条中文时的拼音作用域。拼音一变（继续打字、退格）这条选择就作废 ——
+    /// 否则「我饿」会一直挡着后来敲成的「我的」的候选。
+    lookup_source_scope: std::cell::RefCell<String>,
+
+    /// 用户在查询模式里按过 `Esc`：这次输入不要自动挑头一个中文候选，留给用户自己挑。
+    lookup_choose: std::cell::Cell<bool>,
+
+    /// 查询模式（壳里快捷键切换）：组句照旧，但候选给的是「这个中文意思英文怎么说」的英文词。
+    /// 与中 / 英模式正交：激活时是什么模式就留在什么模式，由壳决定不切模式。
+    lookup_mode: bool,
+
     /// 全角标点与引号配对状态。
     punctuation: Punctuation,
 
@@ -439,12 +458,17 @@ impl Engine {
             dictionary,
             extra_dictionaries: Vec::new(),
             translator: Box::new(NoTranslator),
+            lookup_translator: None,
+            lookup_source: std::cell::RefCell::new(None),
+            lookup_source_scope: std::cell::RefCell::new(String::new()),
+            lookup_choose: std::cell::Cell::new(false),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
             english: None,
             english_mode: false,
+            lookup_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),

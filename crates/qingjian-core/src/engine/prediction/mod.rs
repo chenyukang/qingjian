@@ -211,6 +211,35 @@ impl Engine {
         Some(self.prediction_sequence)
     }
 
+    /// 查询模式本地释义表查不到时，把中文（词或整句）交给云端要几个英文说法。
+    /// 返回请求序号；云服务关着、私密输入中、文本为空时返回 `None`。
+    pub fn request_lookup(&mut self, chinese: &str) -> Option<u64> {
+        let chinese = chinese.trim();
+        if !self.predictor.is_enabled() || self.private || chinese.is_empty() {
+            return None;
+        }
+        self.prediction_sequence += 1;
+        let request = PredictionRequest {
+            sequence: self.prediction_sequence,
+            kind: PredictionKind::Lookup,
+            before: String::new(),
+            after: String::new(),
+            pinyin: String::new(),
+            letters: String::new(),
+            syllables: 0,
+            candidates: Vec::new(),
+            guess: String::new(),
+            max_items: 6,
+            // 要的是几个说法，不是整句补全
+            want_sentence: false,
+            text: chinese.to_owned(),
+            target_language: String::new(),
+        };
+        self.last_prediction_kind = PredictionKind::Lookup;
+        self.predictor.submit(request);
+        Some(self.prediction_sequence)
+    }
+
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;

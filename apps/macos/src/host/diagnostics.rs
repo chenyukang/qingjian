@@ -133,7 +133,7 @@ pub(super) fn redact_secrets(text: &str) -> String {
 }
 
 /// 写进系统剪贴板。
-pub(super) fn copy_to_pasteboard(text: &str) {
+pub(crate) fn copy_to_pasteboard(text: &str) {
     let pasteboard = NSPasteboard::generalPasteboard();
     pasteboard.clearContents();
     pasteboard.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString });

@@ -372,6 +372,48 @@ impl Engine {
         self.english_mode
     }
 
+    /// 查询模式（壳里快捷键切换）：中文照常组句，候选换成释义表里对应的英文词。
+    /// 本地查不到时候选表为空，壳据此发一次云请求。
+    pub fn set_lookup_mode(&mut self, on: bool) {
+        self.lookup_mode = on;
+    }
+
+    pub fn lookup_mode(&self) -> bool {
+        self.lookup_mode
+    }
+
+    /// 查询模式选中的中文（词或整句）；`None` 表示还在第一段（候选给中文，等用户挑）。
+    pub fn lookup_source(&self) -> Option<String> {
+        self.lookup_source.borrow().clone()
+    }
+
+    /// 用户在第一段挑定一条中文：之后的候选就是它的英文写法。记下当时的拼音作用域，
+    /// 拼音变了（继续打字、退格）这条选择自动作废 —— 见 [`Self::expire_stale_lookup_source`]。
+    pub fn set_lookup_source(&self, text: &str) {
+        *self.lookup_source.borrow_mut() = Some(text.trim().to_owned());
+        *self.lookup_source_scope.borrow_mut() = self.composition.scope().to_owned();
+    }
+
+    /// 拼音跟挑中文时不一样了：这次选择作废，回到第一段（继续打字不会再被旧的中文挡着）。
+    pub(in crate::engine) fn expire_stale_lookup_source(&self) {
+        if self.lookup_source.borrow().is_none() {
+            return;
+        }
+        if *self.lookup_source_scope.borrow() == self.composition.scope() {
+            return;
+        }
+        tracing::debug!("查询模式：拼音变了，这条中文的选择作废");
+        *self.lookup_source.borrow_mut() = None;
+        *self.lookup_source_scope.borrow_mut() = String::new();
+    }
+
+    /// 回到第一段（再挑一条中文），并且这次输入不再自动挑 —— 用户明确要自己挑。
+    pub fn clear_lookup_source(&self) {
+        *self.lookup_source.borrow_mut() = None;
+        self.lookup_source_scope.borrow_mut().clear();
+        self.lookup_choose.set(true);
+    }
+
     pub fn with_english(mut self, words: WordList) -> Self {
         self.english = Some(words);
         self
@@ -379,6 +421,13 @@ impl Engine {
 
     pub fn with_translator(mut self, translator: Box<dyn Translator>) -> Self {
         self.translator = translator;
+        self
+    }
+
+    /// 查询模式用的释义表（中文 → 目标语言写法）。与 `[general] learning_language` 无关：
+    /// 写 `off`（不显示译文）时，查询模式照样该能查。
+    pub fn with_lookup_translator(mut self, translator: Box<dyn Translator>) -> Self {
+        self.lookup_translator = Some(translator);
         self
     }
 

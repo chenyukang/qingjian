@@ -38,6 +38,9 @@ pub struct StatusBarConfig {
     /// 英文输入时的颜色。
     pub english_color: Color,
 
+    /// 查询模式（`⌃8`）下的点色：另两种色之外再给一种，一眼看出「那句中文正等着查」。
+    pub lookup_color: Color,
+
     /// 描一圈白色轮廓：桌面上背景颜色不定时（深色壁纸、浅色窗口）也看得清。缺省开。
     pub outline: bool,
 
@@ -70,6 +73,7 @@ impl Default for StatusBarConfig {
             size: 12,
             chinese_color: Color::CHINESE,
             english_color: Color::ENGLISH,
+            lookup_color: Color::LOOKUP,
             outline: true,
             menubar_item: true,
             visibility: Visibility::Follow,
@@ -281,6 +285,13 @@ impl Color {
         red: 0xE5,
         green: 0x48,
         blue: 0x4D,
+    };
+
+    /// 查询模式（`⌃8`）：琥珀色 —— 既不是中文的红，也不是英文的绿，一眼看出在查询。
+    pub const LOOKUP: Self = Self {
+        red: 0xD9,
+        green: 0x82,
+        blue: 0x2B,
     };
 
     /// 英文：偏绿。

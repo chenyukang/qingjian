@@ -87,6 +87,10 @@ pub struct Args {
     #[arg(long)]
     pub english_mode: bool,
 
+    /// 查询模式：中文照常组句，候选给随包释义表里对应的英文词（验证「查义」这条通路）
+    #[arg(long)]
+    pub lookup: bool,
+
     /// 打开中文优先（配置 [general] chinese_first = true）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,

@@ -32,6 +32,26 @@ impl QingjianInputController {
                 return self.handle_translation_review(53, client);
             }
         }
+        // 查询模式：第二段（看英文）按 Esc 退回第一段重挑中文；第一段才退出模式
+        if selector == sel!(cancelOperation:)
+            && host::with(|h| h.engine.lookup_mode()).unwrap_or(false)
+        {
+            let back = host::with(|h| {
+                if h.engine.lookup_source().is_some() {
+                    h.engine.clear_lookup_source();
+                    true
+                } else {
+                    false
+                }
+            })
+            .unwrap_or(false);
+            if !back {
+                host::with(|h| h.toggle_lookup(false));
+                host::with(|h| h.engine.clear());
+            }
+            self.refresh(client);
+            return true;
+        }
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；

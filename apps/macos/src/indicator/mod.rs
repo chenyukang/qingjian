@@ -129,18 +129,20 @@ define_class!(
 );
 
 impl DotView {
-    fn new(mtm: MainThreadMarker, config: &StatusBarConfig, english: bool) -> Retained<Self> {
+    fn new(
+        mtm: MainThreadMarker,
+        config: &StatusBarConfig,
+        english: bool,
+        lookup: bool,
+    ) -> Retained<Self> {
         let size = config.size();
         let shape = config.shape;
-        let color = native_color(if english {
-            config.english_color
-        } else {
-            config.chinese_color
-        });
+        let color = native_color(dot_color(config, english, lookup));
         let this = mtm.alloc::<Self>().set_ivars(DotIvars {
             color: RefCell::new(color),
             shape: Cell::new(shape),
-            outline: Cell::new(config.outline),
+            // 查询模式强制描白边：琥珀色已经不一样了，白边让它更不像平时那颗点
+            outline: Cell::new(config.outline || lookup),
         });
         let view: Retained<Self> = unsafe {
             msg_send![
@@ -152,21 +154,28 @@ impl DotView {
         view
     }
 
-    fn update(&self, config: &StatusBarConfig, english: bool) {
+    fn update(&self, config: &StatusBarConfig, english: bool, lookup: bool) {
         let size = config.size();
         let ivars = self.ivars();
-        *ivars.color.borrow_mut() = native_color(if english {
-            config.english_color
-        } else {
-            config.chinese_color
-        });
+        *ivars.color.borrow_mut() = native_color(dot_color(config, english, lookup));
         ivars.shape.set(config.shape);
-        ivars.outline.set(config.outline);
+        ivars.outline.set(config.outline || lookup);
         let frame = self.frame();
         if (frame.size.width - size).abs() > f64::EPSILON {
             self.setFrame(NSRect::new(frame.origin, NSSize::new(size, size)));
         }
         self.setNeedsDisplay(true);
+    }
+}
+
+/// 小点该用哪一色：查询模式优先（它是最需要一眼看出的状态），其次英文 / 中文。
+fn dot_color(config: &StatusBarConfig, english: bool, lookup: bool) -> Color {
+    if lookup {
+        config.lookup_color
+    } else if english {
+        config.english_color
+    } else {
+        config.chinese_color
     }
 }
 
@@ -219,17 +228,19 @@ impl Indicator {
     }
 
     /// 按配置与当前模式同步：开关关了就收起来，开着就摆好位置、换好颜色、显示出来。
-    /// `english` 是**生效**的英文模式（Caps Lock 或 `⌃⇧R` 切过）。
-    pub fn sync(&mut self, config: &StatusBarConfig, english: bool) {
+    /// `english` 是**生效**的英文模式（Caps Lock 或 `⌃⇧R` 切过），`lookup` 是查询模式。
+    /// 两个状态都由调用方给：这里不再回头读 Host —— 调用方常常已经在 `host::with` 的借用里，
+    /// 再借一次会静默失败（`try_borrow_mut` 拿不到就跳过），颜色就不会变。
+    pub fn sync(&mut self, config: &StatusBarConfig, english: bool, lookup: bool) {
         if !config.enabled {
             self.hide_now();
             return;
         }
         let view = match self.view.take() {
             Some(view) => view,
-            None => DotView::new(self.mtm, config, english),
+            None => DotView::new(self.mtm, config, english, lookup),
         };
-        view.update(config, english);
+        view.update(config, english, lookup);
         if let Some(panel) = &self.panel {
             panel.setContentView(Some(&view));
         } else {

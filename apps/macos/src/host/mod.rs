@@ -10,6 +10,7 @@ mod config;
 mod diagnostics;
 mod dictionaries;
 mod init;
+mod lookup;
 mod model;
 mod presenting;
 mod session;
@@ -18,6 +19,7 @@ mod settings;
 use std::cell::RefCell;
 use std::path::PathBuf;
 
+pub(crate) use cloud::cloud_candidate;
 use objc2::MainThreadMarker;
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSProcessInfo, NSRect, NSString};
@@ -179,6 +181,19 @@ pub struct Host {
 
     /// 纠错选中的文字的快捷键组合（`[shortcut] correct_selection`）。
     pub correct_keys: KeyCombo,
+
+    /// 查询模式的快捷键组合（`[shortcut] lookup`）：按一次进、再按一次出。
+    pub lookup_keys: KeyCombo,
+
+    /// 进查询模式之前是不是英文模式：查询模式里字母当拼音用，退出时按这个恢复。
+    pub lookup_english: bool,
+
+    /// 正在等哪条中文的查询结果（已经发出去了就不重复发）。
+    pub lookup_pending: Option<String>,
+
+    /// 查询结果的缓存：中文 → 英文候选。终端这类应用每敲一个键就重建输入会话，
+    /// 会话一重置候选表就空了；有缓存就不会重复发请求、也不会退回「查义中…」。
+    pub lookup_result: Option<(String, Vec<Candidate>)>,
 
     /// 刚用回车接受了翻译 / 纠错结果：同一颗键随后还会以命令形式（`insertNewline:`）送来一次，
     /// 那时任务已经结束、会落到「回车交给应用」那条分支往文档里插换行，所以这一次要吃掉。

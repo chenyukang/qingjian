@@ -37,13 +37,20 @@ impl Engine {
             {
                 text = simp.as_str();
             }
+            // 候选自带解释时先留着：查询模式（中文查英文怎么写）给英文候选配的解释是源词那一条，
+            // 英→中释义表里没有这个词（perfunctory 这类）时就用它，不把解释清空
+            let existing = candidate.translation.take();
             candidate.translation = match candidate.kind {
                 CandidateKind::Custom(_) => None,
                 // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(text).or_else(|| {
-                    self.english_translator
-                        .translate(&text.to_ascii_lowercase())
-                }),
+                CandidateKind::English => self
+                    .english_translator
+                    .translate(text)
+                    .or_else(|| {
+                        self.english_translator
+                            .translate(&text.to_ascii_lowercase())
+                    })
+                    .or(existing),
                 _ => self.translator.translate(text).map(|mut translation| {
                     self.mark_fresh(&mut translation);
                     translation

@@ -30,8 +30,9 @@ impl Host {
     /// 按当前模式同步桌面上的悬浮指示器：`caps_english` 是 Caps Lock 那一半（另一半是 `⌃⇧R` 切过的）。
     pub fn sync_indicator_dot(&mut self, caps_english: bool) {
         let english = caps_english || self.english_mode_manual;
+        let lookup = self.engine.lookup_mode();
         let config = self.status_bar.clone();
-        self.dot.sync(&config, english);
+        self.dot.sync(&config, english, lookup);
     }
 
     /// 标过「后置 / 隐藏」的词，设置页里逐条列出、逐条恢复。

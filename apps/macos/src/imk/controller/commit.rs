@@ -10,6 +10,11 @@ impl QingjianInputController {
 
     /// 上屏第 `index` 个候选；没有候选时上屏拼音本身。上屏后剩余拼音继续组句。
     pub(super) fn commit_index(&self, index: usize, client: TextClient<'_>) -> bool {
+        // 查询模式第一段：候选是中文，选它不是上屏，而是「就查这一句」（状态与提示都在 host/lookup.rs）
+        if host::with(|h| h.choose_lookup_chinese(index)).unwrap_or(false) {
+            self.refresh(client);
+            return true;
+        }
         let candidate = host::with(|h| h.session.candidate(index)).flatten();
         let Some(candidate) = candidate else {
             if host::with(|h| index < h.session.layout.len()).unwrap_or(false) {
@@ -21,6 +26,8 @@ impl QingjianInputController {
             return false;
         };
         tracing::debug!(%text, "commit");
+        // 查询模式：这条查完了就退回第一段（下一个词重新看中文）
+        host::with(|h| h.finish_lookup());
         client.insert_text(&text);
         self.refresh(client);
         true

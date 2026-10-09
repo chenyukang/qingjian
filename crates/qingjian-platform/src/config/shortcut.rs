@@ -38,6 +38,10 @@ pub struct ShortcutConfig {
     /// 打开偏好设置（缺省 `⌃⇧S`）。
     pub open_settings: KeyCombo,
 
+    /// 查询模式（缺省 `⌃8`）：中文照常打拼音，候选给的是释义表里对应的英文词（带词性与中文解释），
+    /// 按一次进、再按一次出；`Esc` 也退出。与中 / 英模式正交，激活时是什么模式就留在什么模式。
+    pub lookup: KeyCombo,
+
     /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
     pub toggle_english: KeyCombo,
 
@@ -62,6 +66,7 @@ impl Default for ShortcutConfig {
             correct_selection: KeyCombo::CORRECT_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
             hide_candidate: Modifiers::CONTROL,
+            lookup: KeyCombo::LOOKUP_DEFAULT,
             toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
             toggle_english_mode: KeyCombo::TOGGLE_ENGLISH_MODE_DEFAULT,
             open_settings: KeyCombo::OPEN_SETTINGS_DEFAULT,

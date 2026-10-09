@@ -45,6 +45,7 @@ fn run() -> Result<(), CliError> {
     let mut engine = build_engine(&args)?;
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
+    engine.set_lookup_mode(args.lookup);
     engine.set_chinese_first(args.chinese_first);
     tuning::apply(&mut engine, &args.tune)?;
     if let Some(input) = &args.eval_cold {
@@ -184,6 +185,15 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             bulk.push(dictionary);
         }
         engine.set_bulk_dictionaries(bulk);
+    }
+    // 查询模式：中文 → 目标语言写法。与「显示译文」无关，单独一张表
+    if args.lookup {
+        let path = args::default_data_file(&format!("glossary-{}.tsv", language.code()));
+        if path.is_file() {
+            let glossary = Glossary::from_path(language, &path)?;
+            tracing::info!(glosses = glossary.len(), "查询模式释义表已加载");
+            engine = engine.with_lookup_translator(Box::new(glossary));
+        }
     }
     // 英文候选的中文释义可选
     let zh_glossary = args::default_data_file("glossary-zh.tsv");

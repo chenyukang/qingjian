@@ -208,6 +208,16 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+查询模式（设计见 `docs/design/lookup.md`）：`Engine::set_lookup_mode` 打开后，`query()` 把中文候选换成
+英文候选（`engine/query/lookup_words.rs`：拿前 3 个中文候选查 `translator`（中文 → 学习语言释义），
+释义条目的词各成一条候选，拼音沿用源候选）。候选走 `CandidateKind::English`，上屏 / 学习 / 遗忘都复用英文那条路；
+`annotate` 对英文候选多一步 `or(existing)`：英→中表查不到时保留候选自带的「源词 + 词性」解释。
+CLI 用 `--lookup` 打开，验证：`qingjian-cli --lookup --shuangpin off fuyan`。
+本地查不到（整句、说法）时：壳拿 `Engine::lookup_source`（这次查的中文）发一次
+`PredictionKind::Lookup`（提示词要 3–6 个英文说法 + 词性 + 中文解释），结果由
+`CloudWord::into_lookup_candidate` 变成英文候选；`lookup_translator` 是查询模式专用的
+中→学习语言释义表，与「显不显示译文」解耦。
+
 纠错结果的改动标记：`text_diff::changed_ranges`（Core）按比较单位求最长公共子序列，落不进公共序列的单位就是改动
 （西文按词、汉字逐字、空白与标点各自一个；单位数之积超 400 万就不标），`ChatClient::complete` 在纠错任务里用它算出
 `Reply::sentence_marks` → `Prediction::sentence_marks` → 壳把它贴到结果候选那一行（`Row::marks`，原文下标）→

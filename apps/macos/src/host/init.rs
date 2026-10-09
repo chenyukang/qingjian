@@ -29,6 +29,17 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             .or_else(|| languages.first().copied())
     };
     let glossary = learning_language.map(load_glossary).transpose()?;
+    // 查询模式（中文 → 目标语言写法）单独一张表：`learning_language` 写 off（不显示译文）时也要能查 ——
+    // 目标语言取配置里能用的那个，没配或配的表不在就取第一种有的（通常是 en）
+    let lookup_language = languages.first().copied().map(|fallback| {
+        general
+            .learning_language
+            .parse::<Language>()
+            .ok()
+            .filter(|language| languages.contains(language))
+            .unwrap_or(fallback)
+    });
+    let lookup_glossary = lookup_language.map(load_glossary).transpose()?;
     let learner = match paths::user_data_dir() {
         Some(dir) => load_learner(&dir),
         None => FrequencyLearner::default(),
@@ -49,6 +60,14 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some(glossary) = glossary {
         engine = engine.with_translator(Box::new(glossary));
+    }
+    if let Some(glossary) = lookup_glossary {
+        tracing::info!(
+            language = lookup_language.map(Language::code).unwrap_or("off"),
+            glosses = LayeredTranslator::len(&glossary),
+            "查询模式释义表已加载"
+        );
+        engine = engine.with_lookup_translator(Box::new(glossary));
     }
     // 输入统计（打了多少字）：与学习数据同目录；没有数据目录就只在内存里数
     if let Some(dir) = paths::user_data_dir() {
@@ -170,6 +189,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,
 
             correct_keys: KeyCombo::CORRECT_DEFAULT,
+            lookup_keys: KeyCombo::LOOKUP_DEFAULT,
+            lookup_english: false,
+            lookup_pending: None,
+            lookup_result: None,
             swallow_newline: false,
             pending_space: false,
             translation: None,

@@ -7,6 +7,7 @@ mod converting;
 mod english_tail;
 mod generating;
 mod lookup;
+mod lookup_words;
 mod modes;
 mod phonetic;
 mod result;
@@ -25,6 +26,10 @@ impl Engine {
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
+        // 拼音清空（上屏了、删光了）= 这次查询结束：下次重新按规则来（短词该自动挑就自动挑）
+        if self.lookup_mode() && self.composition.scope().is_empty() {
+            self.lookup_choose.set(false);
+        }
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {
@@ -49,6 +54,20 @@ impl Engine {
         // 辅码态只出命中码的词：自定义短语没有码，不出
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
+        }
+        // 查询模式（壳里快捷键）：中文候选换成英文候选。本地一条也查不到时留空，
+        // 壳据此发一次云请求（`PredictionKind::Lookup`）
+        if self.lookup_mode() {
+            // 拼音变了（继续打字、退格）：上一条中文的选择作废，重新按第一段的规则来
+            self.expire_stale_lookup_source();
+            // 第一段：短词且头一个中文候选在本地释义表里有词，就直接拿它去查英文（一步到位）；
+            // 整句、说法这类本地没有候选，或者用户按过 Esc 要自己挑，就留在第一段给中文候选
+            if self.lookup_source().is_none() && !self.lookup_choose.get() {
+                self.auto_pick_lookup_source(&query.candidates.items);
+            }
+            if self.lookup_source().is_some() {
+                self.expand_lookup_candidates(&mut query.candidates.items);
+            }
         }
         // 用户标了「隐藏」的候选（`⌃+数字`）不再出现在候选里。放在写日志之前：日志记的就是用户看到的
         if self.learner.has_sort_preferences() {

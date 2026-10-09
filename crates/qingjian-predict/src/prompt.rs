@@ -58,13 +58,27 @@ text（选中的原文）、target_language（目标语言代码：zh 中文、e
 pub const CORRECT_SYSTEM_PROMPT: &str = "\
 你是一个输入法的纠错助手。用户在应用里选中了一段文字并按了纠错快捷键，你会收到 JSON：text（选中的原文，可能是中文、英文或中英混排）。只改真正的错处：中文改错别字、用错的词与明显标点问题；英文改拼写、语法、大小写、单复数与搭配；中英之间的空格按书写习惯补上。保持原文的语言、意思、语气、换行与 Markdown / 代码结构，不要翻译、不要润色、不要改写、不要增删内容，**没有错就把 text 原样放进 sentence，sentence 永远不许为空字符串**（模型原来爱回空 sentence，用户按了快捷键却什么都得不到）。不要解释、不要加引号、不要加「纠错：」之类的前缀。输出 JSON：{\"sentence\": \"改好的文本\"}";
 
+/// 查询模式的系统提示：用户想表达一个中文意思（一个词、一个短语，或一整句），要几个最贴切的英文说法。
+const LOOKUP_SYSTEM_PROMPT: &str = "用户在用英文写作，想知道下面这句中文（可能是一个词、一个短语或一整句）\
+用英文怎么表达。给出 3 到 6 个最贴切、最常用的英文说法（词或短语，按常用程度排序），每个给：\
+text（英文本身，不要解释、不要引号）、pos（词性缩写：n. / v. / adj. / adv. / phr.，拿不准就留空）、\
+gloss（简短中文释义，10 字以内）。要给英语母语者真会这么说的表达，不要逐字直译；\
+实在没有合适的表达就给空数组。输出 JSON：{\"words\": [{\"text\": \"...\", \"pos\": \"...\", \"gloss\": \"...\"}]}";
+
 pub fn system_prompt(request: &PredictionRequest) -> &'static str {
     match request.kind {
         PredictionKind::Compose => SYSTEM_PROMPT,
         PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
         PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT,
         PredictionKind::Correct => CORRECT_SYSTEM_PROMPT,
+        PredictionKind::Lookup => LOOKUP_SYSTEM_PROMPT,
     }
+}
+
+/// 查询模式的用户消息。
+#[derive(Serialize)]
+struct LookupMessage<'a> {
+    chinese: &'a str,
 }
 
 /// 发给模型的用户消息：把请求原样序列化，模型看到的和我们记日志的完全一致。
@@ -127,6 +141,18 @@ pub fn user_prompt(request: &PredictionRequest) -> String {
     if request.kind == PredictionKind::Correct {
         return serde_json::to_string(&CorrectMessage {
             text: &request.text,
+        })
+        .unwrap_or_default();
+    }
+    if request.kind == PredictionKind::Lookup {
+        return serde_json::to_string(&LookupMessage {
+            chinese: &request.text,
+        })
+        .unwrap_or_default();
+    }
+    if request.kind == PredictionKind::Lookup {
+        return serde_json::to_string(&LookupMessage {
+            chinese: &request.text,
         })
         .unwrap_or_default();
     }
@@ -246,6 +272,10 @@ struct RawWord {
     text: String,
 
     pinyin: String,
+
+    /// 查询模式：词性缩写与中文释义。
+    pos: Option<String>,
+    gloss: Option<String>,
 }
 
 /// 解析模型回复：去空、去重、去换行，截到 `max_items`。不要与本地首选相同的词，也不要没给拼音的词。
@@ -268,6 +298,31 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
     };
     if request.kind == PredictionKind::Question {
         return parse_answers(raw.answers, request.max_items);
+    }
+    if request.kind == PredictionKind::Lookup {
+        let mut reply = Reply::default();
+        let mut seen: Vec<String> = Vec::new();
+        for word in raw.words {
+            let text = clean(&word.text);
+            if text.is_empty() || seen.iter().any(|t| t.eq_ignore_ascii_case(&text)) {
+                continue;
+            }
+            seen.push(text.clone());
+            reply.words.push(CloudWord {
+                text,
+                syllables: Vec::new(),
+                reading: None,
+                gloss: word
+                    .gloss
+                    .map(|gloss| clean(&gloss))
+                    .filter(|g| !g.is_empty()),
+                part_of_speech: word.pos.map(|pos| clean(&pos)).filter(|p| !p.is_empty()),
+            });
+            if reply.words.len() >= request.max_items {
+                break;
+            }
+        }
+        return reply;
     }
     if matches!(
         request.kind,
@@ -303,6 +358,8 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
             text,
             syllables,
             reading: None,
+            gloss: None,
+            part_of_speech: None,
         });
         if reply.words.len() >= request.max_items {
             break;
@@ -330,6 +387,8 @@ fn parse_answers(answers: Vec<RawWord>, max_items: usize) -> Reply {
             text,
             syllables: Vec::new(),
             reading: (!reading.is_empty()).then_some(reading),
+            gloss: None,
+            part_of_speech: None,
         });
         if reply.words.len() >= max_items {
             break;
@@ -365,6 +424,50 @@ fn clean(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lookup_reply_keeps_the_chinese_explanation() {
+        let request = PredictionRequest {
+            sequence: 1,
+            kind: PredictionKind::Lookup,
+            before: String::new(),
+            after: String::new(),
+            pinyin: String::new(),
+            letters: String::new(),
+            syllables: 0,
+            candidates: Vec::new(),
+            guess: String::new(),
+            max_items: 6,
+            want_sentence: false,
+            text: "我不知道你说什么".into(),
+            target_language: String::new(),
+        };
+        let content = r#"{"words": [
+            {"text": "I don't know what you mean", "pos": "phr.", "gloss": "我不知道你什么意思"},
+            {"text": "I have no idea what you're talking about", "pos": "phr.", "gloss": "我不清楚你在说什么"},
+            {"text": "I don't know what you mean", "pos": "phr.", "gloss": "重复的会被去掉"}
+        ]}"#;
+        let reply = parse_reply(content, &request);
+        assert_eq!(reply.words.len(), 2, "同一条去掉重复");
+        assert_eq!(reply.words[0].text, "I don't know what you mean");
+        assert_eq!(reply.words[0].part_of_speech.as_deref(), Some("phr."));
+        assert_eq!(reply.words[0].gloss.as_deref(), Some("我不知道你什么意思"));
+        assert!(reply.sentence.is_none());
+        // 转成候选：走英文候选那条路，解释带词性
+        let candidate = reply
+            .words
+            .into_iter()
+            .next()
+            .unwrap()
+            .into_lookup_candidate();
+        assert_eq!(candidate.kind, qingjian_core::CandidateKind::English);
+        let sense = &candidate.translation.as_ref().unwrap().senses()[0];
+        assert_eq!(sense.text, "我不知道你什么意思");
+        assert_eq!(
+            sense.part_of_speech,
+            Some(qingjian_core::PartOfSpeech::Phrase)
+        );
+    }
 
     fn request(pinyin: &str, want_sentence: bool) -> PredictionRequest {
         PredictionRequest {

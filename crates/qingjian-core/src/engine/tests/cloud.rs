@@ -9,11 +9,15 @@ fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
         text: "森".into(),
         syllables: Vec::new(),
         reading: Some("sēn".into()),
+        gloss: None,
+        part_of_speech: None,
     };
     let restated = CloudWord {
         text: "木木木是什么字".into(),
         syllables: Vec::new(),
         reading: None,
+        gloss: None,
+        part_of_speech: None,
     };
     let predictor = EchoPredictor {
         submitted: submitted.clone(),

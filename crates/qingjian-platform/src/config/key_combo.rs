@@ -62,6 +62,18 @@ impl KeyCombo {
         key: 's',
     };
 
+    /// 查询模式（中文想法 → 英文写法）：缺省 `⌃8`。
+    /// 不用 `⌘8`（浏览器切标签）、也不用 `⌃数字` 以外顺手的位置，跟翻译 / 纠错一样避开应用常用键。
+    pub const LOOKUP_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: false,
+            control: true,
+            command: false,
+        },
+        key: '8',
+    };
+
     pub const CORRECT_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

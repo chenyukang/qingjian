@@ -87,6 +87,11 @@ impl Host {
     }
 
     pub(super) fn apply_prediction(&mut self, prediction: Prediction) {
+        // 查询模式：本地释义表查不到、云端给回的英文说法，作为候选摆进窗口（选词即上屏）
+        if self.engine.lookup_mode() {
+            self.apply_lookup_words(prediction.words);
+            return;
+        }
         // 翻译选中文字：译文作为唯一候选摆进窗口，等用户回车替换或 Esc 放弃
         if self.translation.is_some() {
             if let Some(text) = prediction.sentence {
@@ -178,7 +183,7 @@ pub(super) fn describe_predict_error(error: &PredictError) -> String {
 }
 
 /// 翻译窗口里的一行：译文（或占位文字）当作云端来源的候选画出来。
-pub(super) fn cloud_candidate(text: String) -> Candidate {
+pub(crate) fn cloud_candidate(text: String) -> Candidate {
     Candidate {
         text,
         kind: CandidateKind::Cloud,

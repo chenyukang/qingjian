@@ -34,9 +34,12 @@ impl QingjianInputController {
             self.flush_pending_space(c, client);
         }
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        // 查询模式：字母当拼音用（候选由引擎换成英文词），所以不走英文模式那条路
+        let lookup = host::with(|h| h.engine.lookup_mode()).unwrap_or(false);
         // 英文模式 = Caps Lock 亮着，或者用户用快捷键切过去了（`⌃⇧R`）
-        let english =
-            modifiers::caps_lock_on() || host::with(|h| h.english_mode_manual).unwrap_or(false);
+        let english = !lookup
+            && (modifiers::caps_lock_on()
+                || host::with(|h| h.english_mode_manual).unwrap_or(false));
         // 终端、编辑器这类应用（`[apps] english_candidates_off`）里英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
@@ -86,7 +89,10 @@ impl QingjianInputController {
         } else {
             c
         };
-        host::with(|h| h.engine.set_english_mode(english_candidates && !question));
+        host::with(|h| {
+            h.engine
+                .set_english_mode(english_candidates && !question && !lookup)
+        });
         let (page_previous, page_next) =
             host::with(|h| h.page_keys).unwrap_or(qingjian_platform::DEFAULT_PAGE_KEYS);
         // Caps Lock 亮着 = 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
@@ -193,6 +199,10 @@ impl QingjianInputController {
         {
             host::with(|h| h.engine.push(c));
             self.refresh(client);
+            if host::with(|h| h.engine.lookup_mode()).unwrap_or(false) {
+                // 状态行会被 reset_session 清掉，按了键重新挂上（与「英」同一个道理）
+                host::with(|h| h.status = Some("查".to_owned()));
+            }
             return true;
         }
         // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）

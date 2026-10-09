@@ -9,6 +9,7 @@ mod emoji;
 mod english;
 mod learning;
 mod lookup;
+mod lookup_mode;
 mod mixed_space;
 mod privacy;
 mod raw;
@@ -175,6 +176,8 @@ fn cloud(text: &str, syllables: &[&str]) -> CloudWord {
         text: text.into(),
         syllables: syllables.iter().map(|s| (*s).to_owned()).collect(),
         reading: None,
+        gloss: None,
+        part_of_speech: None,
     }
 }
 
