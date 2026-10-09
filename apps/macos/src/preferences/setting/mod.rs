@@ -278,6 +278,9 @@ pub enum Setting {
     /// `[shortcut] delete_candidate`，快捷键录制按钮（只记修饰键）。
     DeleteCandidateKeys,
 
+    /// `[shortcut] top_candidate`，同上（置顶候选）。
+    TopCandidateKeys,
+
     /// `[shortcut] hide_candidate`，快捷键录制按钮（只记修饰键）。
     HideCandidateKeys,
 
@@ -344,6 +347,7 @@ impl Setting {
             Self::CloudSlots => 24,
             Self::EnglishCandidatesOffInApps => 25,
             Self::DeleteCandidateKeys => 26,
+            Self::TopCandidateKeys => 85,
             Self::HideCandidateKeys => 62,
             Self::EnglishInPinyin => 63,
             Self::ToggleEnglishModeKeys => 64,
@@ -448,6 +452,7 @@ impl Setting {
             24 => Self::CloudSlots,
             25 => Self::EnglishCandidatesOffInApps,
             26 => Self::DeleteCandidateKeys,
+            85 => Self::TopCandidateKeys,
             62 => Self::HideCandidateKeys,
             63 => Self::EnglishInPinyin,
             64 => Self::ToggleEnglishModeKeys,
@@ -577,6 +582,7 @@ mod tests {
             Setting::CloudSlots,
             Setting::EnglishCandidatesOffInApps,
             Setting::DeleteCandidateKeys,
+            Setting::TopCandidateKeys,
             Setting::HideCandidateKeys,
             Setting::InputLog,
             Setting::SystemTextReplacements,

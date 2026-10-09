@@ -321,6 +321,9 @@ impl QingjianInputController {
             if pressed == second {
                 return self.handle_translation_key(digit, 1, client);
             }
+            if pressed == host::with(|h| h.top_keys).unwrap_or_default() {
+                return self.handle_top_key(digit, client);
+            }
             if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
                 return self.handle_delete_key(digit, client);
             }

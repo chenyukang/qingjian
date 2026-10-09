@@ -11,6 +11,7 @@ mod learning;
 mod lookup;
 mod lookup_mode;
 mod mixed_space;
+mod pin_candidate;
 mod privacy;
 mod raw;
 mod sentence_candidates;

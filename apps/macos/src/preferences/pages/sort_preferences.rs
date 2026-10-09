@@ -103,6 +103,7 @@ impl SortPreferencesPage {
         for (index, (word, preference)) in words.iter().enumerate() {
             let y = document_height - ROW * (index as f64 + 1.0);
             let state = match preference {
+                SortPreference::Top => "置顶",
                 SortPreference::Down => "后置",
                 SortPreference::Hidden => "隐藏",
                 SortPreference::Normal => "正常",

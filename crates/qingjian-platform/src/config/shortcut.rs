@@ -29,6 +29,8 @@ pub struct ShortcutConfig {
     pub correct_selection: KeyCombo,
 
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
+    /// 数字键配这些修饰键：删候选（用户词整个删掉，词库词清掉学习）。缺省 `⇧⌃` ——
+    /// 破坏性动作放在难按的组合上，免得想置顶却按成它。
     pub delete_candidate: Modifiers,
 
     /// 中 / 英切换（缺省 `⌃⇧R`）：切到英文就是纯英文模式（候选只出英文单词、输入框键盘原样），
@@ -45,6 +47,10 @@ pub struct ShortcutConfig {
     /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
     pub toggle_english: KeyCombo,
 
+    /// 数字键配这些修饰键：把这个候选「置顶」—— 排在正常候选之前。同音字的顺序会随上下文变
+    ///（`ba` 下有时代 把、有时代 吧），用它钉住一个；再按一次恢复。缺省 `⇧⌃`。
+    pub top_candidate: Modifiers,
+
     /// 数字键配这些修饰键：把这个候选「隐藏」，以后不再出现在候选里（词库里的词删不掉，这是它的去处）。
     /// 与 [`Self::delete_candidate`] 分工：那个是「后置」（还看得见，只排到最后），这个是「不要了」。
     pub hide_candidate: Modifiers,
@@ -57,6 +63,12 @@ impl Default for ShortcutConfig {
         let (translation, translation_second) = (Modifiers::CONTROL, Modifiers::SHIFT_CONTROL);
         #[cfg(not(windows))]
         let (translation, translation_second) = (Modifiers::OPTION, Modifiers::SHIFT_OPTION);
+        // 置顶用最好按的组合（常用、可逆），删候选用难按的（破坏性）。macOS 的 `⇧⌃` 不撞译词键；
+        // Windows 上 `⇧⌃` 已经是第二个译词键，那边保持旧的 `⇧`（置顶还没接，等接了再一起调）
+        #[cfg(not(windows))]
+        let delete_candidate = Modifiers::SHIFT_CONTROL;
+        #[cfg(windows)]
+        let delete_candidate = Modifiers::SHIFT;
         Self {
             mode: ModeKeys::default(),
             switch_mode: SwitchKeys::default(),
@@ -64,7 +76,8 @@ impl Default for ShortcutConfig {
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
             correct_selection: KeyCombo::CORRECT_DEFAULT,
-            delete_candidate: Modifiers::SHIFT,
+            top_candidate: Modifiers::SHIFT,
+            delete_candidate,
             hide_candidate: Modifiers::CONTROL,
             lookup: KeyCombo::LOOKUP_DEFAULT,
             toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
@@ -82,9 +95,32 @@ impl ShortcutConfig {
             || self.delete_candidate == first
             || self.delete_candidate == second
         {
+            tracing::warn!(
+                configured = %self.delete_candidate.key(),
+                "删候选的修饰键为空或与译词键相同，回落缺省"
+            );
             Self::default().delete_candidate
         } else {
             self.delete_candidate
+        }
+    }
+
+    /// 置顶候选的修饰键；为空、与删候选 / 隐藏候选相同、或与任一组译词键撞了就退回缺省。
+    pub fn top_keys(&self) -> Modifiers {
+        let (first, second) = self.translation_keys();
+        if self.top_candidate.is_empty()
+            || self.top_candidate == self.delete_keys()
+            || self.top_candidate == self.hide_keys()
+            || self.top_candidate == first
+            || self.top_candidate == second
+        {
+            tracing::warn!(
+                configured = %self.top_candidate.key(),
+                "置顶候选的修饰键为空或与其它动作撞车，回落缺省"
+            );
+            Self::default().top_candidate
+        } else {
+            self.top_candidate
         }
     }
 
@@ -96,6 +132,10 @@ impl ShortcutConfig {
             || self.hide_candidate == first
             || self.hide_candidate == second
         {
+            tracing::warn!(
+                configured = %self.hide_candidate.key(),
+                "隐藏候选的修饰键为空或与其它动作撞车，回落缺省"
+            );
             Self::default().hide_candidate
         } else {
             self.hide_candidate
@@ -144,6 +184,21 @@ mod tests {
     }
 
     #[test]
+    fn top_keys_fall_back_when_clashing() {
+        let default = ShortcutConfig::default();
+        // 缺省 ⇧（好按、可逆的那个动作）
+        let parsed: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(parsed.top_keys(), default.top_candidate);
+        assert_eq!(default.top_candidate, Modifiers::SHIFT);
+        // 缺省的两个动作不会撞在一起
+        assert_ne!(default.top_keys(), default.delete_keys());
+        // 与删候选撞上就回落
+        let clashing = format!("top_candidate = \"{}\"\n", default.delete_candidate.key());
+        let same: ShortcutConfig = toml::from_str(&clashing).unwrap();
+        assert_eq!(same.top_keys(), default.top_candidate);
+    }
+
+    #[test]
     fn hide_keys_fall_back_when_clashing() {
         let default = ShortcutConfig::default();
         let parsed: ShortcutConfig = toml::from_str("").unwrap();
@@ -156,7 +211,8 @@ mod tests {
         .unwrap();
         assert_eq!(clash.hide_keys(), default.hide_candidate);
         // 与删候选撞上
-        let same: ShortcutConfig = toml::from_str("hide_candidate = \"shift\"\n").unwrap();
+        let clashing = format!("hide_candidate = \"{}\"\n", default.delete_candidate.key());
+        let same: ShortcutConfig = toml::from_str(&clashing).unwrap();
         assert_eq!(same.hide_keys(), default.hide_candidate);
         // 自己设的照常生效（command 不与任何缺省键相撞）
         let own: ShortcutConfig = toml::from_str("hide_candidate = \"command\"\n").unwrap();

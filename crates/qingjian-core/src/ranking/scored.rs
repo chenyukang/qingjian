@@ -46,7 +46,7 @@ pub type PreselectKey = u128;
 /// 「音节数与输入完全一致」，第三项是同输入串下的选择次数，第四项是原样命中，
 /// 第五项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
 pub type SortKey<'a> = (
-    u8,
+    i8,
     Reverse<bool>,
     Reverse<usize>,
     usize,

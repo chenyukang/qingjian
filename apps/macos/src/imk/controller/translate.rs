@@ -272,6 +272,23 @@ impl QingjianInputController {
     }
 
     /// 隐藏候选（另一组修饰键 + 数字）：词库里的词以后不再出现；自己学过的词与删候选一样删掉。
+    /// `⇧⌃+数字`：把这一格候选置顶（再按一次恢复）。
+    pub(super) fn handle_top_key(&self, digit: usize, client: TextClient<'_>) -> bool {
+        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        if !composing {
+            return false;
+        }
+        let Some(message) = host::with(|h| h.pin_candidate(digit - 1)).flatten() else {
+            tracing::debug!(digit, "这一格没有候选，没什么可置顶的");
+            return true;
+        };
+        tracing::info!(%message);
+        self.refresh(client);
+        host::with(|h| h.status = Some(message));
+        self.render(client);
+        true
+    }
+
     pub(super) fn handle_hide_key(&self, digit: usize, client: TextClient<'_>) -> bool {
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {

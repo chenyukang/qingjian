@@ -21,6 +21,14 @@ impl Host {
     }
 
     /// 隐藏当前页第 `offset` 格的候选：词库里的词以后不再出现；自己学过的词与删候选一样删掉。
+    /// 把当前页第 `offset` 个候选置顶（`⇧⌃+数字`）。
+    pub fn pin_candidate(&mut self, offset: usize) -> Option<String> {
+        let index = self.session.index_on_page(offset)?;
+        let candidate = self.session.candidate(index)?;
+        let changed = self.engine.pin(&candidate);
+        Some(candidate_message(&candidate.text, changed))
+    }
+
     pub fn hide_candidate(&mut self, offset: usize) -> Option<String> {
         let index = self.session.index_on_page(offset)?;
         let candidate = self.session.candidate(index)?;
@@ -280,6 +288,9 @@ fn candidate_message(text: &str, forgotten: qingjian_core::Forgotten) -> String 
         format!("已忘掉对「{text}」的学习记录")
     } else {
         match forgotten.preference {
+            Some(SortPreference::Top) => {
+                format!("「{text}」已置顶：以后排在候选最前（再按一次恢复）")
+            }
             Some(SortPreference::Down) => {
                 format!("「{text}」已后置：以后排在候选最后（再按一次恢复）")
             }

@@ -37,6 +37,9 @@ pub struct ShortcutsPage {
     /// 删除候选的修饰键。
     delete_candidate: Retained<KeyRecorder>,
 
+    /// 置顶候选的组合键。
+    top_candidate: Retained<KeyRecorder>,
+
     /// 隐藏候选的修饰键。
     hide_candidate: Retained<KeyRecorder>,
 
@@ -161,6 +164,19 @@ impl ShortcutsPage {
             target,
         );
         layout.space(GROUP_GAP);
+        let top_candidate = row_recorder(
+            layout,
+            mtm,
+            "置顶候选",
+            Setting::TopCandidateKeys,
+            true,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "修饰键 + 候选序号：把这个词排到正常候选之前，钉住同音字里的一个（`ba` 下想让「吧」永远第一就用它）。再按一次恢复正常。",
+        );
         let delete_candidate = row_recorder(
             layout,
             mtm,
@@ -281,6 +297,7 @@ impl ShortcutsPage {
             question_mark,
             translation,
             translation_second,
+            top_candidate,
             delete_candidate,
             hide_candidate,
             toggle_english_mode,
@@ -317,6 +334,8 @@ impl ShortcutsPage {
         let (first, second) = config.shortcut.translation_keys();
         self.translation.show(&first.key(), &first.label());
         self.translation_second.show(&second.key(), &second.label());
+        let top = config.shortcut.top_keys();
+        self.top_candidate.show(&top.key(), &top.label());
         let delete = config.shortcut.delete_keys();
         self.delete_candidate.show(&delete.key(), &delete.label());
         let hide = config.shortcut.hide_keys();

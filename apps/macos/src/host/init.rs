@@ -169,6 +169,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             cloud_slots: 2,
             page_keys: qingjian_platform::DEFAULT_PAGE_KEYS,
             translation_keys: ShortcutConfig::default().translation_keys(),
+            top_keys: ShortcutConfig::default().top_keys(),
             delete_keys: ShortcutConfig::default().delete_keys(),
             hide_keys: ShortcutConfig::default().hide_keys(),
             toggle_english_keys: ShortcutConfig::default().toggle_english,

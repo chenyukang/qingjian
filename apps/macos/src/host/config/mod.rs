@@ -35,6 +35,7 @@ impl Host {
         self.engine.set_learning(config.general.learning);
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
+        self.top_keys = config.shortcut.top_keys();
         self.delete_keys = config.shortcut.delete_keys();
         self.hide_keys = config.shortcut.hide_keys();
         self.toggle_english_keys = config.shortcut.toggle_english;

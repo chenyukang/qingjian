@@ -126,6 +126,9 @@ pub struct Host {
     pub translation_keys: (Modifiers, Modifiers),
 
     /// 配数字键删候选的修饰键（配置 `[shortcut] delete_candidate`）。
+    /// 把候选置顶的修饰键（`[shortcut] top_candidate`，缺省 `⇧⌃`）。
+    pub top_keys: Modifiers,
+
     pub delete_keys: Modifiers,
 
     /// 隐藏候选（`⌃+数字`）的修饰键。

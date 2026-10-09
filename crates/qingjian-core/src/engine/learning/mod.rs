@@ -157,6 +157,30 @@ impl Engine {
 
     /// 用户要求这个候选以后别再出现（`⌃+数字`）：词库里的词记成「隐藏」，候选组装完就滤掉；
     /// 自己学过的词与 [`Self::forget`] 一样真的删掉。
+    /// 置顶（`⇧⌃+数字`）：这个词排在正常候选之前。同音字的顺序会随上下文变
+    ///（`ba` 下有时代 把、有时代 吧），用它钉住一个。再按一次恢复。
+    pub fn pin(&mut self, candidate: &Candidate) -> Forgotten {
+        // 与后置 / 隐藏不同，置顶**不动学习数据**：`sort_candidate` 会先 `forget`（用户词就此整个删掉），
+        // 那是「别再出现」那两个动作的本意；置顶只是「排前面」，用户词不该因为想钉住就消失
+        //（实测踩过：想钉住「轶琳」，词被删了）。
+        let mut candidate_owned = candidate.clone();
+        if self.traditional
+            && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)
+        {
+            candidate_owned.text = simp.clone();
+        }
+        let preference = self
+            .learner
+            .toggle_sort_preference(&candidate_owned.text, SortPreference::Top);
+        self.forget_span_cache();
+        *self.correction_cache.borrow_mut() = None;
+        tracing::debug!(text = %candidate_owned.text, ?preference, "置顶候选");
+        Forgotten {
+            preference: Some(preference),
+            ..Forgotten::default()
+        }
+    }
+
     pub fn hide(&mut self, candidate: &Candidate) -> Forgotten {
         self.sort_candidate(candidate, SortPreference::Hidden)
     }

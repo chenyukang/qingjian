@@ -29,10 +29,14 @@ fn second_translation_key_without_second_sense_is_swallowed() {
 
 #[test]
 fn shift_digit_forgets_candidate_and_requeries() {
-    let mut router = router();
+    // 显式指定，不吃平台缺省：macOS 缺省已经把 `⇧` 让给「置顶」了，Windows 这边还没接置顶
+    let mut router = router_with(RouterConfig {
+        delete_keys: SHIFT,
+        ..RouterConfig::default()
+    });
     let (_, _, frame) = type_letters(&mut router, "nihao");
     let slot = slot_of(&frame, "你好");
-    // 缺省 Shift + 数字：删候选（词库词只清学习记录），重新查一遍，组句不变。
+    // Shift + 数字：删候选（词库词只清学习记录），重新查一遍，组句不变。
     let (outcome, commit, after) = press(&mut router, digit_with(slot, SHIFT));
     assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
     assert_eq!(preedit(&after), "ni'hao");
@@ -59,7 +63,10 @@ fn unconfigured_modifier_digit_is_not_a_selection() {
 
 #[test]
 fn deleting_a_candidate_shows_a_notice_until_next_key() {
-    let mut router = router();
+    let mut router = router_with(RouterConfig {
+        delete_keys: SHIFT,
+        ..RouterConfig::default()
+    });
     let (_, _, frame) = type_letters(&mut router, "nihao");
     let slot = slot_of(&frame, "你好");
 

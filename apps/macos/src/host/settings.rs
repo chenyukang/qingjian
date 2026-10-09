@@ -270,6 +270,20 @@ impl Host {
                 }
                 Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
             },
+            (Setting::TopCandidateKeys, SettingValue::Text(text)) => {
+                match text.parse::<Modifiers>() {
+                    Ok(chosen) => {
+                        let (first, second) = config.shortcut.translation_keys();
+                        if chosen == first || chosen == second {
+                            tracing::warn!("置顶候选的快捷键不能与译词快捷键相同，未改");
+                        } else {
+                            self.settings
+                                .set_value("shortcut", "top_candidate", chosen.key());
+                        }
+                    }
+                    Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
+                }
+            }
             (Setting::DeleteCandidateKeys, SettingValue::Text(text)) => {
                 match text.parse::<Modifiers>() {
                     Ok(chosen) => {

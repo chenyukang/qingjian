@@ -1,8 +1,9 @@
 //! 候选的排序偏好：词库里的词删不掉（`Hahn` 是随包英文表里的），但用户能要求「别排在前面」。
 
-/// 用户对某个候选设的排序偏好。两个修饰键各自把一个词切到自己的那一档，再按一次恢复：
-/// `Shift+数字` → 后置（`Hahn` 不再挡路），`⌃+数字` → 隐藏（`wodge` 干脆不出现）。
-/// **两者都不删词**：词库里的词删不掉，也不该因为一次手滑就消失。
+/// 用户对某个候选设的排序偏好。三个修饰键各自把一个词切到自己的那一档，再按一次恢复：
+/// `⇧+数字` → 后置（`Hahn` 不再挡路），`⌃+数字` → 隐藏（`wodge` 干脆不出现），
+/// `⇧⌃+数字` → 置顶（同音字里顺序随上下文变，用它钉住一个：`ba` 下 `吧` 永远第一）。
+/// **三个都不删词**：词库里的词删不掉，也不该因为一次手滑就消失。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SortPreference {
     /// 正常（没设过）。
@@ -15,6 +16,10 @@ pub enum SortPreference {
     /// 隐藏：不再出现在候选里。给「以后完全不想看到」的那些用（`wodge`、`WODGES`）。
     /// 隐藏的词在候选窗里就没法再按回来了，恢复入口在偏好设置的列表里。
     Hidden,
+
+    /// 置顶：排在正常候选之前。给「这个词没错、但我要它永远第一个」的那些用
+    ///（单字的同音候选顺序会随上下文变，`ba` 下有时代 把、有时代 吧）。
+    Top,
 }
 
 impl SortPreference {
@@ -29,6 +34,7 @@ impl SortPreference {
         match value.trim() {
             "down" => Some(Self::Down),
             "hidden" => Some(Self::Hidden),
+            "top" => Some(Self::Top),
             "normal" => Some(Self::Normal),
             _ => None,
         }
@@ -40,13 +46,15 @@ impl SortPreference {
             Self::Normal => "normal",
             Self::Down => "down",
             Self::Hidden => "hidden",
+            Self::Top => "top",
         }
     }
 
-    /// 排序键里的档位：0 正常、1 后置（越大越靠后）。见 `crate::ranking::SortKey`。
+    /// 排序键里的档位：-1 置顶、0 正常、1 后置（越大越靠后）。见 `crate::ranking::SortKey`。
     /// 隐藏的词在候选组装完就被滤掉了，走不到排序这里。
-    pub(crate) fn rank(self) -> u8 {
+    pub(crate) fn rank(self) -> i8 {
         match self {
+            Self::Top => -1,
             Self::Normal | Self::Hidden => 0,
             Self::Down => 1,
         }

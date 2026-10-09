@@ -175,9 +175,14 @@ translate_selection = "control+option+t"
 # 本地查不到（整句、说法）才问云端；再按一次本键也退出
 lookup = "control+8"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
+# 数字键配这些修饰键把候选「置顶」：排到正常候选之前（同音字顺序随上下文变，`ba` 下钉住「吧」）
+top_candidate = "shift"
+# 数字键配这些修饰键删候选：用户词整个删掉，词库的词清掉对它的学习记录（破坏性，配难按的组合）
+delete_candidate = "shift+control"
 # 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）
 # 与 delete_candidate 分工：那个是「后置」（还看得见，只沉到最后）
+# 注意：`control+数字` 常被终端类应用（Warp / iTerm）自己的快捷键抢走，输入法收不到；
+# 那类应用里想用就录成带两个修饰键的组合（如 shift+option、control+option）
 hide_candidate = "control"
 "#
     };
@@ -205,8 +210,13 @@ toggle_english_mode = "ctrl+shift+r"
 # 打开偏好设置（缺省 ⌃⇧S）：在输入法激活时按一下
 open_settings = "ctrl+shift+s"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
+# 数字键配这些修饰键把候选「置顶」：排到正常候选之前（同音字顺序随上下文变，`ba` 下钉住「吧」）
+top_candidate = "shift"
+# 数字键配这些修饰键删候选：用户词整个删掉，词库的词清掉对它的学习记录（破坏性，配难按的组合）
+delete_candidate = "shift+control"
 # 数字键配这些修饰键隐藏候选：以后不再出现在候选里（词库里的词删不掉，这是「不要了」的去处）
+# 注意：`control+数字` 常被终端类应用（Warp / iTerm）自己的快捷键抢走，输入法收不到；
+# 那类应用里想用就录成带两个修饰键的组合（如 shift+option、control+option）
 hide_candidate = "control"
 "#
     };

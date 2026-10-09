@@ -367,6 +367,50 @@ mod tests {
     }
 
     #[test]
+    fn a_topped_word_comes_first_and_a_down_one_last() {
+        let mut items = vec![
+            Scored {
+                hit: hit("吧", "ba", 9000, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("把", "ba", 20000, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("八", "ba", 8000, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                hard_exact: true,
+                penalty: 0.0,
+            },
+        ];
+        // 「把」词频高得多，但用户给它后置、「吧」置顶：顺序按用户的来
+        rank(&mut items, usize::MAX, 0.0, |s| {
+            let preference = match s.hit.text {
+                "吧" => SortPreference::Top,
+                "把" => SortPreference::Down,
+                _ => SortPreference::Normal,
+            };
+            (0, 0.0, preference)
+        });
+        let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
+        assert_eq!(texts, ["吧", "八", "把"]);
+    }
+
+    #[test]
     fn fewer_abbreviated_syllables_win_at_equal_coverage() {
         let mut items = vec![
             Scored {
