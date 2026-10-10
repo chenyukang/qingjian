@@ -31,8 +31,9 @@ impl Host {
     pub fn sync_indicator_dot(&mut self, caps_english: bool) {
         let english = caps_english || self.english_mode_manual;
         let lookup = self.engine.lookup_mode();
+        let word_by_word = self.engine.word_by_word();
         let config = self.status_bar.clone();
-        self.dot.sync(&config, english, lookup);
+        self.dot.sync(&config, english, lookup, word_by_word);
     }
 
     /// 标过「后置 / 隐藏」的词，设置页里逐条列出、逐条恢复。

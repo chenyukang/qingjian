@@ -41,6 +41,10 @@ pub struct StatusBarConfig {
     /// 查询模式（`⌃8`）下的点色：另两种色之外再给一种，一眼看出「那句中文正等着查」。
     pub lookup_color: Color,
 
+    /// 逐字模式（`⌃⇧D`：候选只留只吃一个音节的）时那颗点的**边框**颜色；填充色不变。
+    /// 见 [`Color::WORD_BY_WORD`]。
+    pub word_by_word_color: Color,
+
     /// 描一圈白色轮廓：桌面上背景颜色不定时（深色壁纸、浅色窗口）也看得清。缺省开。
     pub outline: bool,
 
@@ -74,6 +78,7 @@ impl Default for StatusBarConfig {
             chinese_color: Color::CHINESE,
             english_color: Color::ENGLISH,
             lookup_color: Color::LOOKUP,
+            word_by_word_color: Color::WORD_BY_WORD,
             outline: true,
             menubar_item: true,
             visibility: Visibility::Follow,
@@ -292,6 +297,21 @@ impl Color {
         red: 0xD9,
         green: 0x82,
         blue: 0x2B,
+    };
+
+    /// 逐字模式（`⌃⇧D`）：绿色**边框**。逐字不改语言，所以那颗点照旧是中文的红 / 英文的绿，
+    /// 只在外面描一圈绿边 —— 一眼看出「现在只挑单字」，但不会误以为换了输入模式。
+    pub const WORD_BY_WORD: Self = Self {
+        red: 0x2F,
+        green: 0xAE,
+        blue: 0x5F,
+    };
+
+    /// 默认描边（白）：`[status_bar] outline` 打开时，以及查询模式。
+    pub const OUTLINE: Self = Self {
+        red: 0xFF,
+        green: 0xFF,
+        blue: 0xFF,
     };
 
     /// 英文：偏绿。

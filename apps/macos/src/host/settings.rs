@@ -352,6 +352,13 @@ impl Host {
                 }
                 Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
             },
+            (Setting::WordByWordKeys, SettingValue::Text(text)) => match text.parse::<KeyCombo>() {
+                Ok(combo) => {
+                    self.settings
+                        .set_value("shortcut", "word_by_word", combo.key_string());
+                }
+                Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
+            },
             (Setting::ResetShortcuts, _) => {
                 let defaults = ShortcutConfig::default();
                 self.settings
@@ -386,6 +393,11 @@ impl Host {
                     "shortcut",
                     "delete_candidate",
                     defaults.delete_candidate.key(),
+                );
+                self.settings.set_value(
+                    "shortcut",
+                    "word_by_word",
+                    defaults.word_by_word.key_string(),
                 );
             }
             (Setting::HideCandidateKeys, SettingValue::Text(text)) => {
@@ -542,7 +554,8 @@ impl Host {
             }
             (Setting::StatusBarChineseColor, SettingValue::Color(native))
             | (Setting::StatusBarEnglishColor, SettingValue::Color(native))
-            | (Setting::StatusBarLookupColor, SettingValue::Color(native)) => {
+            | (Setting::StatusBarLookupColor, SettingValue::Color(native))
+            | (Setting::StatusBarWordByWordColor, SettingValue::Color(native)) => {
                 match crate::indicator::config_color(&native) {
                     Some(color) => {
                         self.settings.set_value(
@@ -558,7 +571,8 @@ impl Host {
             }
             (Setting::StatusBarChineseColor, SettingValue::Text(text))
             | (Setting::StatusBarEnglishColor, SettingValue::Text(text))
-            | (Setting::StatusBarLookupColor, SettingValue::Text(text)) => {
+            | (Setting::StatusBarLookupColor, SettingValue::Text(text))
+            | (Setting::StatusBarWordByWordColor, SettingValue::Text(text)) => {
                 match text.parse::<Color>() {
                     Ok(color) => {
                         self.settings.set_value(
@@ -781,6 +795,7 @@ fn status_bar_color_key(setting: Setting) -> &'static str {
     match setting {
         Setting::StatusBarEnglishColor => "english_color",
         Setting::StatusBarLookupColor => "lookup_color",
+        Setting::StatusBarWordByWordColor => "word_by_word_color",
         _ => "chinese_color",
     }
 }

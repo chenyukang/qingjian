@@ -100,6 +100,10 @@ pub struct Args {
     #[arg(long)]
     pub lookup: bool,
 
+    /// 逐字模式：候选只留只吃一个音节的（单字与单音节词），验证「一个字一个字挑」这条通路
+    #[arg(long)]
+    pub word_by_word: bool,
+
     /// 打开中文优先（配置 [general] chinese_first = true）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,

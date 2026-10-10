@@ -47,6 +47,10 @@ pub struct ShortcutConfig {
     /// 切换中文模式下拼音时的英文词候选（缺省 `⌃⇧E`）：按一次关、再按一次开。
     pub toggle_english: KeyCombo,
 
+    /// 逐字模式（缺省 `⌃⇧Z`）：按一下，候选只留只吃一个音节的（单字与单音节词），
+    /// 让「这次我要一个字一个字挑」不被多字词挡着；选完这句、清空拼音或再按一次就退出。
+    pub word_by_word: KeyCombo,
+
     /// 数字键配这些修饰键：把这个候选「置顶」—— 排在正常候选之前。同音字的顺序会随上下文变
     ///（`ba` 下有时代 把、有时代 吧），用它钉住一个；再按一次恢复。缺省 `⇧⌃`。
     pub top_candidate: Modifiers,
@@ -80,6 +84,7 @@ impl Default for ShortcutConfig {
             delete_candidate,
             hide_candidate: Modifiers::CONTROL,
             lookup: KeyCombo::LOOKUP_DEFAULT,
+            word_by_word: KeyCombo::WORD_BY_WORD_DEFAULT,
             toggle_english: KeyCombo::TOGGLE_ENGLISH_DEFAULT,
             toggle_english_mode: KeyCombo::TOGGLE_ENGLISH_MODE_DEFAULT,
             open_settings: KeyCombo::OPEN_SETTINGS_DEFAULT,
@@ -167,6 +172,14 @@ mod tests {
         let parsed: ShortcutConfig = toml::from_str("expression = \"i\"\n").unwrap();
         assert_eq!(parsed.mode.expression, 'i');
         assert_eq!(parsed.switch_mode, SwitchKeys::default());
+        // 逐字模式是后加的键：老配置里没有它，必须取本节的缺省（`⌃⇧Z`），
+        // 不能落回 `KeyCombo` 自己的 `Default`（那是翻译键 `⌥⌃T`，会撞车）
+        assert_eq!(
+            parsed.word_by_word,
+            KeyCombo::WORD_BY_WORD_DEFAULT,
+            "老配置缺 word_by_word 时要取 [shortcut] 的缺省"
+        );
+        assert_ne!(parsed.word_by_word, KeyCombo::default());
         assert_eq!(
             parsed.translation_keys(),
             (default.translation, default.translation_second)

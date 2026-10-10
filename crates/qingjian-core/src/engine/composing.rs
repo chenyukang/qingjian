@@ -221,6 +221,8 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        // 逐字是「这一句我要一个字一个字挑」，组合清空就回到常态
+        self.word_by_word.set(false);
         self.composition.clear();
         self.aux_code = None;
         self.chain.leave_buffer();

@@ -174,6 +174,9 @@ translate_selection = "control+option+t"
 # 选完换成它的英文写法（右侧带词性与中文解释），再选一条即上屏；Esc 退回上一段 / 退出；
 # 本地查不到（整句、说法）才问云端；再按一次本键也退出
 lookup = "control+8"
+# 逐字模式（缺省 ⌃⇧Z）：按一下，候选只留只吃一个音节的（单字与单音节词），一个字一个字挑，
+# 不被 `bini` 下的 比你 / 比尼亚德尔马 这类多字词挡着；选完这句、清空拼音或再按一次就退出
+word_by_word = "control+shift+d"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 # 数字键配这些修饰键把候选「置顶」：**只在你敲的那个输入串下**排最前（`ni` 下钉「你」，不影响 `nimen`）
 top_candidate = "shift"
@@ -203,6 +206,8 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # 查询模式（中文想法 → 英文写法）：照中文打拼音，候选给英文词（右侧带词性与中文解释）；Esc 退出
 lookup = "ctrl+8"
+# 逐字模式（缺省 Ctrl+Shift+Z）：候选只留只吃一个音节的（单字与单音节词），一个字一个字挑
+word_by_word = "ctrl+shift+d"
 # 切换中文模式下拼音时的英文词候选：按一次关、再按一次开
 toggle_english = "ctrl+shift+e"
 # 中 / 英切换：切到英文就是纯英文模式；与 Caps Lock 并存
@@ -409,6 +414,8 @@ chinese_color = "#E5484D"
 english_color = "#46A758"
 # 查询模式（⌃8）时那颗点换成这个颜色（并描一圈白边），一眼看出「正等着查中文」
 lookup_color = "#D9822B"
+# 逐字模式（⌃⇧D）时那颗点的边框颜色：逐字不改语言，填充色照旧，只描一圈这个颜色的边
+word_by_word_color = "#2FAE5F"
 # 描一圈白边：深色壁纸和浅色窗口上都看得清
 outline = true
 # 切换中 / 英时在光标处提示一句("英文输入" / "中文输入")；嫌啰嗦可以关掉
@@ -632,6 +639,7 @@ mod template_tests {
         assert_eq!(config.status_bar.chinese_color, Color::CHINESE);
         assert_eq!(config.status_bar.english_color, Color::ENGLISH);
         assert_eq!(config.status_bar.lookup_color, Color::LOOKUP);
+        assert_eq!(config.status_bar.word_by_word_color, Color::WORD_BY_WORD);
         assert!(config.status_bar.outline);
     }
 }

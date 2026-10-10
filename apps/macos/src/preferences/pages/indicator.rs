@@ -32,6 +32,9 @@ pub struct IndicatorPage {
 
     /// 查询模式（`⌃8`）下的颜色。
     lookup_color: Retained<NSColorWell>,
+
+    /// 逐字模式那颗点的边框颜色。
+    word_by_word_color: Retained<NSColorWell>,
     /// 菜单栏状态项显示开关。
     cloud_icon: Retained<NSButton>,
     notice: Retained<NSButton>,
@@ -105,6 +108,13 @@ impl IndicatorPage {
             mtm,
             "按 ⌃8 进查询模式时那颗点换成这个颜色并描一圈白边；10px 的点看不清可以把大小调大，或打开菜单栏那一项。",
         );
+        let word_by_word_color = color_well(mtm, Setting::StatusBarWordByWordColor, target);
+        row_control(layout, mtm, "逐字模式边框", &word_by_word_color);
+        note(
+            layout,
+            mtm,
+            "按 ⌃⇧D 进逐字模式（候选只留只吃一个音节的）时，那颗点的填充色不变，只在外圈描这个颜色的边 —— 逐字不改语言，中文还是红的、英文还是绿的。",
+        );
         note(
             layout,
             mtm,
@@ -156,6 +166,7 @@ impl IndicatorPage {
             chinese_color,
             english_color,
             lookup_color,
+            word_by_word_color,
             cloud_icon,
             notice,
             offset_x,
@@ -180,6 +191,10 @@ impl IndicatorPage {
         set_color(&self.chinese_color, &native_color(bar.chinese_color));
         set_color(&self.english_color, &native_color(bar.english_color));
         set_color(&self.lookup_color, &native_color(bar.lookup_color));
+        set_color(
+            &self.word_by_word_color,
+            &native_color(bar.word_by_word_color),
+        );
         set_checked(&self.cloud_icon, bar.menubar_item);
         set_checked(&self.notice, bar.notice);
         self.offset_x
@@ -193,6 +208,8 @@ impl IndicatorPage {
             &self.size,
             &self.chinese_color,
             &self.english_color,
+            &self.lookup_color,
+            &self.word_by_word_color,
             &self.outline,
             &self.notice,
             &self.offset_x,

@@ -73,6 +73,7 @@ fn run() -> Result<(), CliError> {
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
     engine.set_lookup_mode(args.lookup);
+    engine.set_word_by_word(args.word_by_word);
     engine.set_chinese_first(args.chinese_first);
     tuning::apply(&mut engine, &args.tune)?;
     if let Some(input) = &args.eval_cold {

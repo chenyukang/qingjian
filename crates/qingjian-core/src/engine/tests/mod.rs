@@ -16,6 +16,7 @@ mod privacy;
 mod raw;
 mod sentence_candidates;
 mod shuangpin;
+mod word_by_word;
 mod zhuyin;
 
 use std::collections::HashMap;

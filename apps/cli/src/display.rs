@@ -13,7 +13,12 @@ const PREDICTION_WAIT: Duration = Duration::from_secs(8);
 /// 输入里的 `|` 表示光标位置（`ni|hao`），用来验证光标停在中间时的候选。
 pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
     let cursor = input.find('|');
+    // `feed` 从 `clear()` 开始（等于新开一行输入），而逐字模式是壳里按下的开关，跨这一次保留
+    let word_by_word = engine.word_by_word();
     feed(engine, &input.replace('|', ""));
+    if word_by_word {
+        engine.set_word_by_word(true);
+    }
     if let Some(cursor) = cursor {
         engine.move_cursor_home();
         for _ in 0..cursor {

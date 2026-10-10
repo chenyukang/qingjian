@@ -191,6 +191,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
 
             correct_keys: KeyCombo::CORRECT_DEFAULT,
             lookup_keys: KeyCombo::LOOKUP_DEFAULT,
+            word_by_word_keys: KeyCombo::WORD_BY_WORD_DEFAULT,
             lookup_english: false,
             dict_update: Default::default(),
             lookup_pending: None,

@@ -75,6 +75,12 @@ pub enum InputLogEntry {
         chosen: String,
     },
 
+    /// 逐字模式开关（壳里快捷键）：用来量「按了逐字键之后是不是真的更好挑」。
+    WordByWord {
+        /// 进入（true）还是退出（false）。
+        on: bool,
+    },
+
     /// 输入法启动或日志打开时记一次：之后的条目是哪个版本、什么配置下记的。
     Session {
         /// 日志格式版本（见 `docs/plan/model-eval.md`）。

@@ -187,6 +187,9 @@ pub struct Host {
     pub correct_keys: KeyCombo,
 
     /// 查询模式的快捷键组合（`[shortcut] lookup`）：按一次进、再按一次出。
+    /// 逐字模式：候选只留只吃一个音节的（单字与单音节词）。
+    pub word_by_word_keys: KeyCombo,
+
     pub lookup_keys: KeyCombo,
 
     /// 词库自动更新（`[dictionaries] auto_update`）：盯上游 release，有新版就下载 + 导入。

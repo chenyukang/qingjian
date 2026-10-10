@@ -204,6 +204,24 @@ impl Engine {
         let lookup = start.elapsed();
 
         let start = Instant::now();
+        // 逐字模式：先把候选砍成「只吃一个音节」的（单字与单音节词）。
+        // 砍在 rank 之前，`MAX_CANDIDATES` 的名额才全给单字，不会先被多字词占满。
+        // 一个都没有时自动退出——否则用户只会看到一个空窗，还以为是输入法坏了。
+        let mut word_by_word = self.word_by_word.get();
+        if word_by_word {
+            let kept: Vec<Scored<'_>> = scored
+                .iter()
+                .copied()
+                .filter(|item| item.hit.syllables().count() == 1)
+                .collect();
+            if kept.is_empty() {
+                self.word_by_word.set(false);
+                word_by_word = false;
+                tracing::debug!("逐字模式：这个输入没有单音节候选，自动退出");
+            } else {
+                scored = kept;
+            }
+        }
         // 再往后翻也翻不到的候选不必再造：单字母简拼能命中两万个词，排完序只留前面这些。
         // 同输入串（候选覆盖的那段字母）下选过的优先；上下文是上一个上屏的词（句首为 None）：
         // `ba` 在「做了」后面出 吧、句首出 把
@@ -263,8 +281,14 @@ impl Engine {
                 );
             }
         }
+        // 逐字模式收尾：整句、英文、快捷、emoji 都不是「一个字」，一并去掉
+        if word_by_word {
+            items.retain(|item| {
+                matches!(item.kind, CandidateKind::Chinese) && item.syllables.len() == 1
+            });
+        }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
-        if aux_code.is_none() {
+        if aux_code.is_none() && !word_by_word {
             // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
             if self.chinese_first {
                 self.insert_sentence(

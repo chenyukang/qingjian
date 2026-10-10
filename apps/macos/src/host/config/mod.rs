@@ -52,6 +52,7 @@ impl Host {
         self.translate_keys = config.shortcut.translate_selection;
         self.correct_keys = config.shortcut.correct_selection;
         self.lookup_keys = config.shortcut.lookup;
+        self.word_by_word_keys = config.shortcut.word_by_word;
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();

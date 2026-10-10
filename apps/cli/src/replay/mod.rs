@@ -50,6 +50,8 @@ pub fn run(
             InputLogEntry::Retract { .. } => report.retracts += 1,
             InputLogEntry::Retype { .. } => report.retypes += 1,
             InputLogEntry::Session { .. } => report.sessions += 1,
+            // 逐字模式只是换候选集合，不影响这次上屏的评分，记个数就行
+            InputLogEntry::WordByWord { .. } => report.word_by_word += 1,
             InputLogEntry::Break { .. } => {
                 report.breaks += 1;
                 engine.break_chain();

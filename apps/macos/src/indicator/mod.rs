@@ -86,13 +86,27 @@ pub fn watch_input_source_changes(mtm: MainThreadMarker) {
     }
 }
 
+/// `[status_bar] outline` 那条白边的线宽：细，只是让点在深浅背景上都看得见。
+/// 跟着点的大小走一点（10px → 1px，20px → 2px），免得点调大之后细得看不见。
+fn outline_width(size: i32) -> f64 {
+    (f64::from(size) * 0.1).clamp(1.0, 2.0)
+}
+
+/// 模式边框（查询 / 逐字）的线宽：`size × 0.25`，夹在 2–4px。
+/// 它是「现在处于哪个模式」的唯一提示，得一眼看得见 —— 固定 2px 在 10px 的点上刚好，
+/// 但点调大之后又显细，所以跟着大小走。
+fn mode_ring_width(size: i32) -> f64 {
+    (f64::from(size) * 0.25).clamp(2.0, 4.0)
+}
+
 /// 画形状用的视图状态。ivars 本身拿不到 `&mut`（objc2 只在 alloc 时能塞），
 /// 可变部分放 `RefCell` / `Cell` 里 —— 与候选窗视图那边一个写法。
 struct DotIvars {
-    /// 当前该画什么颜色。
+    /// 当前该画什么颜色（填充）。
     color: RefCell<Retained<NSColor>>,
     shape: Cell<Shape>,
-    outline: Cell<bool>,
+    /// 边框：颜色 + 线宽；`None` 就是不描边。查询模式是白边，逐字模式是配置里的绿边。
+    ring: RefCell<Option<(Retained<NSColor>, f64)>>,
 }
 
 define_class!(
@@ -118,10 +132,11 @@ define_class!(
             };
             color.setFill();
             path.fill();
-            // 描一圈同色更深 / 更浅的边：深色壁纸上浅色点、浅色窗口上深色点都还能看清
-            if self.ivars().outline.get() {
-                NSColor::whiteColor().setStroke();
-                path.setLineWidth(1.0);
+            // 描一圈边：默认白边（深色壁纸上浅色点、浅色窗口上深色点都还能看清），
+            // 逐字模式换成配置里的绿边 —— 填充色不动，一眼看出「现在只挑单字」
+            if let Some((ring, width)) = self.ivars().ring.borrow().as_ref() {
+                ring.setStroke();
+                path.setLineWidth(*width);
                 path.stroke();
             }
         }
@@ -134,6 +149,7 @@ impl DotView {
         config: &StatusBarConfig,
         english: bool,
         lookup: bool,
+        word_by_word: bool,
     ) -> Retained<Self> {
         let size = config.size();
         let shape = config.shape;
@@ -141,8 +157,10 @@ impl DotView {
         let this = mtm.alloc::<Self>().set_ivars(DotIvars {
             color: RefCell::new(color),
             shape: Cell::new(shape),
-            // 查询模式强制描白边：琥珀色已经不一样了，白边让它更不像平时那颗点
-            outline: Cell::new(config.outline || lookup),
+            ring: RefCell::new(
+                ring_color(config, lookup, word_by_word)
+                    .map(|(color, width)| (native_color(color), width)),
+            ),
         });
         let view: Retained<Self> = unsafe {
             msg_send![
@@ -154,12 +172,13 @@ impl DotView {
         view
     }
 
-    fn update(&self, config: &StatusBarConfig, english: bool, lookup: bool) {
+    fn update(&self, config: &StatusBarConfig, english: bool, lookup: bool, word_by_word: bool) {
         let size = config.size();
         let ivars = self.ivars();
         *ivars.color.borrow_mut() = native_color(dot_color(config, english, lookup));
         ivars.shape.set(config.shape);
-        ivars.outline.set(config.outline || lookup);
+        *ivars.ring.borrow_mut() = ring_color(config, lookup, word_by_word)
+            .map(|(color, width)| (native_color(color), width));
         let frame = self.frame();
         if (frame.size.width - size).abs() > f64::EPSILON {
             self.setFrame(NSRect::new(frame.origin, NSSize::new(size, size)));
@@ -168,7 +187,8 @@ impl DotView {
     }
 }
 
-/// 小点该用哪一色：查询模式优先（它是最需要一眼看出的状态），其次英文 / 中文。
+/// 小点该用哪一色：**填充色只管语言** —— 查询模式是例外（那时候选给的是英文词，
+/// 认错了会以为解析出问题，所以整颗换成琥珀）；逐字模式不改填充，只换边框，见 [`ring_color`]。
 fn dot_color(config: &StatusBarConfig, english: bool, lookup: bool) -> Color {
     if lookup {
         config.lookup_color
@@ -176,6 +196,21 @@ fn dot_color(config: &StatusBarConfig, english: bool, lookup: bool) -> Color {
         config.english_color
     } else {
         config.chinese_color
+    }
+}
+
+/// 边框颜色与线宽：逐字模式最优先（绿边，一眼看出正只挑单字），其次查询模式的白边，
+/// 最后是 `[status_bar] outline` 那条细白边。
+/// 两个模式同时开着时绿边压过白边 —— 填充那时已经是查询模式的琥珀，两件事都能看出来。
+fn ring_color(config: &StatusBarConfig, lookup: bool, word_by_word: bool) -> Option<(Color, f64)> {
+    if word_by_word {
+        Some((config.word_by_word_color, mode_ring_width(config.size)))
+    } else if lookup {
+        Some((Color::OUTLINE, mode_ring_width(config.size)))
+    } else if config.outline {
+        Some((Color::OUTLINE, outline_width(config.size)))
+    } else {
+        None
     }
 }
 
@@ -228,19 +263,26 @@ impl Indicator {
     }
 
     /// 按配置与当前模式同步：开关关了就收起来，开着就摆好位置、换好颜色、显示出来。
-    /// `english` 是**生效**的英文模式（Caps Lock 或 `⌃⇧R` 切过），`lookup` 是查询模式。
-    /// 两个状态都由调用方给：这里不再回头读 Host —— 调用方常常已经在 `host::with` 的借用里，
+    /// `english` 是**生效**的英文模式（Caps Lock 或 `⌃⇧R` 切过），`lookup` 是查询模式，
+    /// `word_by_word` 是逐字模式。
+    /// 三个状态都由调用方给：这里不再回头读 Host —— 调用方常常已经在 `host::with` 的借用里，
     /// 再借一次会静默失败（`try_borrow_mut` 拿不到就跳过），颜色就不会变。
-    pub fn sync(&mut self, config: &StatusBarConfig, english: bool, lookup: bool) {
+    pub fn sync(
+        &mut self,
+        config: &StatusBarConfig,
+        english: bool,
+        lookup: bool,
+        word_by_word: bool,
+    ) {
         if !config.enabled {
             self.hide_now();
             return;
         }
         let view = match self.view.take() {
             Some(view) => view,
-            None => DotView::new(self.mtm, config, english, lookup),
+            None => DotView::new(self.mtm, config, english, lookup, word_by_word),
         };
-        view.update(config, english, lookup);
+        view.update(config, english, lookup, word_by_word);
         if let Some(panel) = &self.panel {
             panel.setContentView(Some(&view));
         } else {

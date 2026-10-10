@@ -382,6 +382,20 @@ impl Engine {
         self.lookup_mode
     }
 
+    /// 逐字模式（壳里快捷键切换）：候选只留只吃一个音节的（单字与单音节词）。
+    /// 记一条日志事件，之后能用输入日志量「按了逐字键之后是不是真的更好挑」。
+    pub fn set_word_by_word(&mut self, on: bool) {
+        if self.word_by_word.get() == on {
+            return;
+        }
+        self.word_by_word.set(on);
+        self.logger.record(InputLogEntry::WordByWord { on });
+    }
+
+    pub fn word_by_word(&self) -> bool {
+        self.word_by_word.get()
+    }
+
     /// 查询模式选中的中文（词或整句）；`None` 表示还在第一段（候选给中文，等用户挑）。
     pub fn lookup_source(&self) -> Option<String> {
         self.lookup_source.borrow().clone()

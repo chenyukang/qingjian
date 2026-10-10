@@ -221,6 +221,16 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+逐字模式（`Engine::set_word_by_word`，壳里缺省 `⌃⇧D`）：候选只留**只吃一个音节**的（`Scored::hit.syllables().count() == 1`），
+让「这次我要一个字一个字挑」不被多字词挡着。过滤放在 `engine/query/phonetic.rs` 两处：`rank` 之前先砍 `scored`
+（`MAX_CANDIDATES` 的名额才全给单字），候选拼装完再 `retain` 一遍（整句 / 英文 / 快捷 / emoji 都不是「一个字」）。
+状态用 `Cell<bool>`：查询走 `&self`，而「一个单音节候选都没有时自动退出」要在查询里改它（不然用户只看到空窗）。
+`Engine::clear()` 里复位 —— 它是「这一句逐字」，不是「以后都逐字」；开关记一条 `InputLogEntry::WordByWord`，
+之后能用输入日志量它到底有没有用。
+指示器：`DotView` 原来只有「白边 / 无边」两态，改成 `ring: Option<Color>`（查询与 `[status_bar] outline` 是白边，
+逐字换 `[status_bar] word_by_word_color` 的绿边）—— **填充色只管语言**（查询模式是例外：那时候选给的是英文词），
+逐字不改填充，避免看起来像换了输入模式。
+
 查询模式（设计见 `docs/design/lookup.md`）：`Engine::set_lookup_mode` 打开后，`query()` 把中文候选换成
 英文候选（`engine/query/lookup_words.rs`：拿前 3 个中文候选查 `translator`（中文 → 学习语言释义），
 释义条目的词各成一条候选，拼音沿用源候选）。候选走 `CandidateKind::English`，上屏 / 学习 / 遗忘都复用英文那条路；

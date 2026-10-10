@@ -250,7 +250,26 @@ impl QingjianInputController {
         {
             return self.translate_selection(client);
         }
-        // 查询模式（`⌃8`）：中文照常组句、候选换成英文词；组句中也允许切，切了立刻按新模式重算候选
+        // 逐字模式（缺省 `⌃⇧D`）：候选只留只吃一个音节的（单字与单音节词），一个字一个字挑。
+        // 被多字词挡着时按一下，多字词（`bini` 下的 比你、比尼亚德尔马）立刻让位
+        let word_by_word = host::with(|h| h.word_by_word_keys).unwrap_or_default();
+        if pressed == word_by_word.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(word_by_word.key)
+            && !event.isARepeat()
+        {
+            // 命中组合键先记一笔：没生效时看日志就能分清「键根本没送到」和「被这里的条件挡了」
+            let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+            tracing::info!(?pressed, typed = ?typed, composing, "逐字模式快捷键");
+            if composing {
+                let on = !host::with(|h| h.engine.word_by_word()).unwrap_or(false);
+                host::with(|h| h.engine.set_word_by_word(on));
+                self.refresh(client);
+                self.render(client);
+            }
+            // 没有拼音可挑时不吃这颗键：`⌃⇧D` 照旧归应用（可能它自己有别的用法）
+            return composing;
+        }
+        // 查询模式（`⌃8`）：中文照常组句、候选换成英文词；组句中允许切，切了立刻按新模式重算候选
         let lookup = host::with(|h| h.lookup_keys).unwrap_or_default();
         if pressed == lookup.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(lookup.key)

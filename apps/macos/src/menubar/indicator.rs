@@ -43,7 +43,7 @@ pub struct ModeIndicator {
     shown: bool,
 
     /// 上次显示的状态（是否英文、是否查询模式），避免每次轮询都重设标题。
-    state: Option<(bool, bool)>,
+    state: Option<(bool, bool, bool)>,
 
     /// `[status_bar] menubar_item`：关掉就整个收成零宽（位置保留），也不再展开。
     enabled: bool,
@@ -181,18 +181,18 @@ impl ModeIndicator {
             || crate::host::with(|h| h.english_mode_manual).unwrap_or(false);
         // 查询模式在这一栏常显：它是「模式之外」的状态，光看候选窗口看不出来
         let lookup = crate::host::with(|h| h.engine.lookup_mode()).unwrap_or(false);
-        if self.state == Some((english, lookup)) {
+        // 逐字模式同理由这一栏常显：候选变短了，但「为什么变短」得有个地方写着
+        let word_by_word = crate::host::with(|h| h.engine.word_by_word()).unwrap_or(false);
+        if self.state == Some((english, lookup, word_by_word)) {
             return;
         }
-        self.state = Some((english, lookup));
+        self.state = Some((english, lookup, word_by_word));
         if let Some(button) = self.item.button(self.mtm) {
             let mode = if english { "英" } else { "中" };
-            let title = match (self.cloud, lookup) {
-                (true, true) => format!("{mode} 查 ☁︎"),
-                (true, false) => format!("{mode} ☁︎"),
-                (false, true) => format!("{mode} 查"),
-                (false, false) => mode.to_owned(),
-            };
+            let lookup_mark = if lookup { " 查" } else { "" };
+            let word_by_word_mark = if word_by_word { " 逐" } else { "" };
+            let cloud_mark = if self.cloud { " ☁︎" } else { "" };
+            let title = format!("{mode}{lookup_mark}{word_by_word_mark}{cloud_mark}");
             button.setTitle(&NSString::from_str(&title));
         }
     }

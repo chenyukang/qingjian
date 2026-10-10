@@ -74,6 +74,19 @@ impl KeyCombo {
         key: '8',
     };
 
+    /// 逐字模式：候选只留只吃一个音节的（单字与单音节词），一个字一个字挑。
+    /// 用 `⌃⇧` 一族（`⌘` 被应用占、`⌃` 单键撞终端）。不用 `⌃⇧Z`：不少编辑器把 `⇧⌃Z`
+    /// 当 redo，且实测这台机器上按它输入法收不到事件；`D` 是「单字」，左手好按。
+    pub const WORD_BY_WORD_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: true,
+            command: false,
+        },
+        key: 'd',
+    };
+
     pub const CORRECT_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

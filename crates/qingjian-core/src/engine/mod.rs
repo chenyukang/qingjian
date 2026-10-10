@@ -129,6 +129,11 @@ pub struct Engine {
     /// 与中 / 英模式正交：激活时是什么模式就留在什么模式，由壳决定不切模式。
     lookup_mode: bool,
 
+    /// 逐字模式（壳里快捷键切换）：候选只留**只吃一个音节**的（单字与单音节词），
+    /// 让「这次我要一个字一个字挑」不被多字词挡着。用 `Cell` 是因为查询走 `&self`，
+    /// 而「一个单音节候选都没有时自动退出」这件事要在查询里改它。
+    word_by_word: std::cell::Cell<bool>,
+
     /// 全角标点与引号配对状态。
     punctuation: Punctuation,
 
@@ -469,6 +474,7 @@ impl Engine {
             english: None,
             english_mode: false,
             lookup_mode: false,
+            word_by_word: std::cell::Cell::new(false),
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),

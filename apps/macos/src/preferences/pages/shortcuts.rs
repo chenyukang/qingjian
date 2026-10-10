@@ -61,6 +61,9 @@ pub struct ShortcutsPage {
     /// 查询模式的组合键。
     lookup: Retained<KeyRecorder>,
 
+    /// 逐字模式的组合键。
+    word_by_word: Retained<KeyRecorder>,
+
     /// 打开偏好设置。
     open_settings: Retained<KeyRecorder>,
 }
@@ -218,6 +221,20 @@ impl ShortcutsPage {
             "按这个键进查询模式：先照中文打拼音、候选是中文（挑一条确认要查哪句），选完候选换成它的英文写法（右侧带词性与中文解释），再选一条即上屏。本地查不到（整句、说法）时才问云端。Esc 退回上一段 / 退出。",
         );
         layout.space(GROUP_GAP);
+        let word_by_word = row_recorder(
+            layout,
+            mtm,
+            "逐字模式（只挑单字）",
+            Setting::WordByWordKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "拼音还没上屏时按一下：候选只留只吃一个音节的（单字与单音节词），多字词（如 bini 下的 比你、比尼亚德尔马）不再挡在前面。挑完这句、清空拼音或再按一下就退出。",
+        );
+        layout.space(GROUP_GAP);
         let translate_selection = row_recorder(
             layout,
             mtm,
@@ -306,6 +323,7 @@ impl ShortcutsPage {
             translate_selection,
             correct_selection,
             lookup,
+            word_by_word,
             open_settings,
         }
     }
@@ -357,6 +375,9 @@ impl ShortcutsPage {
             .show(&correct.key_string(), &correct.label());
         let lookup = config.shortcut.lookup;
         self.lookup.show(&lookup.key_string(), &lookup.label());
+        let word_by_word = config.shortcut.word_by_word;
+        self.word_by_word
+            .show(&word_by_word.key_string(), &word_by_word.label());
         let translate = config.shortcut.translate_selection;
         self.translate_selection
             .show(&translate.key_string(), &translate.label());

@@ -28,6 +28,9 @@ pub struct Report {
     /// 重打条数（组句内退格重打 + 上屏后删掉重打）。
     pub retypes: usize,
 
+    /// 逐字模式被按下的次数（只统计，不参与评分：它改的是候选集合，不是排序）。
+    pub word_by_word: usize,
+
     /// 会话行数、上文断开数、直通字符数。
     pub sessions: usize,
     pub breaks: usize,
@@ -171,6 +174,9 @@ impl fmt::Display for Report {
                 self.predictions_accepted,
                 percent(self.predictions_accepted, self.predictions)
             )?;
+        }
+        if self.word_by_word > 0 {
+            writeln!(f, "       逐字模式按下 {} 次", self.word_by_word)?;
         }
         if self.sessions + self.breaks + self.passthrough_chars > 0 {
             writeln!(
