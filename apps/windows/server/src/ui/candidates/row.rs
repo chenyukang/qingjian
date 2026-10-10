@@ -43,5 +43,7 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
         code,
         annotation,
         cloud: candidate.kind == CandidateKind::Cloud,
+        // 标出来高亮的字符区间是查询模式（中文 → 英文写法）用的，Windows 壳还没接
+        marks: Vec::new(),
     }
 }
