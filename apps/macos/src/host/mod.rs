@@ -8,8 +8,8 @@
 mod cloud;
 mod config;
 mod diagnostics;
+mod dict_update;
 mod dictionaries;
-mod hot_words;
 mod init;
 mod lookup;
 mod model;
@@ -189,8 +189,8 @@ pub struct Host {
     /// 查询模式的快捷键组合（`[shortcut] lookup`）：按一次进、再按一次出。
     pub lookup_keys: KeyCombo,
 
-    /// 网络热点词（`[hot_words]`）：定期抓公开源，抽新词加进个人词库。
-    pub hot_words: hot_words::HotWords,
+    /// 词库自动更新（`[dictionaries] auto_update`）：盯上游 release，有新版就下载 + 导入。
+    pub dict_update: dict_update::DictUpdate,
 
     /// 进查询模式之前是不是英文模式：查询模式里字母当拼音用，退出时按这个恢复。
     pub lookup_english: bool,

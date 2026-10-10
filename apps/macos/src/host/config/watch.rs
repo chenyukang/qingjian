@@ -59,7 +59,7 @@ define_class!(
             if crate::imk::catch_panic("定时器", || {
                 crate::host::with(|h| {
                     h.tick();
-                    h.tick_hot_words();
+                    h.tick_dict_update();
                 })
             })
             .is_none()

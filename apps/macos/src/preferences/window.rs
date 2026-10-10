@@ -461,7 +461,11 @@ impl PreferencesWindow {
         sort_preferences: &[(String, qingjian_core::SortPreference)],
         update: &UpdateStatus,
     ) {
-        self.dictionaries.rebuild(dictionaries);
+        self.dictionaries.rebuild(
+            dictionaries,
+            &config.dictionaries.auto_update,
+            config.dictionaries.auto_update_hours,
+        );
         self.sort_preferences.rebuild(sort_preferences);
         self.about.sync(config, update);
         self.general.sync(config);

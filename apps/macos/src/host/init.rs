@@ -192,7 +192,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             correct_keys: KeyCombo::CORRECT_DEFAULT,
             lookup_keys: KeyCombo::LOOKUP_DEFAULT,
             lookup_english: false,
-            hot_words: Default::default(),
+            dict_update: Default::default(),
             lookup_pending: None,
             lookup_result: None,
             swallow_newline: false,
@@ -222,8 +222,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     });
     // 配置里的开关走和菜单 / 设置窗口 / 热加载同一条通路
     with(|host| host.apply_config(false));
-    // 热点词：读状态 + 建单字拼音表（实际抓取交给 ConfigWatch 的 tick 按间隔发起）
-    with(|host| host.init_hot_words());
+    // 词库自动更新：读状态（实际检查交给 ConfigWatch 的 tick 按周期发起）
+    with(|host| host.init_dict_update());
     Ok(())
 }
 

@@ -114,6 +114,18 @@ impl Host {
         }
     }
 
+    /// 开关某本词库的「自动更新」（写 `[dictionaries] auto_update`）。
+    pub fn set_auto_update_enabled(&mut self, stem: &str, on: bool) {
+        let current = self.settings.config().dictionaries.auto_update.clone();
+        if let Some(next) = toggle_membership(current, stem, on) {
+            self.settings.set_value(
+                "dictionaries",
+                "auto_update",
+                toml_edit::Value::Array(string_array(&next)),
+            );
+        }
+    }
+
     /// 按当前配置重新加载 `dicts/` 目录（导入、移除、开关之后）。
     pub fn reload_dictionaries(&mut self) {
         let config = self.settings.config().dictionaries.clone();

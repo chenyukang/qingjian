@@ -84,9 +84,6 @@ pub struct Config {
     /// 云联想。
     pub predict: PredictConfig,
 
-    /// `[hot_words]` 分节：网络热点词（定期抓公开源，抽新词加进个人词库）。
-    pub hot_words: qingjian_hotwords::HotWordsConfig,
-
     /// 悬浮状态条（桌面上常驻、可拖动的中 / 英浮窗）。
     pub status_bar: StatusBarConfig,
 

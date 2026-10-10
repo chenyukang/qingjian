@@ -13,7 +13,6 @@ workspace = true
 qingjian-core.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-predict.workspace = true
-qingjian-hotwords.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

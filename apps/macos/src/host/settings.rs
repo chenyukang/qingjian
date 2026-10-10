@@ -416,6 +416,24 @@ impl Host {
                     }
                 }
             }
+            (Setting::DictionaryAutoUpdate(index), SettingValue::Bool(on)) => {
+                if let Some(info) = self.dictionary_list.get(index).cloned() {
+                    self.set_auto_update_enabled(&info.stem, on);
+                    self.apply_config(false);
+                }
+                return;
+            }
+            (Setting::DictionaryUpdateHours, SettingValue::Index(index)) => {
+                if let Some((hours, _)) = crate::preferences::UPDATE_HOURS.get(index) {
+                    self.settings.set_value(
+                        "dictionaries",
+                        "auto_update_hours",
+                        toml_edit::Value::from(*hours as i64),
+                    );
+                    self.apply_config(false);
+                }
+                return;
+            }
             (Setting::DictionaryRemove(index), _) => {
                 self.remove_dictionary(index);
                 return;

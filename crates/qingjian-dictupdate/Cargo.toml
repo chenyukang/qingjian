@@ -1,6 +1,6 @@
 [package]
-name = "qingjian-hotwords"
-description = "网络热点词：定期抓 V2EX 热门 / Hacker News / RSS，抽出新词交给壳加进个人词库"
+name = "qingjian-dictupdate"
+description = "词库自动更新：盯上游 release（如 fcitx5-pinyin-zhwiki），有新版就下载交给壳导入"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,4 +15,3 @@ serde_json.workspace = true
 thiserror.workspace = true
 reqwest = { workspace = true, features = ["native-tls", "system-proxy", "json"] }
 tokio.workspace = true
-tracing.workspace = true

@@ -28,3 +28,5 @@ pub(super) use phrases::PhrasesPage;
 pub(super) use shortcuts::ShortcutsPage;
 pub(super) use sort_preferences::SortPreferencesPage;
 pub(super) use usage::UsagePage;
+
+pub use dictionaries::UPDATE_HOURS;

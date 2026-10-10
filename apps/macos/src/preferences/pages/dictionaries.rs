@@ -4,12 +4,12 @@ use std::cell::RefCell;
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSScrollView, NSTextField, NSView};
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2_app_kit::{NSPopUpButton, NSScrollView, NSTextField, NSView};
+use objc2_foundation::{NSInteger, NSPoint, NSRect, NSSize};
 
 use crate::host::DictionaryInfo;
 use crate::preferences::controls::{
-    GROUP_GAP, NOTE_HEIGHT, button, checkbox, note_full, set_checked, small_label,
+    GROUP_GAP, NOTE_HEIGHT, button, checkbox, note_full, row_popup, set_checked, small_label,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, PAGE_WIDTH, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
@@ -17,6 +17,16 @@ use crate::preferences::target::PreferencesTarget;
 
 /// 列表里一行的高度。
 const ROW: f64 = ROW_HEIGHT + 6.0;
+
+/// 自动更新的检查周期：值（小时）+ 界面上的说法。
+pub const UPDATE_HOURS: [(u64, &str); 6] = [
+    (6, "每 6 小时"),
+    (12, "每 12 小时"),
+    (24, "每天"),
+    (72, "每 3 天"),
+    (168, "每周"),
+    (720, "每月"),
+];
 
 /// 列表区的最小高度（约放得下 8 本）；窗口更高时撑到页底，装不下的滚。
 const LIST_HEIGHT: f64 = 10.0 * ROW;
@@ -37,6 +47,9 @@ pub struct DictionariesPage {
     /// 行控件的 target；建行时用。
     target: Retained<PreferencesTarget>,
 
+    /// 「自动更新周期」下拉。
+    update_hours: Retained<NSPopUpButton>,
+
     mtm: MainThreadMarker,
 }
 
@@ -46,6 +59,17 @@ impl DictionariesPage {
         mtm: MainThreadMarker,
         target: &Retained<PreferencesTarget>,
     ) -> Self {
+        let update_hours = row_popup(
+            layout,
+            mtm,
+            "自动更新周期",
+            &UPDATE_HOURS
+                .iter()
+                .map(|(_, name)| (*name).to_owned())
+                .collect::<Vec<_>>(),
+            Setting::DictionaryUpdateHours,
+            target,
+        );
         let import = button(mtm, "导入词库…", Setting::ImportDictionary, target);
         layout.place(&import, PAGE_PADDING, 140.0, ROW_HEIGHT + 4.0);
         layout.next_row(ROW_HEIGHT + 4.0);
@@ -78,6 +102,7 @@ impl DictionariesPage {
             list,
             scroll,
             rows: RefCell::new(Vec::new()),
+            update_hours,
             empty,
             target: target.clone(),
             mtm,
@@ -85,12 +110,23 @@ impl DictionariesPage {
     }
 
     /// 按当前词库清单重建列表：每本一行，勾选框（名字 · 条数 · 许可证）+「移除」按钮。
-    pub fn rebuild(&self, dictionaries: &[DictionaryInfo]) {
+    pub fn rebuild(
+        &self,
+        dictionaries: &[DictionaryInfo],
+        auto_update: &[String],
+        auto_update_hours: u64,
+    ) {
         let mtm = self.mtm;
         for view in self.rows.borrow_mut().drain(..) {
             view.removeFromSuperview();
         }
         self.empty.setHidden(!dictionaries.is_empty());
+        // 周期下拉显示当前值（配置里没有对应档位就落在最近的「每周」）
+        let selected = UPDATE_HOURS
+            .iter()
+            .position(|(hours, _)| *hours == auto_update_hours)
+            .unwrap_or(4);
+        self.update_hours.selectItemAtIndex(selected as NSInteger);
         let width = PAGE_WIDTH - 2.0 * PAGE_PADDING;
         // 文档视图按行数撑高（至少一屏），行从顶部往下排；滚动条要留出位置
         let visible_height = self.scroll.contentSize().height.max(LIST_HEIGHT);
@@ -128,6 +164,22 @@ impl DictionariesPage {
             ));
             self.list.addSubview(&toggle);
             rows.push(Retained::into_super(Retained::into_super(toggle)));
+            // 挂得上上游的词库才给「自动更新」（自己导的那些没有稳定上游，不去猜）
+            if qingjian_dictupdate::upstream(&info.stem).is_some() {
+                let auto = checkbox(
+                    mtm,
+                    "自动更新",
+                    Setting::DictionaryAutoUpdate(index),
+                    &self.target,
+                );
+                set_checked(&auto, auto_update.iter().any(|name| name == &info.stem));
+                auto.setFrame(NSRect::new(
+                    NSPoint::new(width - 200.0, y),
+                    NSSize::new(120.0, ROW),
+                ));
+                self.list.addSubview(&auto);
+                rows.push(Retained::into_super(Retained::into_super(auto)));
+            }
             // 随包词库只能开关，不能移除
             if !info.builtin {
                 let remove = button(mtm, "移除", Setting::DictionaryRemove(index), &self.target);

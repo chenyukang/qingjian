@@ -14,6 +14,8 @@ const DICTIONARY_ENABLED_TAG_BASE: NSInteger = 200;
 /// 附加词库「移除」按钮的 tag 起点。
 const DICTIONARY_REMOVE_TAG_BASE: NSInteger = 300;
 
+const DICTIONARY_AUTO_UPDATE_TAG_BASE: NSInteger = 700;
+
 /// 一页最多列多少本附加词库（tag 段的宽度）。
 pub const MAX_DICTIONARIES: usize = 100;
 
@@ -236,6 +238,12 @@ pub enum Setting {
     /// 第 N 本附加词库的「移除」按钮。
     DictionaryRemove(usize),
 
+    /// 「词库」页每行的「自动更新」勾选框（只对挂得上上游的词库显示）。
+    DictionaryAutoUpdate(usize),
+
+    /// `[dictionaries] auto_update_hours`，下拉：多久检查一次上游。
+    DictionaryUpdateHours,
+
     /// 「恢复全部后置 / 隐藏的词」按钮：把标过「后置」「隐藏」的词全部恢复正常排序。
     RestoreSortPreferences,
 
@@ -396,6 +404,10 @@ impl Setting {
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
             Self::DictionaryRemove(index) => DICTIONARY_REMOVE_TAG_BASE + index as NSInteger,
+            Self::DictionaryAutoUpdate(index) => {
+                DICTIONARY_AUTO_UPDATE_TAG_BASE + index as NSInteger
+            }
+            Self::DictionaryUpdateHours => 86,
         }
     }
 
@@ -494,11 +506,22 @@ impl Setting {
             39 => Self::EditPhrase,
             40 => Self::CancelPhraseEdit,
             46 => Self::SystemTextReplacements,
-            _ if tag >= DICTIONARY_REMOVE_TAG_BASE => {
+            86 => Self::DictionaryUpdateHours,
+            _ if tag >= DICTIONARY_AUTO_UPDATE_TAG_BASE
+                && tag < DICTIONARY_AUTO_UPDATE_TAG_BASE + MAX_DICTIONARIES as NSInteger =>
+            {
+                let index = usize::try_from(tag - DICTIONARY_AUTO_UPDATE_TAG_BASE).ok()?;
+                (index < MAX_DICTIONARIES).then_some(Self::DictionaryAutoUpdate(index))?
+            }
+            _ if tag >= DICTIONARY_REMOVE_TAG_BASE
+                && tag < DICTIONARY_REMOVE_TAG_BASE + MAX_DICTIONARIES as NSInteger =>
+            {
                 let index = usize::try_from(tag - DICTIONARY_REMOVE_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryRemove(index))?
             }
-            _ if tag >= DICTIONARY_ENABLED_TAG_BASE => {
+            _ if tag >= DICTIONARY_ENABLED_TAG_BASE
+                && tag < DICTIONARY_ENABLED_TAG_BASE + MAX_DICTIONARIES as NSInteger =>
+            {
                 let index = usize::try_from(tag - DICTIONARY_ENABLED_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryEnabled(index))?
             }

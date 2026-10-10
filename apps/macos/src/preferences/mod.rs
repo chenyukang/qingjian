@@ -29,7 +29,7 @@ use objc2_app_kit::{NSButton, NSColorWell, NSControlStateValueOn, NSPopUpButton,
 
 pub use file_dialog::choose_dictionary_file;
 pub use key_recorder::KeyRecorder;
-pub use pages::{REPOSITORY_URL, UpdateStatus, WEBSITE_URL};
+pub use pages::{REPOSITORY_URL, UPDATE_HOURS, UpdateStatus, WEBSITE_URL};
 pub use setting::{Setting, SettingValue};
 pub use window::PreferencesWindow;
 

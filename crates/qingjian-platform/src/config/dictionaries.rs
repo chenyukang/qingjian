@@ -13,6 +13,14 @@ pub struct DictionariesConfig {
 
     /// 关掉的用户词库（文件名，不含 `.qj`）。
     pub disabled: Vec<String>,
+
+    /// 自动更新的词库（文件名，不含 `.qj`）：只对**挂得上上游**的那几本生效
+    ///（`zhwiki` / `web-slang` / `zhwiktionary` / `zhwikisource` 来自
+    /// fcitx5-pinyin-zhwiki 的 release；自己导的词库没有稳定上游，不去猜）。
+    pub auto_update: Vec<String>,
+
+    /// 多久检查一次上游（小时）。缺省一周 —— 上游本来就是按周/月发版。
+    pub auto_update_hours: u64,
 }
 
 /// 缺省打开的随包领域词库：成语四字全拼几乎不歧义，收益稳；其余按需打开。
@@ -23,6 +31,8 @@ impl Default for DictionariesConfig {
         Self {
             domains: DEFAULT_DOMAINS.iter().map(|s| (*s).to_owned()).collect(),
             disabled: Vec::new(),
+            auto_update: Vec::new(),
+            auto_update_hours: 168,
         }
     }
 }

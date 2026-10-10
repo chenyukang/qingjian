@@ -2663,6 +2663,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-dictupdate"
+version = "0.1.1"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "qingjian-format"
 version = "0.1.1"
 dependencies = [
@@ -2688,18 +2699,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "qingjian-hotwords"
-version = "0.1.1"
-dependencies = [
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2763,7 +2762,7 @@ dependencies = [
  "plist",
  "qingjian-core",
  "qingjian-dictionary",
- "qingjian-hotwords",
+ "qingjian-dictupdate",
  "qingjian-learning",
  "qingjian-lm",
  "qingjian-neural",
@@ -2799,7 +2798,6 @@ version = "0.1.1"
 dependencies = [
  "qingjian-core",
  "qingjian-dictionary",
- "qingjian-hotwords",
  "qingjian-predict",
  "serde",
  "serde_json",

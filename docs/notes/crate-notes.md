@@ -107,6 +107,17 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   是 `[predict] max_selection_chars`（缺省 1000），由壳在调 `TextClient::selected_text` 前施加，
   读不到时按「没选中 / 应用不给读 / 超长」分别提示（`SelectionFailure`）。
 
+## crates/qingjian-dictupdate
+
+词库自动更新（设计见 `docs/user/settings/dictionaries.md`）：`upstream()` 是「词库名 → 上游资产前缀」
+的**白名单**（只有 zhwiki / web-slang / zhwiktionary / zhwikisource 有稳定上游，别的词库不去猜），
+`fetch_latest()` 读 GitHub 的 `releases/latest`（一小时一次的频率，匿名限额够），`pick_asset()`
+在资产里挑**文件名日期最大**的那个（同日期优先 `.dict.yaml`，导入器只认 Rime 文本），
+`download()` 把资产读进内存。挑文件是纯函数、单测覆盖。
+mac 壳 `host/dict_update.rs` 负责调度与落盘：借 `ConfigWatch` 的每秒 tick 按
+`[dictionaries] auto_update_hours` 判到没到点，检查/下载/导入都在后台线程，
+回主线程只做 `reload_dictionaries()`；状态在 `dict-update.tsv`（一行时间戳 + 每本已装资产名）。
+
 ## crates/qingjian-format
 
 `.qj` 数据容器（`Container` mmap 读、`Writer` 写、`Table<T>` / `Text` 零拷贝视图、`hash` 可落盘哈希索引、`Metadata` 名称 / 许可证 / 署名）。
