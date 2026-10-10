@@ -22,6 +22,10 @@ pub enum CliError {
     #[error(transparent)]
     Learning(#[from] LearningError),
 
+    /// 一次性任务失败（如导入词库）。
+    #[error("{0}")]
+    Message(String),
+
     /// 学习语言不是 en / ja / es。
     #[error("learning language must be en, ja or es, got {0:?}")]
     Language(String),

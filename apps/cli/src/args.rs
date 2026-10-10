@@ -45,6 +45,15 @@ pub struct Args {
     #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "en")]
     pub language: String,
 
+    /// 把词库文件（青简 TSV / Rime `.dict.yaml` / 现成的 `.qj`）转成 `.qj` 放进 `--import-dir`
+    /// （就是 app 用户目录下的 `dicts/`）。只做导入、不查询，可用于脚本与排查
+    #[arg(long = "import-dict", value_name = "PATH")]
+    pub import_dict: Vec<PathBuf>,
+
+    /// `--import-dict` 的目标目录（app 的用户词库目录）
+    #[arg(long = "import-dir", value_name = "DIR", requires = "import_dict")]
+    pub import_dir: Option<PathBuf>,
+
     /// 「大而杂」的导入词库（CEDICT、雾凇那类）：与 `--extra-dict` 一样参与查询，
     /// 但**第一键（一个字母）不查它们**，用来验证首键延迟的收益。
     #[arg(long = "bulk-dict", value_name = "PATH")]

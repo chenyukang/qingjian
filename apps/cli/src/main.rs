@@ -41,6 +41,33 @@ fn run() -> Result<(), CliError> {
     let args = Args::parse();
     let _log_guard = logging::init()?;
 
+    // 只导入词库：转成 `.qj` 放进目标目录，然后退出（不需要加载引擎）
+    if !args.import_dict.is_empty() {
+        let dir = args
+            .import_dir
+            .clone()
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let mut failed = false;
+        for source in &args.import_dict {
+            match qingjian_dictionary::import::import(source, &dir) {
+                Ok(imported) => println!(
+                    "导入 {} → {}（{} 条）",
+                    source.display(),
+                    imported.path.display(),
+                    imported.entries
+                ),
+                Err(error) => {
+                    eprintln!("导入 {} 失败：{error}", source.display());
+                    failed = true;
+                }
+            }
+        }
+        if failed {
+            return Err(CliError::Message("有词库导入失败".to_owned()));
+        }
+        return Ok(());
+    }
+
     let started = Instant::now();
     let mut engine = build_engine(&args)?;
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");

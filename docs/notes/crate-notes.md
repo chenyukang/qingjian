@@ -160,6 +160,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 冷启动字词实验：`--eval-cold <样本.jsonl> --cold-output <新结果.jsonl>` 强制用缺省配置与内存学习器，
 与 `--config` / `--user-dict` / `--predict` / `--replay` 等冲突，不加载或删除个人数据。
+`--import-dict <文件> --import-dir <目录>` 只做导入：把青简 TSV / Rime `.dict.yaml` / `.qj`
+转成 `.qj` 放进目标目录（app 的 `dicts/`）后退出 —— 与设置页「导入词库…」同一条路径，脚本化与排查用（这次导入 fcitx5-pinyin-zhwiki 的三本词库就是它跑的）。
 每行样本字段 `id/text/keys/source/category`；按完整拼音查候选，不给上文、不上屏，解析失败也记录在分母中。
 领域词库用 `--extra-dict` 显式指定，`--neural` 可测字级重排；`--cold-model` 可同时测 P2C beam 5、固定上限 16 字的生成。
 实验合并策略保留原首选，将生成的新增汉字候选插在其后，再接原候选；保存全部候选、词库文本/读音覆盖及耗时。
