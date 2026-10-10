@@ -107,6 +107,50 @@ impl FrequencyLearner {
         Ok(())
     }
 
+    /// 钉子文件与词频文件同目录。
+    pub(super) fn pins_path(frequency_path: &Path) -> PathBuf {
+        frequency_path.with_file_name(USER_PINS_FILE)
+    }
+
+    /// 从 `输入串\t词` 读钉子，返回跳过的坏行数。
+    pub(super) fn load_pins(&mut self, source: &str) -> usize {
+        let mut skipped = 0;
+        for line in data_lines(source) {
+            let Some((scope, word)) = line.split_once('\t') else {
+                skipped += 1;
+                continue;
+            };
+            let (scope, word) = (scope.trim(), word.trim());
+            if scope.is_empty() || word.is_empty() {
+                skipped += 1;
+                continue;
+            }
+            self.pins
+                .entry(scope.to_owned())
+                .or_default()
+                .insert(word.to_owned());
+        }
+        skipped
+    }
+
+    /// 写钉子。很小，按输入串排序写，方便人看。
+    pub(super) fn save_pins_to(&mut self, path: &Path) -> Result<(), LearningError> {
+        write_atomic(path, |file| {
+            writeln!(
+                file,
+                "# 青简按输入串钉住的词：输入串\t词（按 Shift+数字 钉，只在这个输入串下排最前）"
+            )?;
+            for (scope, words) in &self.pins {
+                for word in words {
+                    writeln!(file, "{scope}\t{word}")?;
+                }
+            }
+            Ok(())
+        })?;
+        self.pins_dirty = false;
+        Ok(())
+    }
+
     /// 按输入串记的选择文件与词频文件同目录。
     pub(super) fn choices_path(frequency_path: &Path) -> PathBuf {
         frequency_path.with_file_name(USER_CHOICES_FILE)

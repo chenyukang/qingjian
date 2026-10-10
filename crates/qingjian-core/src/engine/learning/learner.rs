@@ -98,6 +98,22 @@ pub trait Learner: Send {
         Vec::new()
     }
 
+    /// 按输入串钉住一个词（`⇧+数字`）：**只在这个输入串下**排最前；再按一次解开。
+    /// 返回这次之后是否钉着。`scope` 是不含分隔符的字母串（`nimen`）。
+    fn toggle_pin(&mut self, _scope: &str, _text: &str) -> bool {
+        false
+    }
+
+    /// 这个输入串下钉过这个词吗。
+    fn is_pinned(&self, _scope: &str, _text: &str) -> bool {
+        false
+    }
+
+    /// 钉过的（输入串, 词），设置页用。
+    fn pins(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
     /// 有没有记过排序偏好：查询里用它跳过整个过滤。
     fn has_sort_preferences(&self) -> bool {
         false

@@ -160,29 +160,45 @@ impl Engine {
     /// 置顶（`⇧⌃+数字`）：这个词排在正常候选之前。同音字的顺序会随上下文变
     ///（`ba` 下有时代 把、有时代 吧），用它钉住一个。再按一次恢复。
     pub fn pin(&mut self, candidate: &Candidate) -> Forgotten {
-        // 与后置 / 隐藏不同，置顶**不动学习数据**：`sort_candidate` 会先 `forget`（用户词就此整个删掉），
-        // 那是「别再出现」那两个动作的本意；置顶只是「排前面」，用户词不该因为想钉住就消失
-        //（实测踩过：想钉住「轶琳」，词被删了）。
+        // 按**输入串**钉（`⇧+数字`）：`ni` 下钉「你」只影响 `ni`，敲 `nimen` 时不该被它挡着。
+        // 与后置 / 隐藏不同，也不动学习数据（想钉住却把词删了，实测踩过）。
         let mut candidate_owned = candidate.clone();
         if self.traditional
             && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)
         {
             candidate_owned.text = simp.clone();
         }
-        let preference = self
-            .learner
-            .toggle_sort_preference(&candidate_owned.text, SortPreference::Top);
+        let scope = Self::pin_scope(self.composition.scope());
+        let pinned = self.learner.toggle_pin(&scope, &candidate_owned.text);
         self.forget_span_cache();
         *self.correction_cache.borrow_mut() = None;
-        tracing::debug!(text = %candidate_owned.text, ?preference, "置顶候选");
+        tracing::debug!(%scope, text = %candidate_owned.text, pinned, "置顶候选（按输入串）");
         Forgotten {
-            preference: Some(preference),
+            preference: Some(if pinned {
+                SortPreference::Top
+            } else {
+                SortPreference::Normal
+            }),
             ..Forgotten::default()
+        }
+    }
+
+    /// 这个词在 `scope` 这个输入串下的排序档位：钉过就置顶，否则看用户设的偏好（后置 / 隐藏）。
+    pub(crate) fn preference_for(&self, scope: &str, text: &str) -> SortPreference {
+        if self.learner.is_pinned(&Self::pin_scope(scope), text) {
+            SortPreference::Top
+        } else {
+            self.learner.sort_preference(text)
         }
     }
 
     pub fn hide(&mut self, candidate: &Candidate) -> Forgotten {
         self.sort_candidate(candidate, SortPreference::Hidden)
+    }
+
+    /// 钉子按「字母串」存（`ni'men` → `nimen`）：用户敲的时候加不加分隔符都能对上。
+    pub(crate) fn pin_scope(scope: &str) -> String {
+        scope.chars().filter(|c| *c != '\'').collect()
     }
 
     /// 删候选 / 后置 / 隐藏：删得掉就删，删不掉（词库里的词）就切排序偏好。

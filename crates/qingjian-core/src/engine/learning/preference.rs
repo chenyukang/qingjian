@@ -34,7 +34,8 @@ impl SortPreference {
         match value.trim() {
             "down" => Some(Self::Down),
             "hidden" => Some(Self::Hidden),
-            "top" => Some(Self::Top),
+            // `top` 不再从排序偏好文件读：置顶是按输入串的，存在 `user-pins.tsv`。
+            // 旧文件里留下的 `top` 会被当成坏行跳过（并记一条警告）。
             "normal" => Some(Self::Normal),
             _ => None,
         }

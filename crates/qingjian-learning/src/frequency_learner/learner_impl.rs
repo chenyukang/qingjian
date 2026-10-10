@@ -196,6 +196,35 @@ impl Learner for FrequencyLearner {
         self.sort.get(text).copied().unwrap_or_default()
     }
 
+    fn toggle_pin(&mut self, scope: &str, text: &str) -> bool {
+        let words = self.pins.entry(scope.to_owned()).or_default();
+        let pinned = if words.remove(text) {
+            false
+        } else {
+            words.insert(text.to_owned());
+            true
+        };
+        if words.is_empty() {
+            self.pins.remove(scope);
+        }
+        self.pins_dirty = true;
+        tracing::debug!(scope, text, pinned, "按输入串钉住的词");
+        pinned
+    }
+
+    fn is_pinned(&self, scope: &str, text: &str) -> bool {
+        self.pins
+            .get(scope)
+            .is_some_and(|words| words.contains(text))
+    }
+
+    fn pins(&self) -> Vec<(String, String)> {
+        self.pins
+            .iter()
+            .flat_map(|(scope, words)| words.iter().map(|word| (scope.clone(), word.clone())))
+            .collect()
+    }
+
     fn sort_preferences(&self) -> Vec<(String, SortPreference)> {
         self.sort
             .iter()
@@ -279,6 +308,18 @@ impl Learner for FrequencyLearner {
                 }
                 Err(error) => {
                     tracing::warn!(path = %sort_path.display(), %error, "排序偏好保存失败")
+                }
+            }
+        }
+        if self.pins_dirty {
+            let pins_path = Self::pins_path(&path);
+            match self.save_pins_to(&pins_path) {
+                Ok(()) => {
+                    let entries: usize = self.pins.values().map(|words| words.len()).sum();
+                    tracing::info!(path = %pins_path.display(), entries, "按输入串钉住的词已保存")
+                }
+                Err(error) => {
+                    tracing::warn!(path = %pins_path.display(), %error, "钉子保存失败")
                 }
             }
         }

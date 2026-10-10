@@ -174,6 +174,20 @@ impl Learner for MutedLearner {
         self.inner.has_sort_preferences()
     }
 
+    // 钉子是用户的显式动作（同「后置 / 隐藏」），不涉隐私，照记照读 ——
+    // **新加的 `Learner` 方法都要在这里转发**：漏了会静默落回 trait 默认值（钉子钉不上）。
+    fn toggle_pin(&mut self, scope: &str, text: &str) -> bool {
+        self.inner.toggle_pin(scope, text)
+    }
+
+    fn is_pinned(&self, scope: &str, text: &str) -> bool {
+        self.inner.is_pinned(scope, text)
+    }
+
+    fn pins(&self) -> Vec<(String, String)> {
+        self.inner.pins()
+    }
+
     fn flush(&mut self) {
         self.inner.flush();
     }
@@ -200,6 +214,42 @@ mod tests {
         fn raw_count(&self, _input: &str) -> u32 {
             self.0
         }
+    }
+
+    /// 记钉子的桩：验证转发没漏（漏了会静默落回 trait 默认值，钉子永远钉不上）。
+    #[derive(Default)]
+    struct Pins(std::collections::BTreeSet<(String, String)>);
+
+    impl Learner for Pins {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn toggle_pin(&mut self, scope: &str, text: &str) -> bool {
+            let key = (scope.to_owned(), text.to_owned());
+            if self.0.remove(&key) {
+                false
+            } else {
+                self.0.insert(key);
+                true
+            }
+        }
+
+        fn is_pinned(&self, scope: &str, text: &str) -> bool {
+            self.0.contains(&(scope.to_owned(), text.to_owned()))
+        }
+    }
+
+    #[test]
+    fn pin_calls_are_forwarded_to_the_inner_learner() {
+        let mut learner = MutedLearner::new(Box::new(Pins::default()));
+        assert!(learner.toggle_pin("ni", "你"), "钉上");
+        assert!(learner.is_pinned("ni", "你"));
+        assert!(!learner.is_pinned("nimen", "你"), "只对它自己的输入串生效");
+        assert!(!learner.toggle_pin("ni", "你"), "再按一次解开");
+        assert!(!learner.is_pinned("ni", "你"));
     }
 
     #[test]

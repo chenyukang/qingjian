@@ -33,6 +33,9 @@ const USER_ENGLISH_FILE: &str = "user-english.tsv";
 /// 词库里的词删不掉，用户能要求的是「后置」，记在这里（`Shift+数字`）。
 const USER_SORT_FILE: &str = "user-sort.tsv";
 
+/// 按输入串钉住的词：`输入串\t词`（只在那个输入串下排最前）。
+const USER_PINS_FILE: &str = "user-pins.tsv";
+
 /// 个人敲错表文件名，与词频文件同目录：`敲的\t要的\t次数`（音节级，接受过的纠正）。
 const USER_TYPOS_FILE: &str = "user-typos.tsv";
 
@@ -74,6 +77,13 @@ pub struct FrequencyLearner {
 
     /// 排序偏好自上次保存后是否有变化。
     sort_dirty: bool,
+
+    /// 按输入串钉住的词：输入串（不含分隔符）→ 词。`⇧+数字`：**只在这个输入串下**排最前。
+    /// 与 `sort` 分开：后置 / 隐藏是「这个词，到哪儿都别靠前」，置顶是「我敲这串时，我要它第一」。
+    pins: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+
+    /// 钉子自上次保存后是否有变化。
+    pins_dirty: bool,
 
     /// 输入串 → (词 → 在这个输入串下被选的次数)。
     choices: HashMap<String, HashMap<String, u32>>,
@@ -161,6 +171,11 @@ impl FrequencyLearner {
             let skipped = learner.load_sort(&source);
             note_skipped(&sort_path, skipped);
         }
+        let pins_path = Self::pins_path(&path);
+        if let Some(source) = read_text_lossy(&pins_path)? {
+            let skipped = learner.load_pins(&source);
+            note_skipped(&pins_path, skipped);
+        }
         let typos_path = Self::typos_path(&path);
         if let Some(source) = read_text_lossy(&typos_path)? {
             let skipped = learner.load_typos(&source);
@@ -201,6 +216,7 @@ impl FrequencyLearner {
         self.dirty
             || self.words_dirty
             || self.sort_dirty
+            || self.pins_dirty
             || self.english_dirty
             || self.ngram_dirty
             || self.choices_dirty

@@ -56,11 +56,7 @@ impl Engine {
                 item.hit.text,
                 sentence::fallback_log_prob(item.hit.frequency, log_total),
             );
-            (
-                choice,
-                log_prob,
-                self.learner.sort_preference(item.hit.text),
-            )
+            (choice, log_prob, self.preference_for(keys, item.hit.text))
         });
         let rank = start.elapsed();
         // `exact` 是排序的最高位，打全的都在最前面

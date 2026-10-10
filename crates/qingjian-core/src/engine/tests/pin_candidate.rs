@@ -8,6 +8,7 @@ use super::*;
 struct UserWordLearner {
     forgotten: Arc<Mutex<Vec<String>>>,
     sort: HashMap<String, SortPreference>,
+    pins: std::collections::BTreeSet<(String, String)>,
 }
 
 impl Learner for UserWordLearner {
@@ -39,6 +40,20 @@ impl Learner for UserWordLearner {
     fn sort_preference(&self, text: &str) -> SortPreference {
         self.sort.get(text).copied().unwrap_or_default()
     }
+
+    fn toggle_pin(&mut self, scope: &str, text: &str) -> bool {
+        let key = (scope.to_owned(), text.to_owned());
+        if self.pins.remove(&key) {
+            false
+        } else {
+            self.pins.insert(key);
+            true
+        }
+    }
+
+    fn is_pinned(&self, scope: &str, text: &str) -> bool {
+        self.pins.contains(&(scope.to_owned(), text.to_owned()))
+    }
 }
 
 fn learner() -> (UserWordLearner, Arc<Mutex<Vec<String>>>) {
@@ -47,6 +62,7 @@ fn learner() -> (UserWordLearner, Arc<Mutex<Vec<String>>>) {
         UserWordLearner {
             forgotten: forgotten.clone(),
             sort: HashMap::new(),
+            pins: std::collections::BTreeSet::new(),
         },
         forgotten,
     )
@@ -74,6 +90,7 @@ fn pinning_a_user_word_does_not_delete_it() {
         forgotten.lock().unwrap()
     );
     assert!(!result.user_word);
+    // 钉上（置顶）—— 只是排序，不动学习数据
     assert_eq!(result.preference, Some(SortPreference::Top));
 }
 
@@ -85,4 +102,24 @@ fn hiding_a_user_word_still_deletes_it() {
     let result = engine.hide(&user_candidate("轶琳"));
     assert_eq!(forgotten.lock().unwrap().as_slice(), ["轶琳"]);
     assert!(result.user_word);
+}
+
+#[test]
+fn a_pin_only_applies_to_its_own_input() {
+    // 用户的场景：在 `ni` 下钉「你」只为「敲 ni 时它第一」，敲 `nimen` 时不该被它挡着
+    let (learner, _) = learner();
+    let mut engine = engine().with_learner(Box::new(learner));
+    engine.set_input("ni");
+    engine.pin(&user_candidate("你"));
+    assert_eq!(engine.preference_for("ni", "你"), SortPreference::Top);
+    assert_eq!(engine.preference_for("nimen", "你"), SortPreference::Normal);
+    // 带不带分隔符都算同一个输入串
+    assert_eq!(
+        engine.preference_for("ni'men", "你"),
+        SortPreference::Normal
+    );
+    engine.set_input("ni'men");
+    engine.pin(&user_candidate("你们"));
+    assert_eq!(engine.preference_for("nimen", "你们"), SortPreference::Top);
+    assert_eq!(engine.preference_for("ni", "你们"), SortPreference::Normal);
 }
