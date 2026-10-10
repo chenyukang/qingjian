@@ -9,6 +9,7 @@ members = [
     "crates/qingjian-predict",
     "crates/qingjian-lm",
     "crates/qingjian-format",
+    "crates/qingjian-hotwords",
     "crates/qingjian-neural",
     "crates/qingjian-render",
     "crates/qingjian-update",
@@ -34,6 +35,7 @@ qingjian-platform = { path = "crates/qingjian-platform" }
 qingjian-predict = { path = "crates/qingjian-predict" }
 qingjian-lm = { path = "crates/qingjian-lm" }
 qingjian-format = { path = "crates/qingjian-format" }
+qingjian-hotwords = { path = "crates/qingjian-hotwords" }
 qingjian-neural = { path = "crates/qingjian-neural" }
 qingjian-render = { path = "crates/qingjian-render" }
 qingjian-update = { path = "crates/qingjian-update" }

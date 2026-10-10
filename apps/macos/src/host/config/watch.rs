@@ -56,7 +56,14 @@ define_class!(
         #[unsafe(method(tick:))]
         fn tick(&self, _timer: Option<&AnyObject>) {
             // 定时器回调也是 ObjC 运行时直接调的，panic 同样不能穿出去
-            if crate::imk::catch_panic("定时器", || crate::host::with(|h| h.tick())).is_none() {
+            if crate::imk::catch_panic("定时器", || {
+                crate::host::with(|h| {
+                    h.tick();
+                    h.tick_hot_words();
+                })
+            })
+            .is_none()
+            {
                 crate::imk::recover_from_panic(None);
             }
         }
