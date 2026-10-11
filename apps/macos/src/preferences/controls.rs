@@ -111,7 +111,26 @@ pub(super) fn row_checkbox(layout: &mut Layout, button: &NSButton) {
 pub(super) fn caption(mtm: MainThreadMarker, text: &str) -> Retained<NSTextField> {
     let label = NSTextField::labelWithString(&NSString::from_str(text), mtm);
     label.setAlignment(NSTextAlignment::Right);
+    // 标题列是定宽（`LABEL_WIDTH`），超出去的会被右边的录制按钮 / 下拉框压住 ——
+    // 这种「看不见的字」最难发现，所以在这里留一条警告：写超了就缩短标题，别指望它自己换行。
+    let width = estimated_width(text);
+    if width > LABEL_WIDTH {
+        tracing::warn!(
+            title = text,
+            width,
+            limit = LABEL_WIDTH,
+            "标题超出标题列宽度，会被右侧控件压住"
+        );
+    }
     label
+}
+
+/// 标题宽度的粗估（点）：汉字按 12.5、其余按 6.5 —— 只用来判断「是不是明显超了」，
+/// 不追求精确（精确要问 AppKit 要字体度量，为一条警告不值当）。
+fn estimated_width(text: &str) -> f64 {
+    text.chars()
+        .map(|c| if c > '\u{2e80}' { 12.5 } else { 6.5 })
+        .sum()
 }
 
 /// 一行「标题 + 控件」，控件占满控件列。

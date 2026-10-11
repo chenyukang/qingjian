@@ -207,14 +207,7 @@ impl ShortcutsPage {
             "另一组修饰键 + 候选序号：词库里的词从此不再出现在候选里（自己造的词、云端选过的词仍然整个删掉）。隐藏了的词在「词库」页的列表里恢复。",
         );
         layout.space(GROUP_GAP);
-        let lookup = row_recorder(
-            layout,
-            mtm,
-            "查询模式（中文 → 英文写法）",
-            Setting::LookupKeys,
-            false,
-            target,
-        );
+        let lookup = row_recorder(layout, mtm, "查询模式", Setting::LookupKeys, false, target);
         note(
             layout,
             mtm,
@@ -224,7 +217,7 @@ impl ShortcutsPage {
         let word_by_word = row_recorder(
             layout,
             mtm,
-            "逐字模式（只挑单字）",
+            "逐字模式",
             Setting::WordByWordKeys,
             false,
             target,
@@ -252,7 +245,7 @@ impl ShortcutsPage {
         let toggle_english_mode = row_recorder(
             layout,
             mtm,
-            "中 / 英切换（英文模式）",
+            "中 / 英切换",
             Setting::ToggleEnglishModeKeys,
             false,
             target,
