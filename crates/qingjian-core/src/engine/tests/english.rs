@@ -1169,3 +1169,48 @@ fn user_only_completions_do_not_need_unlikely_pinyin() {
         "随包词表参与时仍要按「拼音像不像话」判：{completions:?}"
     );
 }
+
+/// 英文直输段（有 `_` / `-` / 汉字以外的字符）也补全：原样那条永远第一，补全跟在后面。
+#[test]
+fn raw_english_segment_completes_from_the_personal_list() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        list: Option<WordList>,
+    }
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn user_english(&self) -> Option<&WordList> {
+            self.list.as_ref()
+        }
+    }
+    let learner = EnglishLearner {
+        list: WordList::parse("send_transaction\tsend_transaction\t1\n").ok(),
+    };
+    let mut engine = xiaohe().with_learner(Box::new(learner));
+    engine.set_english_in_pinyin(false);
+    engine.set_input("send_tr");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "send_tr", "原样那条永远第一");
+    assert!(
+        items.iter().any(|c| c.text == "send_transaction"),
+        "直输段也要能补：{:?}",
+        items.iter().map(|c| &c.text).collect::<Vec<_>>()
+    );
+}
+
+/// 汉字混排的直输段（`湘BA`）不做英文补全：那不是标识符，是汉字后面跟几个字母。
+#[test]
+fn raw_segment_with_hanzi_does_not_complete() {
+    let mut engine = xiaohe();
+    engine.set_input("湘BA");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(
+        items.len(),
+        1,
+        "只有原样一条：{:?}",
+        items.iter().map(|c| &c.text).collect::<Vec<_>>()
+    );
+}

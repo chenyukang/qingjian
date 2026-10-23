@@ -221,6 +221,11 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+英文直输段的补全（`Engine::query_raw`）：直输段（缓冲区里有拼音以外的字符，`send_tr` 的 `_`）
+原来只有「原样上屏」一条候选，现在在原样那条**之后**追加前缀补全（`send_transaction`）—— 原样
+永远是第 1 位、回车语义不变。只对纯 ASCII 标识符做（汉字混排的 `湘BA` 不做），词表口径与拼音那条路
+一致（开着随包英文词表时两张都用，只查用户词表时只查用户的）。
+
 英文补全（`Engine::insert_english`）：只查**用户词表**时（`english_in_pinyin` 关着）不再要求
 「拼音不像话」——那张表是他自己的词，前缀命中就是要用的。双拼下这条尤其要紧：`send` 被切成
 `se` + `nai`（`n`+`d` 是 nai），拼音完全合法，按老规则补全整条路都不跑（3 个字母末尾残缺时反倒能补，

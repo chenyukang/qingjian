@@ -42,9 +42,52 @@ impl Engine {
         }
     }
 
-    /// 英文直输段：唯一候选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
+    /// 直输段的前缀补全。只对纯 ASCII 标识符做（`湘BA` 这种汉字混排不做）；
+    /// 词表与拼音那条路同一个口径：开着随包英文词表时两张都用，只查用户词表时只查用户的。
+    fn extend_raw_completions(&self, items: &mut Vec<Candidate>, scope: &str) {
+        if scope.len() < crate::engine::MIN_COMPLETION_LETTERS
+            || !scope.bytes().any(|b| b.is_ascii_alphabetic())
+            || !scope
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        {
+            return;
+        }
+        // 词表的编码是小写
+        let prefix = scope.to_ascii_lowercase();
+        let user = self.learner.user_english();
+        let lists: Vec<&qingjian_dictionary::WordList> = if self.english_in_pinyin() {
+            self.english_lists()
+        } else {
+            user.into_iter().collect()
+        };
+        let mut budget = crate::engine::ENGLISH_COMPLETIONS;
+        for words in &lists {
+            for word in words.complete(&prefix, budget) {
+                if items.iter().any(|c| c.text.eq_ignore_ascii_case(word)) {
+                    continue;
+                }
+                items.push(Candidate {
+                    text: word.to_owned(),
+                    kind: CandidateKind::English,
+                    syllables: Vec::new(),
+                    reading: None,
+                    translation: None,
+                    aux_code: None,
+                });
+                budget = budget.saturating_sub(1);
+            }
+            if budget == 0 {
+                break;
+            }
+        }
+    }
+
+    /// 英文直输段：第一条候选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
+    /// 后面再挂上前缀补全（`send_tr` → `send_transaction`）—— 原样那条永远第一，语义不变，
+    /// 只是打半截标识符时不用退回去从头打。
     pub(in crate::engine) fn query_raw(&self, scope: &str, rest: String, start: Instant) -> Query {
-        let items = vec![Candidate {
+        let mut items = vec![Candidate {
             text: scope.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -52,6 +95,7 @@ impl Engine {
             translation: None,
             aux_code: None,
         }];
+        self.extend_raw_completions(&mut items, scope);
         Query {
             segmentations: Vec::new(),
             candidates: CandidateList { items },
