@@ -221,6 +221,10 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+原样上屏学英文词（`looks_like_english_word`）：接受 `_` —— `send_transaction` 这种标识符
+在中文模式里打出来、回车原样上屏时就该进个人英文词表，下次打 `send` 才能补出来。带下划线的
+**不受 15 字母上限**（那个上限是挡「一整句打不出来的拼音」，而拼音里没有下划线），纯下划线不算。
+
 逐字模式（`Engine::set_word_by_word`，壳里缺省 `⌃⇧D`）：候选只留**只吃一个音节**的（`Scored::hit.syllables().count() == 1`），
 让「这次我要一个字一个字挑」不被多字词挡着。过滤放在 `engine/query/phonetic.rs` 两处：`rank` 之前先砍 `scored`
 （`MAX_CANDIDATES` 的名额才全给单字），候选拼装完再 `retain` 一遍（整句 / 英文 / 快捷 / emoji 都不是「一个字」）。

@@ -1053,3 +1053,57 @@ fn english_mode_completion_starts_at_two_letters_by_default() {
         "配成 1 之后一个字母也补全：{one:?}"
     );
 }
+
+/// 原样上屏的 `snake_case` 标识符要学成个人英文词：下次只打前缀，补全里就有它。
+///
+/// 用户的场景：中文模式里打 `send_transaction` 回车（没有候选，只能原样上屏），
+/// 下次打 `send` 却补不出来 —— 因为「像不像英文词」那条判断只认纯字母，下划线把它挡在门外。
+#[test]
+fn raw_committed_snake_case_identifier_is_learned_and_completes() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        list: Option<WordList>,
+    }
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn learn_english(&mut self, word: &str) {
+            // 与真实实现一致：小写做主键，保留用户打出来的写法
+            let key = word.to_ascii_lowercase();
+            self.list = WordList::parse(&format!("{key}\t{word}\t1\n")).ok();
+        }
+        fn user_english(&self) -> Option<&WordList> {
+            self.list.as_ref()
+        }
+    }
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(EnglishLearner::default()));
+    engine.set_input("send_transaction");
+    assert_eq!(engine.take_raw(), "send_transaction");
+    // 下次只打前缀：补全里要有它
+    engine.set_input("send");
+    let query = engine.query().unwrap();
+    let english: Vec<&str> = query
+        .candidates
+        .items
+        .iter()
+        .filter(|c| c.kind == CandidateKind::English)
+        .map(|c| c.text.as_str())
+        .collect();
+    assert!(english.contains(&"send_transaction"), "{english:?}");
+}
+
+/// 「像不像英文词」的边界：允许下划线，但不接受纯下划线，长拼音句仍然不算。
+#[test]
+fn english_word_predicate_accepts_identifiers_and_rejects_the_rest() {
+    let mut engine = engine();
+    engine.set_input("send_transaction");
+    assert!(looks_like_english_word_in(&engine), "标识符要算");
+    engine.set_input("___");
+    assert!(!looks_like_english_word_in(&engine), "纯下划线不算");
+    // 不带下划线的还是受长度上限约束：整句拼音不能学成英文词
+    engine.set_input("yongdockerbushuhenfangbian");
+    assert!(!looks_like_english_word_in(&engine), "整句拼音不算");
+}
