@@ -221,6 +221,11 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+英文补全（`Engine::insert_english`）：只查**用户词表**时（`english_in_pinyin` 关着）不再要求
+「拼音不像话」——那张表是他自己的词，前缀命中就是要用的。双拼下这条尤其要紧：`send` 被切成
+`se` + `nai`（`n`+`d` 是 nai），拼音完全合法，按老规则补全整条路都不跑（3 个字母末尾残缺时反倒能补，
+于是「3 个字母能补、4 个字母不能」）。随包词表参与时仍按老规则判。
+
 原样上屏学英文词（`looks_like_english_word`）：接受 `_` —— `send_transaction` 这种标识符
 在中文模式里打出来、回车原样上屏时就该进个人英文词表，下次打 `send` 才能补出来。带下划线的
 **不受 15 字母上限**（那个上限是挡「一整句打不出来的拼音」，而拼音里没有下划线），纯下划线不算。

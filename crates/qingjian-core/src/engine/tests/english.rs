@@ -1107,3 +1107,65 @@ fn english_word_predicate_accepts_identifiers_and_rejects_the_rest() {
     engine.set_input("yongdockerbushuhenfangbian");
     assert!(!looks_like_english_word_in(&engine), "整句拼音不算");
 }
+
+/// 只查用户词表时（`english_in_pinyin` 关着），补全不再要求「拼音不像话」。
+///
+/// 用户的场景（小鹤双拼）：`send` 被切成 `se` + `nai`（`n`+`d` = nai），拼音完全合法，
+/// 旧规则因此整条补全路都不跑 —— 打过 `send_transaction` 也补不出来。3 个字母时末尾残缺，
+/// 反倒能补，于是出现「三个字母能补、四个字母不能」。
+#[test]
+fn user_only_completions_do_not_need_unlikely_pinyin() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        list: Option<WordList>,
+    }
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+        fn user_english(&self) -> Option<&WordList> {
+            self.list.as_ref()
+        }
+    }
+    let learner = EnglishLearner {
+        list: WordList::parse("send_transaction\tsend_transaction\t1\n").ok(),
+    };
+    let mut engine = xiaohe().with_learner(Box::new(learner));
+    engine.set_english_in_pinyin(false);
+    engine.set_input("send");
+    let completions: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .filter(|c| c.kind == CandidateKind::English)
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(
+        completions.iter().any(|w| w == "send_transaction"),
+        "用户词表的前缀补全不该被「拼音像话」挡住：{completions:?}"
+    );
+
+    // 随包词表也参与时（默认）保持老规则：拼音很可能是真在打中文，不补
+    let learner = EnglishLearner {
+        list: WordList::parse("send_transaction\tsend_transaction\t1\n").ok(),
+    };
+    let mut engine = xiaohe().with_learner(Box::new(learner));
+    engine.set_english_in_pinyin(true);
+    engine.set_input("send");
+    let completions: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .filter(|c| c.kind == CandidateKind::English)
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(
+        !completions.iter().any(|w| w == "send_transaction"),
+        "随包词表参与时仍要按「拼音像不像话」判：{completions:?}"
+    );
+}

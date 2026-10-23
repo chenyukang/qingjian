@@ -350,6 +350,8 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         tracing::info!(rules = ?config.fuzzy, "模糊音已启用");
     }
     engine.set_traditional_mode(config.general.traditional);
+    // 探针要跟壳一致：`english_in_pinyin` 决定补全那条路走不走（只查用户词表时不必再判「拼音像不像话」）
+    engine.set_english_in_pinyin(config.general.english_in_pinyin);
     engine.set_fuzzy(config.fuzzy);
     engine.set_mode_keys(config.shortcut.mode);
     // `--shuangpin` 现在写的是 [general] scheme（同一个维度的旧键已经并进去），off 就是全拼

@@ -144,9 +144,16 @@ impl Engine {
             // 否则后面按它插入会越界 panic（热引擎回放时踩到过：`position` 是 2、列表只剩 1 条）
             position = position.min(items.len());
         }
-        // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
+        // 英文补全：整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
-        if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
+        //
+        // 什么时候才补：拼音不像话时（`compa` 切成 co'm'pa`）—— 那是随包词表也参与的时候，
+        // 拼音很可能是真在打中文，宁可不补。但**只查用户词表时**（`english_in_pinyin` 关着）
+        // 不必再判：那张表是他自己的词，前缀命中就是要用的东西。
+        // 双拼下这条尤其要紧：`send` 会被切成 `se` + `nai`（`n`+`d` 是 nai），拼音完全合法，
+        // 按老规则补全整条路都不跑，于是打过 `send_transaction` 也补不出来。
+        let only_user_words = !self.english_in_pinyin;
+        if (unlikely_pinyin || only_user_words) && text.len() >= MIN_COMPLETION_LETTERS {
             let mut budget = ENGLISH_COMPLETIONS;
             for words in &lists {
                 for word in words.complete(text, budget) {
