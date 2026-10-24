@@ -564,23 +564,25 @@ fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<Scheme>, zhuyin: bool) 
 }
 
 /// 命中是否靠模糊音：某个音节不被敲的那个模式接受。
-/// 原样上屏的字母串像不像一个英文词：ASCII 字母加下划线（`send_transaction` 这种标识符）或纯字母，
-/// 至少两个字符、且不能全是下划线。中文模式下还要求它**不能**切成完整的拼音
-/// （`hao` 回车多半是要拼音字母本身，`gist` / `python` / `hello` 切不干净才是英文）；
-/// 不带下划线的还要求不超过 [`MAX_ENGLISH_WORD_LETTERS`]。
+/// 原样上屏的字母串像不像一个英文词：ASCII 字母加 `_` / `-`（`send_transaction`、`ckb-vm`
+/// 这类标识符、参数）或纯字母，至少两个字符、且不能全是分隔符。中文模式下还要求它**不能**
+/// 切成完整的拼音（`hao` 回车多半是要拼音字母本身，`gist` / `python` / `hello` 切不干净才是英文）；
+/// 不带分隔符的还要求不超过 [`MAX_ENGLISH_WORD_LETTERS`]。
 ///
-/// 带下划线的**不设长度上限**：那个上限是为了挡住"一整句打不出来的拼音"
-/// （`yongdockerbushuhenfangbian`），而拼音里没有下划线 —— `send_transaction` 这类标识符
-/// 再长也是一个词，正是要在中文模式里打的东西。英文模式下敲的全是英文，长度与拼音两条都不用判。
+/// 带 `_` / `-` 的**不设长度上限**：那个上限是为了挡住"一整句打不出来的拼音"
+/// （`yongdockerbushuhenfangbian`），而拼音里既没有下划线也没有连字符 ——
+/// `send_transaction`、`acceptance-internal` 这类再长也是一个词，正是要在中文模式里打的东西。
+/// 汉字混排的串（`湘-BA`）整串不是 ASCII，照旧不学。英文模式下敲的全是英文，长度与拼音两条都不用判。
 fn looks_like_english_word(raw: &str, english_mode: bool) -> bool {
+    let separator = |b: u8| b == b'_' || b == b'-';
     if raw.len() < MIN_ENGLISH_WORD_LETTERS
-        // 不能是纯下划线（`___` 是画线，不是词）
+        // 不能全是分隔符（`___` / `---` 是画线，不是词）
         || !raw.bytes().any(|b| b.is_ascii_alphabetic())
-        || !raw.bytes().all(|b| b.is_ascii_alphabetic() || b == b'_')
+        || !raw.bytes().all(|b| b.is_ascii_alphabetic() || separator(b))
     {
         return false;
     }
-    let identifier = raw.bytes().any(|b| b == b'_');
+    let identifier = raw.bytes().any(separator);
     english_mode
         || ((identifier || raw.len() <= MAX_ENGLISH_WORD_LETTERS)
             && !parser::is_fully_segmentable(&raw.to_ascii_lowercase()))

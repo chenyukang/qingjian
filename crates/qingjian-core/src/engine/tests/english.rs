@@ -1101,8 +1101,12 @@ fn english_word_predicate_accepts_identifiers_and_rejects_the_rest() {
     let mut engine = engine();
     engine.set_input("send_transaction");
     assert!(looks_like_english_word_in(&engine), "标识符要算");
+    engine.set_input("ckb-vm");
+    assert!(looks_like_english_word_in(&engine), "连字符标识符也算");
     engine.set_input("___");
     assert!(!looks_like_english_word_in(&engine), "纯下划线不算");
+    engine.set_input("---");
+    assert!(!looks_like_english_word_in(&engine), "纯连字符不算");
     // 不带下划线的还是受长度上限约束：整句拼音不能学成英文词
     engine.set_input("yongdockerbushuhenfangbian");
     assert!(!looks_like_english_word_in(&engine), "整句拼音不算");
