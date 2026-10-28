@@ -8,6 +8,14 @@ pub(super) use test_monitor::CloudTestMonitor;
 
 use super::*;
 
+/// 云端回了、但正文是空的：最常见的原因是推理模型把小预算花在「思考」上；
+/// 也可能是模型名 / 接口字段变了。说清楚比让窗口静默停在原地好。
+const EMPTY_REPLY_NOTICE: &str = "云端没有返回内容：多半是模型把 token 预算花在思考上了 —— 换一个非推理模型（如 deepseek-chat），\n或把 [predict] 的输出预算调大，这次没有结果";
+
+/// 等超时了：网络、`[predict] timeout_ms`、或模型太慢。
+const TIMEOUT_NOTICE: &str =
+    "云端超时，这次没有结果：检查网络和 [predict] timeout_ms，或换一个更快的模型再试";
+
 impl Host {
     /// 清空输入日志文件；开着的话重新打开继续记。
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
@@ -79,6 +87,14 @@ impl Host {
         let Some(prediction) = self.engine.poll_prediction() else {
             if self.monitor.expired() {
                 self.monitor.stop();
+                // 翻译 / 纠错的审阅窗还开着就说明这次任务没回来：直接收掉并说清楚，
+                // 否则窗口一直停在「云端还在算」，用户只能以为坏了（实测踩过）。
+                if self.translation.is_some() {
+                    tracing::warn!("翻译 / 纠错的云端任务超时，没有结果");
+                    let anchor = self.anchor;
+                    self.end_translation();
+                    self.show_notice(TIMEOUT_NOTICE, anchor);
+                }
             }
             return;
         };
@@ -114,8 +130,13 @@ impl Host {
                     self.render();
                 }
             } else {
-                tracing::info!("云端没有给出译文");
+                // 云端回了、但正文是空的：多半是模型把 token 预算花在「思考」上（推理模型 +
+                // 小预算），也可能是模型名 / 接口字段变了。这一支以前只记 info 就把审阅关了，
+                // 界面上什么都没发生，只能靠用户「感觉坏了」发现问题。
+                tracing::warn!("云端回复里没有正文，这次翻译 / 纠错没有结果");
+                let anchor = self.anchor;
                 self.end_translation();
+                self.show_notice(EMPTY_REPLY_NOTICE, anchor);
             }
             return;
         }

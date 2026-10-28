@@ -221,6 +221,13 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
 
+云端任务「没有结果」要说得出来（`host/cloud/mod.rs`）：以前两条路都是静默的 ——
+① 云端回了但正文为空（推理模型把小预算花在 `reasoning_content` 上，`finish_reason = length`），
+只记一条 info 就把审阅窗关了；② 任务一直没回来、monitor 过期，直接 `return`，审阅窗永远停在
+「云端还在算」。现在两支都 `warn!` + `show_notice` 说清楚（提示里点名"多半是推理模型吃预算"）。
+实测踩过：`model = "deepseek-v4-flash"` + 小 `max_tokens` → 所有云端功能（联想 / 纠错翻译 /
+查询模式兜底）都返回空正文，界面上像"功能坏了"。
+
 英文直输段的补全（`Engine::query_raw`）：直输段（缓冲区里有拼音以外的字符，`send_tr` 的 `_`）
 原来只有「原样上屏」一条候选，现在在原样那条**之后**追加前缀补全（`send_transaction`）—— 原样
 永远是第 1 位、回车语义不变。只对纯 ASCII 标识符做（汉字混排的 `湘BA` 不做），词表口径与拼音那条路
