@@ -59,6 +59,11 @@ impl Host {
     /// 第二段的候选从哪里来：本地查不到（`candidates` 为空）时依次看缓存、看是否已经在飞、
     /// 最后才发请求。返回该显示给用户的候选（可能是「查义中…」占位）。
     pub fn lookup_candidates(&mut self, candidates: Vec<Candidate>) -> Vec<Candidate> {
+        // 壳是按「有没有挑定中文」判断第二段的，所以这里必须先看模式：不在查询模式就是普通打字，
+        // 候选空不空（`cni`、`prox` 这种切不出音节的）都不该变成「查义中…」，也不该发云请求
+        if !self.engine.lookup_mode() {
+            return candidates;
+        }
         let Some(source) = self.engine.lookup_source() else {
             return candidates;
         };

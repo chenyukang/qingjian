@@ -152,3 +152,16 @@ fn typing_on_makes_the_previous_choice_expire() {
             .all(|c| c.kind != CandidateKind::English)
     );
 }
+
+#[test]
+fn turning_the_mode_off_drops_the_chosen_chinese() {
+    // 关掉查询模式时第二段那条选择必须一起丢掉：壳是按 `lookup_source` 判断第二段的，
+    // 留着它，退出之后的普通打字（切不出音节的 `cni`、`prox`）会被当成在查这条中文
+    let mut engine = engine().with_translator(Box::new(FixedTranslator));
+    engine.set_lookup_mode(true);
+    engine.set_input("kaifa");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "develop");
+    assert_eq!(engine.lookup_source().as_deref(), Some("开发"));
+    engine.set_lookup_mode(false);
+    assert!(engine.lookup_source().is_none());
+}

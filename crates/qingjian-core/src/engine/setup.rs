@@ -374,8 +374,17 @@ impl Engine {
 
     /// 查询模式（壳里快捷键切换）：中文照常组句，候选换成释义表里对应的英文词。
     /// 本地查不到时候选表为空，壳据此发一次云请求。
+    ///
+    /// 关掉时顺手丢掉第二段挑定的中文（`lookup_source`）：壳是按「有没有挑定中文」判断
+    /// 现在是不是第二段的，留着它会让退出之后的普通打字也被当成在查那条中文
+    /// （拼音切不出音节时候选本来就是空的，壳会摆出「查义中…」还发一次云请求）。
     pub fn set_lookup_mode(&mut self, on: bool) {
         self.lookup_mode = on;
+        if on {
+            return;
+        }
+        *self.lookup_source.borrow_mut() = None;
+        self.lookup_source_scope.borrow_mut().clear();
     }
 
     pub fn lookup_mode(&self) -> bool {
