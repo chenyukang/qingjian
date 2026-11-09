@@ -205,6 +205,22 @@ impl Host {
             .reset(preedit, candidates, page_size, self.cloud_slots);
     }
 
+    /// 拼音行右侧的模式标记：查询模式「查」、逐字模式「逐」，两个都开着就一起标。
+    /// 临时消息（删了哪个词之类）优先，它由 `self.status` 带着。
+    ///
+    /// 为什么要有它：模式的主要指示是悬浮点（查询变琥珀、逐字加绿边），但那个点小到 10px、
+    /// 关掉或藏起来时什么也看不到；拼音行右侧这几个字就在用户正看着的那一行。
+    fn mode_mark(&self) -> Option<String> {
+        let mut marks = Vec::new();
+        if self.engine.lookup_mode() {
+            marks.push("查");
+        }
+        if self.engine.word_by_word() {
+            marks.push("逐");
+        }
+        (!marks.is_empty()).then(|| marks.join("·"))
+    }
+
     /// 按会话状态画候选窗口。候选为空且没有 preedit 时收窗。
     pub fn render(&mut self) {
         let size = self.session.layout.page_size();
@@ -274,7 +290,7 @@ impl Host {
             },
             footer,
             sentence: self.sentence.clone(),
-            status: self.status.clone(),
+            status: self.status.clone().or_else(|| self.mode_mark()),
         };
         self.window.show(frame, self.anchor);
     }

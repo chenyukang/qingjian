@@ -199,10 +199,6 @@ impl QingjianInputController {
         {
             host::with(|h| h.engine.push(c));
             self.refresh(client);
-            if host::with(|h| h.engine.lookup_mode()).unwrap_or(false) {
-                // 状态行会被 reset_session 清掉，按了键重新挂上（与「英」同一个道理）
-                host::with(|h| h.status = Some("查".to_owned()));
-            }
             return true;
         }
         // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）

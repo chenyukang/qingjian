@@ -251,7 +251,11 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 之后能用输入日志量它到底有没有用。
 指示器：`DotView` 原来只有「白边 / 无边」两态，改成 `ring: Option<Color>`（查询与 `[status_bar] outline` 是白边，
 逐字换 `[status_bar] word_by_word_color` 的绿边）—— **填充色只管语言**（查询模式是例外：那时候选给的是英文词），
-逐字不改填充，避免看起来像换了输入模式。
+逐字不改填充，避免看起来像换了输入模式。描边画在往内收半个线宽的路径上：面板就是 `size × size`，
+画在边界上的那半个线宽会被窗口裁掉（10px 的点只剩 1px 多，等于看不见）。切换时壳立刻同步
+（`sync_indicator_dot` + `indicator.update`），不等 0.2 秒的轮询。第二条提示在候选窗口里：
+`Host::mode_mark` 把开着的模式写成拼音行右侧的字（查询「查」/ 逐字「逐」，同时开着「查·逐」），
+`render` 里排在临时消息之后取——点小、被关掉或被挡住时至少要有个地方写着。
 
 查询模式（设计见 `docs/design/lookup.md`）：`Engine::set_lookup_mode` 打开后，`query()` 把中文候选换成
 英文候选（`engine/query/lookup_words.rs`：拿前 3 个中文候选查 `translator`（中文 → 学习语言释义），

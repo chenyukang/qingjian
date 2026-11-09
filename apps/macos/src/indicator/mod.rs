@@ -99,6 +99,29 @@ fn mode_ring_width(size: i32) -> f64 {
     (f64::from(size) * 0.25).clamp(2.0, 4.0)
 }
 
+/// 形状占 `rect` 那块地方时的路径。
+fn shape_path(shape: Shape, rect: NSRect) -> Retained<NSBezierPath> {
+    match shape {
+        Shape::Circle => NSBezierPath::bezierPathWithOvalInRect(rect),
+        Shape::Square => NSBezierPath::bezierPathWithRect(rect),
+        Shape::Rounded => {
+            let radius = shape.corner_radius(rect.size.width);
+            NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(rect, radius, radius)
+        }
+    }
+}
+
+/// 往里收一圈的矩形（描边用：线画在矩形上，半个线宽在外面会被裁掉）。
+fn inset(rect: NSRect, amount: f64) -> NSRect {
+    NSRect::new(
+        NSPoint::new(rect.origin.x + amount, rect.origin.y + amount),
+        NSSize::new(
+            (rect.size.width - amount * 2.0).max(0.0),
+            (rect.size.height - amount * 2.0).max(0.0),
+        ),
+    )
+}
+
 /// 画形状用的视图状态。ivars 本身拿不到 `&mut`（objc2 只在 alloc 时能塞），
 /// 可变部分放 `RefCell` / `Cell` 里 —— 与候选窗视图那边一个写法。
 struct DotIvars {
@@ -122,20 +145,15 @@ define_class!(
             let color = self.ivars().color.borrow();
             let shape = self.ivars().shape.get();
             let bounds = self.bounds();
-            let path = match shape {
-                Shape::Circle => NSBezierPath::bezierPathWithOvalInRect(bounds),
-                Shape::Square => NSBezierPath::bezierPathWithRect(bounds),
-                Shape::Rounded => {
-                    let radius = shape.corner_radius(bounds.size.width);
-                    NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bounds, radius, radius)
-                }
-            };
             color.setFill();
-            path.fill();
+            shape_path(shape, bounds).fill();
             // 描一圈边：默认白边（深色壁纸上浅色点、浅色窗口上深色点都还能看清），
             // 逐字模式换成配置里的绿边 —— 填充色不动，一眼看出「现在只挑单字」
             if let Some((ring, width)) = self.ivars().ring.borrow().as_ref() {
                 ring.setStroke();
+                // 往里收半个线宽：面板大小就是 size × size，画在边界上的那半个线宽会被窗口裁掉，
+                // 10px 的点上只剩 1px 多一点 —— 那圈边就等于看不见
+                let path = shape_path(shape, inset(bounds, width / 2.0));
                 path.setLineWidth(*width);
                 path.stroke();
             }

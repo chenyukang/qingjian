@@ -262,7 +262,13 @@ impl QingjianInputController {
             tracing::info!(?pressed, typed = ?typed, composing, "逐字模式快捷键");
             if composing {
                 let on = !host::with(|h| h.engine.word_by_word()).unwrap_or(false);
-                host::with(|h| h.engine.set_word_by_word(on));
+                // 指示器立刻跟上，不等 0.2 秒的轮询：悬浮点描绿边 / 菜单栏加「逐」，
+                // 接着的 refresh 还会在拼音行右侧挂上「逐」（见 `Host::mode_mark`）
+                host::with(|h| {
+                    h.engine.set_word_by_word(on);
+                    h.sync_indicator_dot(modifiers::caps_lock_on());
+                    h.indicator.update();
+                });
                 self.refresh(client);
                 self.render(client);
             }
