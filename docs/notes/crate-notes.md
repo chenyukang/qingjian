@@ -247,7 +247,9 @@ mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 
 让「这次我要一个字一个字挑」不被多字词挡着。过滤放在 `engine/query/phonetic.rs` 两处：`rank` 之前先砍 `scored`
 （`MAX_CANDIDATES` 的名额才全给单字），候选拼装完再 `retain` 一遍（整句 / 英文 / 快捷 / emoji 都不是「一个字」）。
 状态用 `Cell<bool>`：查询走 `&self`，而「一个单音节候选都没有时自动退出」要在查询里改它（不然用户只看到空窗）。
-`Engine::clear()` 里复位 —— 它是「这一句逐字」，不是「以后都逐字」；开关记一条 `InputLogEntry::WordByWord`，
+它是「这一句逐字」，不是「以后都逐字」，所以三条路都会自动退出：`Engine::clear()`、
+候选上屏后缓冲区空了（`commit_with` 里 `!buffer_left`）、回车原样上屏（`take_raw`）——
+用户不必挑完再按一次开关，下一个词也不会还只给单字。开关记一条 `InputLogEntry::WordByWord`，
 之后能用输入日志量它到底有没有用。
 指示器：`DotView` 原来只有「白边 / 无边」两态，改成 `ring: Option<Color>`（查询与 `[status_bar] outline` 是白边，
 逐字换 `[status_bar] word_by_word_color` 的绿边）—— **填充色只管语言**（查询模式是例外：那时候选给的是英文词），

@@ -266,8 +266,7 @@ impl QingjianInputController {
                 // 接着的 refresh 还会在拼音行右侧挂上「逐」（见 `Host::mode_mark`）
                 host::with(|h| {
                     h.engine.set_word_by_word(on);
-                    h.sync_indicator_dot(modifiers::caps_lock_on());
-                    h.indicator.update();
+                    h.sync_mode_indicators();
                 });
                 self.refresh(client);
                 self.render(client);

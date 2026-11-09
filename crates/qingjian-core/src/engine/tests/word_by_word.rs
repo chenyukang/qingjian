@@ -97,3 +97,37 @@ fn keeps_single_syllable_candidates_of_a_long_input() {
     assert!(words.iter().all(|c| c.syllables.len() == 1), "{texts:?}");
     assert!(texts.contains(&"开"), "{texts:?}");
 }
+
+#[test]
+fn the_last_pick_turns_the_mode_off() {
+    // 用户报的：逐字模式是「这次输入没找到候选才临时按一下」，这段拼音挑完就该回到常态，
+    // 不必再按一次开关，下一个词也不该还只给单字
+    let mut zone = super::engine();
+    zone.set_input("kai");
+    zone.set_word_by_word(true);
+    let word = zone
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "开" && c.kind == CandidateKind::Chinese)
+        .expect("逐字模式下 `kai` 能挑到 开");
+    zone.commit(&word);
+    assert!(zone.composition().is_empty(), "整段拼音都上屏了");
+    assert!(!zone.word_by_word(), "挑完就自动退出");
+    // 下一个词回到常态：多字词与单字都在，不必再按一次 ⌃⇧D
+    let next = query(&mut zone, "kaifa");
+    assert!(next.iter().any(|c| c.text == "开发"), "多字词又回来了");
+}
+
+#[test]
+fn a_raw_commit_ends_the_mode_too() {
+    // 回车把拼音原样上屏（不选候选）：这段输入也结束了，逐字模式不该留到下一个词
+    let mut zone = super::engine();
+    zone.set_input("kaifazhe");
+    zone.set_word_by_word(true);
+    let _ = zone.query();
+    assert!(!zone.take_raw().is_empty());
+    assert!(!zone.word_by_word());
+}

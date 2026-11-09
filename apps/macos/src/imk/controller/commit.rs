@@ -22,7 +22,12 @@ impl QingjianInputController {
             }
             return self.commit_raw(client);
         };
-        let Some(text) = host::with(|h| h.engine.commit(&candidate)) else {
+        let Some(text) = host::with(|h| {
+            let text = h.engine.commit(&candidate);
+            // 这段拼音可能刚挑完：逐字模式随之自动关掉，指示器得马上跟上
+            h.sync_mode_indicators();
+            text
+        }) else {
             return false;
         };
         tracing::debug!(%text, "commit");
@@ -35,7 +40,12 @@ impl QingjianInputController {
 
     /// 把拼音原样上屏并清空。缓冲区为空时返回 false。
     pub(super) fn commit_raw(&self, client: TextClient<'_>) -> bool {
-        let Some(raw) = host::with(|h| h.engine.take_raw()) else {
+        let Some(raw) = host::with(|h| {
+            let raw = h.engine.take_raw();
+            // 原样上屏也会把逐字模式关掉（缓冲区清空）
+            h.sync_mode_indicators();
+            raw
+        }) else {
             return false;
         };
         if raw.is_empty() {

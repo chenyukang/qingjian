@@ -219,6 +219,11 @@ impl Engine {
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
+        // 逐字模式只管「这一次输入」：这段拼音挑完（还剩的拼音也上屏了）就回到常态 ——
+        // 用户不必再按一次开关，下一个词也不该还只给单字
+        if !buffer_left {
+            self.set_word_by_word(false);
+        }
         match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
                 // 形码没有音节，`record_word` 里按音节数做的整段造词自然不会触发

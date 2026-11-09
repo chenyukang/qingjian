@@ -36,6 +36,13 @@ impl Host {
         self.dot.sync(&config, english, lookup, word_by_word);
     }
 
+    /// 模式（中 / 英、查询、逐字）刚变：悬浮点与菜单栏那一项一起立刻刷新。
+    /// 两者平时靠 0.2 秒的轮询兜底，但模式是用户刚按了键 / 刚上屏才变的，等半拍才变会以为没生效。
+    pub fn sync_mode_indicators(&mut self) {
+        self.sync_indicator_dot(crate::imk::modifiers::caps_lock_on());
+        self.indicator.update();
+    }
+
     /// 标过「后置 / 隐藏」的词，设置页里逐条列出、逐条恢复。
     pub(super) fn sort_preference_infos(&self) -> Vec<(String, SortPreference)> {
         self.engine.learner().sort_preferences()

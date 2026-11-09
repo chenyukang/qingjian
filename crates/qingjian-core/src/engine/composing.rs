@@ -458,6 +458,8 @@ impl Engine {
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
+        // 原样上屏把整段拼音都吃完了：逐字模式到此结束（见 `commit_with` 里同一个理由）
+        self.set_word_by_word(false);
         self.traditional_map.borrow_mut().clear();
         // 原样上屏的文本也要按 `[general] mixed_space` 插空格（`woyongRust` 回车 → 我用 Rust）
         let committed = self.glued(&raw);
